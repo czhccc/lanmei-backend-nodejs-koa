@@ -14,5 +14,6 @@ const {
 const adminRouter = new Router({prefix: '/admin'})
 adminRouter.post('/', verifyToken, verifyAdminCreateParams, encryptPassword, AdminController.createAdmin)
 adminRouter.get('/', verifyToken, AdminController.queryAdminByPhoneOrName)
+adminRouter.delete('/', verifyToken, AdminController.deleteAdminByPhone)
  
 module.exports = adminRouter

@@ -17,7 +17,7 @@ const verifyAdminCreateParams = async (ctx, next) => {
   }
 
   // 判断手机号是否重复
-  const adminByPhone = await AdminService.getAdminByPhone(params.phone)
+  const adminByPhone = await AdminService.queryAdminByPhoneOrName(params)
   if (adminByPhone.length > 0) {
     const error = new Error(errorTypes.UNIQUE_FIELD_DUPLICATE)
     return ctx.app.emit('error', error, ctx)

@@ -19,6 +19,14 @@ class AdminController {
 
     ctx.body = result
   }
+
+  async deleteAdminByPhone(ctx, next) {
+    const params = ctx.request.query
+    console.log('controller', params);
+    const result = await service.deleteAdminByPhone(params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new AdminController()

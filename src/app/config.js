@@ -19,3 +19,4 @@ module.exports = {
 
 module.exports.TOKEN_PRIVATE_KEY = TOKEN_PRIVATE_KEY
 module.exports.TOKEN_PUBLIC_KEY = TOKEN_PUBLIC_KEY
+module.exports.TOKEN_DURATION = TOKEN_DURATION

@@ -15,6 +15,13 @@ class AdminService {
     const result = await connection.execute(statement, [`%${params.phone}%`, `%${params.name}%`]);
     return result[0]
   }
+
+  async deleteAdminByPhone(params) {
+    console.log(params);
+    const statement = `DELETE FROM admin WHERE phone = ?`;
+    const result = await connection.execute(statement, [params.phone]);
+    return result[0]
+  }
 }
 
 module.exports = new AdminService()

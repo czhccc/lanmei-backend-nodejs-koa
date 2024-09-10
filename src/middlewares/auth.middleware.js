@@ -55,7 +55,7 @@ const verifyToken = async (ctx, next) => {
       algorithm: ["RS256"]
     })
 
-    console.log('token-result', result);
+    // console.log('token-result', result);
 
     ctx.theAdmin = result // 记录admin信息
 
