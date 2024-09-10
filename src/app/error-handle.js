@@ -18,6 +18,9 @@ const errorHandler = (error, ctx) => {
     case errorTypes.UNAUTHORIZED: // 密码错误
       status = 401
       break;
+    case errorTypes.CUREENT_ADMIN_NO_PERMISSION: // 密码错误
+      status = 401
+      break;
     
     default:
       status = 404

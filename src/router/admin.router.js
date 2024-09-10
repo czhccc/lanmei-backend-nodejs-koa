@@ -3,11 +3,16 @@ const Router = require('koa-router')
 const AdminController = require('../controllers/admin.controller')
 
 const {
-  verifyAdminParams,
+  verifyAdminCreateParams,
   encryptPassword
 } = require('../middlewares/admin.middleware')
 
+const {
+  verifyToken
+} = require('../middlewares/auth.middleware')
+
 const adminRouter = new Router({prefix: '/admin'})
-adminRouter.post('/', verifyAdminParams, encryptPassword, AdminController.createAdmin) // 注册接口，具体的处理逻辑在controller中
+adminRouter.post('/', verifyToken, verifyAdminCreateParams, encryptPassword, AdminController.createAdmin)
+adminRouter.get('/', verifyToken, AdminController.queryAdminByPhoneOrName)
  
 module.exports = adminRouter

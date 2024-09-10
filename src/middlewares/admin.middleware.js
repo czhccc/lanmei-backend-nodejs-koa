@@ -1,11 +1,11 @@
-const UserService = require('../services/user.service')
+const AdminService = require('../services/admin.service')
 
 const errorTypes = require('../constants/error-types')
 
 const encryptPasswordUtil = require('../utils/encryptPasswordUtil')
 
 // 验证参数
-const verifyAdminParams = async (ctx, next) => {
+const verifyAdminCreateParams = async (ctx, next) => {
   const params = ctx.request.body
 
   console.log('admin Params', params)
@@ -17,7 +17,7 @@ const verifyAdminParams = async (ctx, next) => {
   }
 
   // 判断手机号是否重复
-  const adminByPhone = await UserService.getAdminByPhone(params.phone)
+  const adminByPhone = await AdminService.getAdminByPhone(params.phone)
   if (adminByPhone.length > 0) {
     const error = new Error(errorTypes.UNIQUE_FIELD_DUPLICATE)
     return ctx.app.emit('error', error, ctx)
@@ -35,6 +35,6 @@ const encryptPassword = async (ctx, next) => {
 }
 
 module.exports = {
-  verifyAdminParams,
+  verifyAdminCreateParams,
   encryptPassword
 }

@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken')
 
-const LoginService = require('../services/login.service')
+const AuthService = require('../services/auth.service')
 
 const errorTypes = require('../constants/error-types')
 const { TOKEN_PUBLIC_KEY } = require('../app/config')
@@ -20,7 +20,7 @@ const verifyLoginParams = async (ctx, next) => {
   }
 
   // 判断密码是否通过
-  const adminByPhone = await LoginService.getAdminByPhone(params.phone)
+  const adminByPhone = await AuthService.getAdminByPhone(params.phone)
   if (adminByPhone.length <= 0) { // 该手机号的admin不存在
     const error = new Error(errorTypes.ADMIN_NOT_EXIST)
     return ctx.app.emit('error', error, ctx)
@@ -40,9 +40,14 @@ const verifyLoginParams = async (ctx, next) => {
 const verifyToken = async (ctx, next) => {
   // 获取token
   const authorization = ctx.headers.authorization
-  const token = authorization.replace('Bearer ', '')
 
-  console.log('token', token);
+  if (!authorization) {
+    const error = new Error(errorTypes.UNAUTHORIZED)
+    ctx.app.emit('error', error, ctx)
+    return;
+  }
+
+  const token = authorization.replace('Bearer ', '')
 
   // 验证token
   try {
@@ -52,7 +57,7 @@ const verifyToken = async (ctx, next) => {
 
     console.log('token-result', result);
 
-    ctx.theAdmin = result
+    ctx.theAdmin = result // 记录admin信息
 
     await next()
   } catch (err) {
