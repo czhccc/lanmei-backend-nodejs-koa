@@ -2,19 +2,17 @@ const service = require('../services/admin.service')
 
 class AdminController {
   async createAdmin(ctx, next) {
-    // 获取参数
+    console.log('createAdmin');
     const admin = ctx.request.body
 
-    // 操作数据库
     const result = await service.create(admin)
 
-    // 返回数据
     ctx.body = result
   }
 
   async queryAdminByPhoneOrName(ctx, next) {
+    console.log('queryAdminByPhoneOrName');
     const params = ctx.request.query
-
     const result = await service.queryAdminByPhoneOrName(params)
 
     ctx.body = result
@@ -26,6 +24,10 @@ class AdminController {
     const result = await service.deleteAdminByPhone(params)
 
     ctx.body = result
+  }
+
+  async test(ctx, next) {
+    ctx.body = 'success!!'
   }
 }
 

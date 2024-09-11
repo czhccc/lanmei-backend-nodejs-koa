@@ -5,30 +5,26 @@ const AuthService = require('../services/auth.service')
 const errorTypes = require('../constants/error-types')
 const { TOKEN_PUBLIC_KEY } = require('../app/config')
 
-const encryptPasswordUtil = require('../utils/encryptPasswordUtil')
+const encryptPasswordUtil = require('../utils/encrypt-password-util')
 
 // 验证参数
 const verifyLoginParams = async (ctx, next) => {
+  console.log('verifyLoginParams');
   const params = ctx.request.body
-
-  console.log('admin Params', params)
 
   // 判断 非空
   if (!params.phone || !params.password) {
-    const error = new Error(errorTypes.NECESSARY_PARAM_IS_NULL)
-    return ctx.app.emit('error', error, ctx)
+    throw new Error(errorTypes.NECESSARY_PARAM_IS_NULL)
   }
 
   // 判断密码是否通过
   const adminByPhone = await AuthService.getAdminByPhone(params.phone)
   if (adminByPhone.length <= 0) { // 该手机号的admin不存在
-    const error = new Error(errorTypes.ADMIN_NOT_EXIST)
-    return ctx.app.emit('error', error, ctx)
+    throw new Error(errorTypes.ADMIN_NOT_EXIST)
   } else { // 有admin
     const thePassword = adminByPhone[0].password
     if (encryptPasswordUtil(params.password) !== thePassword) { // 密码错误
-      const error = new Error(errorTypes.ADMIN_PASSWORD_WRONG)
-      return ctx.app.emit('error', error, ctx)
+      throw new Error(errorTypes.ADMIN_PASSWORD_WRONG)
     }
   }
 
@@ -38,33 +34,23 @@ const verifyLoginParams = async (ctx, next) => {
 }
 
 const verifyToken = async (ctx, next) => {
-  // 获取token
+  console.log('verifyToken');
   const authorization = ctx.headers.authorization
 
   if (!authorization) {
-    const error = new Error(errorTypes.UNAUTHORIZED)
-    ctx.app.emit('error', error, ctx)
-    return;
+    throw new Error(errorTypes.UNAUTHORIZED)
   }
 
   const token = authorization.replace('Bearer ', '')
 
   // 验证token
-  try {
-    const result = jwt.verify(token, TOKEN_PUBLIC_KEY, {
-      algorithm: ["RS256"]
-    })
+  const adminInfo = jwt.verify(token, TOKEN_PUBLIC_KEY, {
+    algorithm: ["RS256"]
+  })
 
-    // console.log('token-result', result);
-
-    ctx.theAdmin = result // 记录admin信息
-
-    await next()
-  } catch (err) {
-    console.log('token catch error', err);
-    const error = new Error(errorTypes.UNAUTHORIZED)
-    ctx.app.emit('error', error, ctx)
-  }
+  ctx.theAdmin = adminInfo
+  
+  await next()
 }
 
 module.exports = {

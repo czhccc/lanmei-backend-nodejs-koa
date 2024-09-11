@@ -12,8 +12,13 @@ const {
 } = require('../middlewares/auth.middleware')
 
 const adminRouter = new Router({prefix: '/admin'})
-adminRouter.post('/', verifyToken, verifyAdminCreateParams, encryptPassword, AdminController.createAdmin)
-adminRouter.get('/', verifyToken, AdminController.queryAdminByPhoneOrName)
-adminRouter.delete('/', verifyToken, AdminController.deleteAdminByPhone)
+// adminRouter.post('/', verifyToken, verifyAdminCreateParams, encryptPassword, AdminController.createAdmin)
+// adminRouter.post('/', verifyToken, AdminController.test)
+
+adminRouter.get('/aa', verifyToken, (ctx,next)=>{
+  console.log(ctx.params)
+})
+
+// adminRouter.delete('/', verifyToken, AdminController.deleteAdminByPhone)
  
 module.exports = adminRouter

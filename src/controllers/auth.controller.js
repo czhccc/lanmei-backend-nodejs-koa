@@ -1,11 +1,8 @@
 const jwt = require('jsonwebtoken')
 
 const {
+  TOKEN_PRIVATE_KEY,
   TOKEN_DURATION
-} = require('../app/config')
-
-const {
-  TOKEN_PRIVATE_KEY
 } = require('../app/config')
 
 class AuthController {
@@ -24,7 +21,8 @@ class AuthController {
     }, 
     TOKEN_PRIVATE_KEY, 
     {
-      expiresIn: TOKEN_DURATION,
+      // expiresIn: TOKEN_DURATION,
+      expiresIn: 60*60*24,
       algorithm: 'RS256',
     })
 
@@ -34,6 +32,11 @@ class AuthController {
       name: theAdmin.name,
       token
     }
+  }
+
+  async test(ctx, next) {
+    console.log('test');
+    ctx.body = 'success'
   }
 
 }
