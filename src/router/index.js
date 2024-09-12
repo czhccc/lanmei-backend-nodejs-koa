@@ -17,7 +17,9 @@ const useRoutes = app => {
 
     // 将原有的路由添加到带前缀的 Router 中
     router.stack.forEach(route => {
-      prefixedRouter[route.methods[0].toLowerCase()](route.path, ...route.stack);
+      route.methods.forEach(method => {
+        prefixedRouter[method.toLowerCase()](route.path, ...route.stack)
+      })
     });
 
     // 注册带前缀的路由

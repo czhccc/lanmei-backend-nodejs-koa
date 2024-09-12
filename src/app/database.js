@@ -15,7 +15,7 @@ connections.getConnection((err, connection) => {
     if (err) {
       console.log('数据库连接池 连接失败', err)
     } else {
-      console.log('数据库连接池 连接成功~')
+      // console.log('数据库连接池 连接成功~')
     }
   })
 })

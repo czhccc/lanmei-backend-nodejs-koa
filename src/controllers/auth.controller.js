@@ -6,37 +6,29 @@ const {
 } = require('../app/config')
 
 class AuthController {
-  async auth(ctx, next) {
-    // 获取参数
+  async authToken(ctx, next) { // 颁发token
     const params = ctx.request.body
 
     const theAdmin = ctx.theAdmin
-
-    // 颁发token
-    const token = jwt.sign({
+    
+    const token = jwt.sign({ // admin信息
       id: theAdmin.id,
       phone: theAdmin.phone,
       name: theAdmin.name,
       role: theAdmin.role
     }, 
-    TOKEN_PRIVATE_KEY, 
+    TOKEN_PRIVATE_KEY,
     {
-      // expiresIn: TOKEN_DURATION,
-      expiresIn: 60*60*24,
+      expiresIn: TOKEN_DURATION,
+      // expiresIn: 60*60*24,
       algorithm: 'RS256',
     })
 
-    // 返回数据
     ctx.body = {
       phone: theAdmin.phone,
       name: theAdmin.name,
       token
     }
-  }
-
-  async test(ctx, next) {
-    console.log('test');
-    ctx.body = 'success'
   }
 
 }

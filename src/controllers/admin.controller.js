@@ -1,33 +1,30 @@
 const service = require('../services/admin.service')
 
 class AdminController {
-  async createAdmin(ctx, next) {
-    console.log('createAdmin');
-    const admin = ctx.request.body
+  async createOrUpdateAdmin(ctx, next) {
+    const params = ctx.request.body
 
-    const result = await service.create(admin)
-
-    ctx.body = result
+    if (params.id) {
+      const result = await service.updateAdmin(params)
+      ctx.body = '修改成功'
+    } else {
+      const result = await service.createAdmin(params)
+      ctx.body = '新增成功'
+    }
   }
 
-  async queryAdminByPhoneOrName(ctx, next) {
-    console.log('queryAdminByPhoneOrName');
+  async getAdminList(ctx, next) {
     const params = ctx.request.query
-    const result = await service.queryAdminByPhoneOrName(params)
+    const result = await service.getAdminList(params)
 
     ctx.body = result
   }
 
   async deleteAdminByPhone(ctx, next) {
     const params = ctx.request.query
-    console.log('controller', params);
     const result = await service.deleteAdminByPhone(params)
 
-    ctx.body = result
-  }
-
-  async test(ctx, next) {
-    ctx.body = 'success!!'
+    ctx.body = '删除成功'
   }
 }
 

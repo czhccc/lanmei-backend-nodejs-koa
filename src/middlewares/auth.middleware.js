@@ -9,10 +9,8 @@ const encryptPasswordUtil = require('../utils/encrypt-password-util')
 
 // 验证参数
 const verifyLoginParams = async (ctx, next) => {
-  console.log('verifyLoginParams');
   const params = ctx.request.body
 
-  // 判断 非空
   if (!params.phone || !params.password) {
     throw new Error(errorTypes.NECESSARY_PARAM_IS_NULL)
   }
@@ -21,9 +19,8 @@ const verifyLoginParams = async (ctx, next) => {
   const adminByPhone = await AuthService.getAdminByPhone(params.phone)
   if (adminByPhone.length <= 0) { // 该手机号的admin不存在
     throw new Error(errorTypes.ADMIN_NOT_EXIST)
-  } else { // 有admin
-    const thePassword = adminByPhone[0].password
-    if (encryptPasswordUtil(params.password) !== thePassword) { // 密码错误
+  } else {
+    if (encryptPasswordUtil(params.password) !== adminByPhone[0].password) { // 密码错误
       throw new Error(errorTypes.ADMIN_PASSWORD_WRONG)
     }
   }
@@ -34,7 +31,7 @@ const verifyLoginParams = async (ctx, next) => {
 }
 
 const verifyToken = async (ctx, next) => {
-  console.log('verifyToken');
+  console.log('验证Token');
   const authorization = ctx.headers.authorization
 
   if (!authorization) {

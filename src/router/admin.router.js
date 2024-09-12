@@ -3,7 +3,7 @@ const Router = require('koa-router')
 const AdminController = require('../controllers/admin.controller')
 
 const {
-  verifyAdminCreateParams,
+  verifyAdminCreateOrUpdateParams,
   encryptPassword
 } = require('../middlewares/admin.middleware')
 
@@ -11,14 +11,13 @@ const {
   verifyToken
 } = require('../middlewares/auth.middleware')
 
+const tableResponseHandler = require('../middlewares/global/table-response-handler');
+
 const adminRouter = new Router({prefix: '/admin'})
-// adminRouter.post('/', verifyToken, verifyAdminCreateParams, encryptPassword, AdminController.createAdmin)
-// adminRouter.post('/', verifyToken, AdminController.test)
+adminRouter.post('/', verifyToken, verifyAdminCreateOrUpdateParams, encryptPassword, AdminController.createOrUpdateAdmin)
 
-adminRouter.get('/aa', verifyToken, (ctx,next)=>{
-  console.log(ctx.params)
-})
+adminRouter.get('/', verifyToken, tableResponseHandler, AdminController.getAdminList)
 
-// adminRouter.delete('/', verifyToken, AdminController.deleteAdminByPhone)
+adminRouter.delete('/', verifyToken, AdminController.deleteAdminByPhone)
  
 module.exports = adminRouter

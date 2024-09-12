@@ -7,7 +7,6 @@ const {
 } = require('../middlewares/auth.middleware')
 
 const authRouter = new Router({prefix: '/login'})
-authRouter.post('/', verifyLoginParams, AuthController.auth)
-// authRouter.get('/', AuthController.test)
+authRouter.post('/', verifyLoginParams, AuthController.authToken)
 
 module.exports = authRouter
