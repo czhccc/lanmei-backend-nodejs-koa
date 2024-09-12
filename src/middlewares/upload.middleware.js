@@ -28,7 +28,7 @@ const returnUploadResponse = async (ctx, next) => {
 
   // 返回上传成功的响应信息
   ctx.body = {
-    message: 'File uploaded successfully',
+    url: `localhost:8888/${ctx.req.file.filename}`,
     fileInfo: {
       originalname: ctx.req.file.originalname,
       filename: ctx.req.file.filename,

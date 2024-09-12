@@ -19,8 +19,8 @@ class AuthController {
     }, 
     TOKEN_PRIVATE_KEY,
     {
-      expiresIn: TOKEN_DURATION,
-      // expiresIn: 60*60*24,
+      // expiresIn: TOKEN_DURATION,
+      expiresIn: 60*60*24,
       algorithm: 'RS256',
     })
 

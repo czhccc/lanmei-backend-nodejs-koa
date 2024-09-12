@@ -9,8 +9,9 @@ const encryptPasswordUtil = require('../utils/encrypt-password-util')
 
 // 验证参数
 const verifyLoginParams = async (ctx, next) => {
+  console.log('???');
   const params = ctx.request.body
-
+  
   if (!params.phone || !params.password) {
     throw new Error(errorTypes.NECESSARY_PARAM_IS_NULL)
   }
@@ -41,11 +42,14 @@ const verifyToken = async (ctx, next) => {
   const token = authorization.replace('Bearer ', '')
 
   // 验证token
-  const adminInfo = jwt.verify(token, TOKEN_PUBLIC_KEY, {
-    algorithm: ["RS256"]
-  })
-
-  ctx.theAdmin = adminInfo
+  try {
+    const adminInfo = jwt.verify(token, TOKEN_PUBLIC_KEY, {
+      algorithm: ["RS256"]
+    })
+    ctx.theAdmin = adminInfo
+  } catch (error) {
+    throw new Error(errorTypes.UNAUTHORIZED)
+  }
   
   await next()
 }
