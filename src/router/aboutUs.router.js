@@ -6,8 +6,8 @@ const {
   verifyToken
 } = require('../middlewares/auth.middleware')
 
-const authRouter = new Router({prefix: '/aboutUs'})
-authRouter.post('/', verifyToken, AboutUsController.updateAboutUs)
-authRouter.get('/', verifyToken, AboutUsController.getAboutUs)
+const aboutUsRouter = new Router({prefix: '/aboutUs'})
+aboutUsRouter.post('/', verifyToken, AboutUsController.updateAboutUs)
+aboutUsRouter.get('/', verifyToken, AboutUsController.getAboutUs)
 
-module.exports = authRouter
+module.exports = aboutUsRouter
