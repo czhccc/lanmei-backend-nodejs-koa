@@ -41,9 +41,9 @@ bower_components/
 .npm/
 
 # dotenv environment variables file
-.env
-.env.test
-.env.production
+# .env
+# .env.test
+# .env.production
 
 # MacOS specific files
 .DS_Store
