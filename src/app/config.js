@@ -6,7 +6,7 @@ dotenv.config()
 
 const TOKEN_PRIVATE_KEY = fs.readFileSync(path.resolve(__dirname, './token-keys/private.pem'))
 const TOKEN_PUBLIC_KEY = fs.readFileSync(path.resolve(__dirname, './token-keys/public.pem'))
-const TOKEN_DURATION = 60 * 60 * 24
+const TOKEN_DURATION = 1000 * 60 * 60 * 24
 
 module.exports = {
   APP_PORT,

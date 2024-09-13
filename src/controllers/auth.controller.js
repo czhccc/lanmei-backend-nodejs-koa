@@ -20,9 +20,10 @@ class AuthController {
     TOKEN_PRIVATE_KEY,
     {
       expiresIn: TOKEN_DURATION,
-      // expiresIn: 60*60*24,
       algorithm: 'RS256',
     })
+
+    const decodedToken = jwt.decode(token); 
 
     ctx.body = {
       phone: theAdmin.phone,
