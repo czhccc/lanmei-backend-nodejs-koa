@@ -34,7 +34,7 @@ const verifyLoginParams = async (ctx, next) => {
 const verifyToken = async (ctx, next) => {
   console.log('验证Token');
   const authorization = ctx.headers.authorization
-
+  
   if (!authorization) {
     throw new Error(errorTypes.UNAUTHORIZED)
   }

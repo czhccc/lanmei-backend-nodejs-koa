@@ -15,4 +15,6 @@ commentRouter.get('/getCommentList', verifyToken, tableResponseHandler, CommentC
 
 commentRouter.post('/response', verifyToken, CommentController.response)
 
+commentRouter.get('/getCommentDetailById', verifyToken, CommentController.getCommentDetailById)
+
 module.exports = commentRouter
