@@ -1,7 +1,7 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : root_operation
+ Source Server         : lanmei
  Source Server Type    : MySQL
  Source Server Version : 80039 (8.0.39)
  Source Host           : localhost:3306
@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 14/09/2024 17:49:01
+ Date: 18/09/2024 22:39:08
 */
 
 SET NAMES utf8mb4;
@@ -81,7 +81,7 @@ CREATE TABLE `batch`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of batch
@@ -142,17 +142,18 @@ CREATE TABLE `goods`  (
   `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
   `goods_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `goods_unit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `goods_isSelling` int NULL DEFAULT NULL,
+  `goods_isSelling` int NULL DEFAULT NULL COMMENT '1上架；0不上架',
   `goods_remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `goods_richText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
+INSERT INTO `goods` VALUES (1, '商品1', '商品1单位', 1, '商品1备注', NULL, '2024-09-18 22:35:59', '2024-09-18 22:35:59');
 
 -- ----------------------------
 -- Table structure for goods_media
@@ -165,7 +166,7 @@ CREATE TABLE `goods_media`  (
   `position` int NULL DEFAULT NULL COMMENT '显示顺序的权重',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods_media
