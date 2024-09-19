@@ -14,5 +14,9 @@ const tableResponseHandler = require('../middlewares/global/table-response-handl
 
 const goodsRouter = new Router({prefix: '/goods'})
 goodsRouter.post('/', verifyToken, GoodsController.createOrUpdateGoods)
+
+goodsRouter.get('/getGoodsDetailById', verifyToken, GoodsController.getGoodsDetailById)
+
+goodsRouter.get('/getGoodsList', verifyToken, tableResponseHandler, GoodsController.getGoodsList)
  
 module.exports = goodsRouter

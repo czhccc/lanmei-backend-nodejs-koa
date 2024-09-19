@@ -18,6 +18,27 @@ class GoodsController {
     }
 
   }
+
+  async getGoodsDetailById(ctx, next) {
+    const params = ctx.request.query
+    console.log(params);
+    const { id } = params
+    if (!id) {
+      throw new Error('缺少必填字段')
+    }
+
+    const result = await service.getGoodsDetailById(params)
+
+    ctx.body = result
+  }
+
+  async getGoodsList(ctx, next) {
+    const params = ctx.request.query
+    console.log(params);
+    const result = await service.getGoodsList(params)
+    console.log(result);
+    ctx.body = result
+  }
 }
 
 module.exports = new GoodsController()

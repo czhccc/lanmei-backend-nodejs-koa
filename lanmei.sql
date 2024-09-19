@@ -1,7 +1,7 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : lanmei
+ Source Server         : root_operation
  Source Server Type    : MySQL
  Source Server Version : 80039 (8.0.39)
  Source Host           : localhost:3306
@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 18/09/2024 22:39:08
+ Date: 19/09/2024 17:52:52
 */
 
 SET NAMES utf8mb4;
@@ -148,12 +148,13 @@ CREATE TABLE `goods`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
 INSERT INTO `goods` VALUES (1, '商品1', '商品1单位', 1, '商品1备注', NULL, '2024-09-18 22:35:59', '2024-09-18 22:35:59');
+INSERT INTO `goods` VALUES (2, '商品2', '商品2单位', 1, '商品2备注商品2备注商品2备注', '<p>hello,</p><p><img src=\"http://localhost:8888/1726727551566.png\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 14:32:50', '2024-09-19 14:32:50');
 
 -- ----------------------------
 -- Table structure for goods_media
