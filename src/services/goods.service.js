@@ -2,17 +2,47 @@ const connection = require('../app/database')
 
 class GoodsService {
   async createGoods(params) {
-    const { goodsName, goodsUnit, goodsIsSelling, goodsRemark = null, goodsRichText = null } = params;
-
-    const statement = `INSERT INTO goods 
-      (goods_name, goods_unit, goods_isSelling, goods_remark, goods_richText) 
-      VALUES (?, ?, ?, ?, ?)`
-
-    const result = await connection.execute(statement, [
-      goodsName, goodsUnit, goodsIsSelling, goodsRemark, goodsRichText
-    ])
+    const { goodsName, goodsUnit, goodsIsSelling, goodsRemark = null, goodsRichText = '<p>暂无更多介绍</p>', swiperList = [] } = params;
     
-    return result[0]
+    // 获取连接并开启事务
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
+
+      // require 的文件中已经通过 getConnection 获取过连接，但这个过程仅仅是检查连接池是否成功创建，并不会对后续的事务操作产生影响。
+      // 即使已经调用过 getConnection，在具体的业务逻辑中，仍然需要通过 connections.getConnection() 获取一个新的连接实例来开启事务。连接池的设计就是为了能够高效地管理和复用数据库连接。
+      await conn.beginTransaction();  // 开启事务
+
+      const statement1 = `INSERT goods 
+        (goods_name, goods_unit, goods_isSelling, goods_remark, goods_richText) 
+        VALUES (?, ?, ?, ?, ?)`;
+
+      const result1 = await conn.execute(statement1, [
+        goodsName, goodsUnit, goodsIsSelling, goodsRemark, goodsRichText
+      ]);
+
+      if (swiperList.length > 0) {
+        const createdGoodsId = result1[0].insertId
+
+        const statement2 = `INSERT goods_swiper (goods_id, url, position, type) VALUES (?, ?, ?, ?)`;
+        
+        for (let index = 0; index < swiperList.length; index++) {
+          const swiperItem = swiperList[index];
+          await conn.execute(statement2, [createdGoodsId, swiperItem.url, index, swiperItem.type==='image'?0:1])
+        }
+      }
+
+      // 提交事务
+      await conn.commit();
+
+      return 'success'
+    } catch (error) {
+      // 出现错误时回滚事务
+      await conn.rollback();
+      throw new Error('mysql事务失败，已回滚');
+    } finally {
+      // 释放连接
+      conn.release();
+    }
   }
 
   async updateGoods(params) {
@@ -45,12 +75,38 @@ class GoodsService {
     const { id } = params
 
     const statement = `
-      SELECT * FROM goods WHERE id = ?
+      SELECT 
+        goods.*, 
+        goods_swiper.*,
+        goods.id AS goods_id, 
+        goods_swiper.id AS swiper_id
+      FROM goods
+      LEFT JOIN goods_swiper ON goods.id = goods_swiper.goods_id
+      WHERE goods.id = ?
     `
     
     const result = await connection.execute(statement, [id]);
 
-    return result[0][0]
+    console.log('00000000000000', result[0])
+
+    let goods = {
+      goodsId: result[0][0].goods_id,
+      goodsName: result[0][0].goods_name,
+      goodsUnit: result[0][0].goods_unit,
+      goodsIsSelling: result[0][0].goods_isSelling,
+      goodsRemark: result[0][0].goods_remark,
+      goodsRichText: result[0][0].goods_richText,
+      swiperList: result[0].map(item => {
+        return {
+          id: item.swiper_id,
+          url: item.url,
+          type: item.type===1?'video':'image',
+          position: item.position
+        }
+      })
+    }
+
+    return goods
   }
 
   async getGoodsList(params) {

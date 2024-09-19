@@ -1,7 +1,7 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : root_operation
+ Source Server         : lanmei
  Source Server Type    : MySQL
  Source Server Version : 80039 (8.0.39)
  Source Host           : localhost:3306
@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 19/09/2024 17:52:52
+ Date: 19/09/2024 22:52:53
 */
 
 SET NAMES utf8mb4;
@@ -148,29 +148,33 @@ CREATE TABLE `goods`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
 INSERT INTO `goods` VALUES (1, '商品1', '商品1单位', 1, '商品1备注', NULL, '2024-09-18 22:35:59', '2024-09-18 22:35:59');
 INSERT INTO `goods` VALUES (2, '商品2', '商品2单位', 1, '商品2备注商品2备注商品2备注', '<p>hello,</p><p><img src=\"http://localhost:8888/1726727551566.png\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 14:32:50', '2024-09-19 14:32:50');
+INSERT INTO `goods` VALUES (16, '商品3名称', '商品3单位', 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 21:49:43', '2024-09-19 21:49:43');
 
 -- ----------------------------
--- Table structure for goods_media
+-- Table structure for goods_swiper
 -- ----------------------------
-DROP TABLE IF EXISTS `goods_media`;
-CREATE TABLE `goods_media`  (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `goods_swiper`;
+CREATE TABLE `goods_swiper`  (
+  `id` int NOT NULL AUTO_INCREMENT,
   `goods_id` int NOT NULL,
   `url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `type` int NOT NULL COMMENT '0 image；1 video',
   `position` int NULL DEFAULT NULL COMMENT '显示顺序的权重',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
--- Records of goods_media
+-- Records of goods_swiper
 -- ----------------------------
+INSERT INTO `goods_swiper` VALUES (1, 16, 'http://localhost:8888/1726753375193.mp4', 1, 0, '2024-09-19 21:49:43');
+INSERT INTO `goods_swiper` VALUES (2, 16, 'http://localhost:8888/1726753377499.png', 0, 1, '2024-09-19 21:49:43');
 
 SET FOREIGN_KEY_CHECKS = 1;

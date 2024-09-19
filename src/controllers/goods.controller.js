@@ -5,7 +5,7 @@ class GoodsController {
     const params = ctx.request.body
     console.log(params);
     const { goodsName, goodsUnit, goodsIsSelling } = params;
-    if (!goodsName || !goodsUnit || !goodsIsSelling) {
+    if (!goodsName || !goodsUnit || goodsIsSelling===undefined) {
       throw new Error('缺少必填字段')
     }
 
@@ -34,9 +34,9 @@ class GoodsController {
 
   async getGoodsList(ctx, next) {
     const params = ctx.request.query
-    console.log(params);
+    
     const result = await service.getGoodsList(params)
-    console.log(result);
+
     ctx.body = result
   }
 }

@@ -1,15 +1,40 @@
-const Multer = require('koa-multer')
+const fs = require('fs')
 const path = require('path')
+
+const Multer = require('koa-multer')
+
+// 格式化日期函数
+function formatDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  // 返回带有分隔符的日期时间字符串
+  return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+}
+
+// 生成随机字符串函数
+function generateRandomString(length) {
+  return Math.random().toString(36).substr(2, length); // 随机生成一串字符
+}
 
 const storage = Multer.diskStorage({
   destination: (req, file, cb) => {
+    if (!fs.existsSync('./files')) {
+      console.log('没有./files');
+      fs.mkdirSync('./files', { recursive: true });
+    }
     cb(null, './files')
   },
   filename: (req, file, cb) => {
-    // 获取原文件的扩展名
-    const extname = path.extname(file.originalname)
-    // 自定义保存的文件名，可以使用时间戳加文件原名或其他方式生成唯一文件名
-    cb(null, `${Date.now()}${extname}`)
+    const extname = path.extname(file.originalname);  // 获取文件扩展名
+    const formattedDate = formatDate();  // 格式化后的日期
+    const randomString = generateRandomString(6);  // 生成6位随机字符
+    const filename = `${formattedDate}_${randomString}${extname}`;  // 拼接文件名
+    cb(null, filename);  // 设置文件名
   }
 })
 const fileUpload = Multer({ storage })
