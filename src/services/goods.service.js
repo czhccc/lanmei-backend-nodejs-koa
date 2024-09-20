@@ -1,8 +1,11 @@
 const connection = require('../app/database')
+const generateDatetimeId = require('../utils/genarateDatetimeId')
+
+const dayjs = require('dayjs');
 
 class GoodsService {
   async createGoods(params) {
-    const { goodsName, goodsUnit, goodsIsSelling, goodsRemark = null, goodsRichText = '<p>暂无更多介绍</p>', swiperList = [] } = params;
+    const { goodsName, goodsUnit, goodsIsSelling, goodsRemark = '', goodsRichText = '<p>暂无更多介绍</p>', swiperList = [] } = params;
     
     // 获取连接并开启事务
     const conn = await connection.getConnection();  // 从连接池获取连接
@@ -46,67 +49,165 @@ class GoodsService {
   }
 
   async updateGoods(params) {
-    const { id, goodsName, goodsUnit, goodsIsSelling, goodsRemark = null, goodsRichText = null } = params;
+    const { 
+      goodsId,
+      goodsName, 
+      goodsUnit, 
+      goodsIsSelling, 
+      goodsRemark = '', 
+      goodsRichText = '<p>暂无更多介绍</p>', 
+      swiperList = [] 
+    } = params;
 
-    let statement = `
-      UPDATE goods
-      SET goods_name = ?, goods_unit = ?, goods_isSelling = ?
-    `
-    
-    let queryParams = [goodsName, goodsUnit, goodsIsSelling]
+    // 获取连接并开启事务
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
 
-    if (goodsRemark) {
-      statement += `, goods_remark = ?`;
-      queryParams.push(goodsRemark);
+      // require 的文件中已经通过 getConnection 获取过连接，但这个过程仅仅是检查连接池是否成功创建，并不会对后续的事务操作产生影响。
+      // 即使已经调用过 getConnection，在具体的业务逻辑中，仍然需要通过 connections.getConnection() 获取一个新的连接实例来开启事务。连接池的设计就是为了能够高效地管理和复用数据库连接。
+      await conn.beginTransaction();  // 开启事务
+
+      // 处理商品基本信息
+      const statement1 = `
+        UPDATE goods
+        SET goods_name = ?, goods_unit = ?, goods_isSelling = ?, goods_remark = ?, goods_richText = ?
+        WHERE id = ?
+      `
+
+      const result1 = await conn.execute(statement1, [
+        goodsName, goodsUnit, goodsIsSelling, goodsRemark, goodsRichText, goodsId
+      ]);
+
+      // 处理轮播图
+      // if (swiperList.length > 0) {
+      //   const createdGoodsId = result1[0].insertId
+
+      //   const statement2 = `INSERT goods_swiper (goods_id, url, position, type) VALUES (?, ?, ?, ?)`;
+        
+      //   for (let index = 0; index < swiperList.length; index++) {
+      //     const swiperItem = swiperList[index];
+      //     await conn.execute(statement2, [createdGoodsId, swiperItem.url, index, swiperItem.type==='image'?0:1])
+      //   }
+      // }
+
+      // 处理批次
+      if (params.batchType !== undefined) {
+        const { 
+          goodsId,
+          batchType, 
+          batchStatus, 
+          batchMinPrice, 
+          batchMaxPrice,
+          batchUnitPrice,
+          batchMinQuantity, 
+          batchDiscounts,
+          batchRemark
+        } = params;
+
+        if (params.batchType === 0) { // 预订
+          const statement3 = `
+            INSERT goods_batch 
+            (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_minPrice, batch_maxPrice, batch_minQuantity, 
+            batch_discounts, batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `
+
+          const result3 = await conn.execute(statement3, [
+            goodsId, generateDatetimeId(), batchType, batchStatus, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+            batchMinPrice, batchMaxPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
+            goodsName, goodsUnit, goodsRemark, goodsRichText
+          ]);
+        } else if (params.batchType === 1) { // 现卖
+          const statement3 = `
+            INSERT goods_batch 
+            (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_unitPrice, batch_minQuantity, batch_discounts, 
+            batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `
+
+          const result3 = await conn.execute(statement3, [
+            goodsId, generateDatetimeId(), batchType, batchStatus, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+            batchUnitPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
+            goodsName, goodsUnit, goodsRemark, goodsRichText
+          ]);
+        }
+
+      }
+
+      // 提交事务
+      await conn.commit();
+
+      return 'success'
+    } catch (error) {
+      // 出现错误时回滚事务
+      await conn.rollback();
+      throw new Error('mysql事务失败，已回滚');
+    } finally {
+      // 释放连接
+      conn.release();
     }
-    if (goodsRichText) {
-      statement += `, goods_richText = ?`;
-      queryParams.push(goodsRichText);
-    }
-    statement += ` WHERE id = ?`
-    queryParams.push(id)
 
-    const result = await connection.execute(statement, queryParams)
-    
-    return result[0]
   }
 
   async getGoodsDetailById(params) {
     const { id } = params
 
-    const statement = `
-      SELECT 
-        goods.*, 
-        goods_swiper.*,
-        goods.id AS goods_id, 
-        goods_swiper.id AS swiper_id
-      FROM goods
-      LEFT JOIN goods_swiper ON goods.id = goods_swiper.goods_id
-      WHERE goods.id = ?
-    `
-    
-    const result = await connection.execute(statement, [id]);
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
+      await conn.beginTransaction();  // 开启事务
 
-    console.log('00000000000000', result[0])
+      const statement1 = `
+        SELECT 
+          goods.*, 
+          goods_swiper.*,
+          goods.id AS goods_id, 
+          goods_swiper.id AS swiper_id
+        FROM goods
+        LEFT JOIN goods_swiper ON goods.id = goods_swiper.goods_id
+        WHERE goods.id = ?
+      `
+      
+      const result1 = await conn.execute(statement1, [id]);
+      
+      const statement2 = `
+        SELECT * FROM goods_batch 
+        WHERE goods_batch.goods_id = ? AND goods_batch.batch_status = 1
+      `
+      
+      const result2 = await conn.execute(statement2, [id]);
+      console.log('result2', result2);
 
-    let goods = {
-      goodsId: result[0][0].goods_id,
-      goodsName: result[0][0].goods_name,
-      goodsUnit: result[0][0].goods_unit,
-      goodsIsSelling: result[0][0].goods_isSelling,
-      goodsRemark: result[0][0].goods_remark,
-      goodsRichText: result[0][0].goods_richText,
-      swiperList: result[0].map(item => {
-        return {
-          id: item.swiper_id,
-          url: item.url,
-          type: item.type===1?'video':'image',
-          position: item.position
-        }
-      })
+      // 提交事务
+      await conn.commit();
+
+      let goods = {
+        goodsId: result1[0][0].goods_id,
+        goodsName: result1[0][0].goods_name,
+        goodsUnit: result1[0][0].goods_unit,
+        goodsIsSelling: result1[0][0].goods_isSelling,
+        goodsRemark: result1[0][0].goods_remark,
+        goodsRichText: result1[0][0].goods_richText,
+        swiperList: result1[0].map(item => {
+          return {
+            id: item.swiper_id,
+            url: item.url,
+            type: item.type===1?'video':'image',
+            position: item.position
+          }
+        }),
+        currentBatch: result2[0] ? result2[0][0] : null
+      }
+
+      return goods
+    } catch (error) {
+      // 出现错误时回滚事务
+      await conn.rollback();
+      throw new Error('mysql事务失败，已回滚');
+    } finally {
+      // 释放连接
+      conn.release();
     }
 
-    return goods
   }
 
   async getGoodsList(params) {
@@ -134,7 +235,16 @@ class GoodsService {
 
     // 构建分页查询的 SQL 语句
     const statement = `
-      SELECT * FROM goods LIMIT ? OFFSET ?
+      SELECT 
+        goods.*, 
+        CASE 
+          WHEN goods_batch.batch_status = 1 THEN 1
+          ELSE 0 
+        END as hasCurrentBatch
+      FROM goods 
+      LEFT JOIN goods_batch ON goods.id = goods_batch.goods_id
+      ORDER BY goods.createTime DESC 
+      LIMIT ? OFFSET ?
     `
 
     queryParams.push(String(pageSize), String(offset));

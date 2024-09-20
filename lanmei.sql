@@ -1,7 +1,7 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : lanmei
+ Source Server         : root_operation
  Source Server Type    : MySQL
  Source Server Version : 80039 (8.0.39)
  Source Host           : localhost:3306
@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 19/09/2024 22:52:53
+ Date: 20/09/2024 17:28:15
 */
 
 SET NAMES utf8mb4;
@@ -57,35 +57,6 @@ INSERT INTO `admin` VALUES (1, '13989536936', 'e10adc3949ba59abbe56e057f20f883e'
 INSERT INTO `admin` VALUES (2, '13333333334', 'e10adc3949ba59abbe56e057f20f883e', 'yjn4', 1, '2024-09-12 13:38:18', '2024-09-12 16:09:11');
 INSERT INTO `admin` VALUES (10, '13333333333', 'e10adc3949ba59abbe56e057f20f883e', 'yjn', 1, '2024-09-09 17:32:10', '2024-09-12 15:28:53');
 INSERT INTO `admin` VALUES (11, '13222222222', '96e79218965eb72c92a549dd5a330112', 'czh2', 1, '2024-09-12 16:07:30', '2024-09-12 16:11:13');
-
--- ----------------------------
--- Table structure for batch
--- ----------------------------
-DROP TABLE IF EXISTS `batch`;
-CREATE TABLE `batch`  (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `goods_id` int NOT NULL,
-  `batch_no` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `batch_type` int NOT NULL COMMENT '预订 / 现卖',
-  `batch_startTime` datetime NOT NULL,
-  `batch_endTime` datetime NULL DEFAULT NULL,
-  `batch_sellPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '现卖时的价格',
-  `batch_minPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
-  `batch_maxPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
-  `batch_minQuantity` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '最小购买或预订的数量',
-  `batch_discount` json NULL COMMENT '优惠策略',
-  `snapshot_goodsName` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
-  `snapshot_goodsUnit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
-  `snapshot_goodsRemark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '商品快照',
-  `snapshot_goodsRichText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '商品快照',
-  `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
-
--- ----------------------------
--- Records of batch
--- ----------------------------
 
 -- ----------------------------
 -- Table structure for comment
@@ -148,14 +119,64 @@ CREATE TABLE `goods`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 19 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
-INSERT INTO `goods` VALUES (1, '商品1', '商品1单位', 1, '商品1备注', NULL, '2024-09-18 22:35:59', '2024-09-18 22:35:59');
-INSERT INTO `goods` VALUES (2, '商品2', '商品2单位', 1, '商品2备注商品2备注商品2备注', '<p>hello,</p><p><img src=\"http://localhost:8888/1726727551566.png\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 14:32:50', '2024-09-19 14:32:50');
 INSERT INTO `goods` VALUES (16, '商品3名称', '商品3单位', 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 21:49:43', '2024-09-19 21:49:43');
+INSERT INTO `goods` VALUES (17, '商品3名称', '商品3单位', 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:30:04', '2024-09-20 15:30:04');
+INSERT INTO `goods` VALUES (18, '无无无', '无无无', 0, '无无无', '<p>暂无更多介绍</p>', '2024-09-20 16:40:44', '2024-09-20 16:40:44');
+
+-- ----------------------------
+-- Table structure for goods_batch
+-- ----------------------------
+DROP TABLE IF EXISTS `goods_batch`;
+CREATE TABLE `goods_batch`  (
+  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
+  `goods_id` int NOT NULL,
+  `batch_no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `batch_type` int NOT NULL COMMENT '0 预订 / 1 现卖',
+  `batch_status` int NOT NULL COMMENT '状态：1进行中，0已结束',
+  `batch_startTime` datetime NOT NULL,
+  `batch_endTime` datetime NULL DEFAULT NULL,
+  `batch_unitPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '现卖时的价格',
+  `batch_minPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
+  `batch_maxPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
+  `batch_minQuantity` decimal(10, 1) NOT NULL COMMENT '最小购买或预订的数量',
+  `batch_discounts` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '优惠策略',
+  `batch_remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '批次备注',
+  `snapshot_goodsName` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
+  `snapshot_goodsUnit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
+  `snapshot_goodsRemark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '商品快照',
+  `snapshot_goodsRichText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '商品快照',
+  `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Records of goods_batch
+-- ----------------------------
+INSERT INTO `goods_batch` VALUES (1, 17, '20240920154212_zp51w5', 0, 1, '2024-09-20 15:42:12', NULL, NULL, 10.00, 20.00, 1.0, '\"[{\\\"quantity\\\":2,\\\"discount\\\":10},{\\\"quantity\\\":4,\\\"discount\\\":20}]\"', '1111111111111111111111111111', '商品3名称', '商品3单位', '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:42:12', '2024-09-20 15:42:12');
+INSERT INTO `goods_batch` VALUES (2, 16, '20240920155132_9rsbwu', 1, 1, '2024-09-20 15:51:32', NULL, 15.00, NULL, NULL, 1.0, '\"[{\\\"quantity\\\":3,\\\"discount\\\":1},{\\\"quantity\\\":6,\\\"discount\\\":2}]\"', '2222222222222222222', '商品3名称', '商品3单位', '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:51:32', '2024-09-20 15:51:32');
+
+-- ----------------------------
+-- Table structure for goods_media
+-- ----------------------------
+DROP TABLE IF EXISTS `goods_media`;
+CREATE TABLE `goods_media`  (
+  `id` int NOT NULL,
+  `goods_id` int NOT NULL,
+  `url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `position` int NULL DEFAULT NULL COMMENT '显示顺序的权重',
+  `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Records of goods_media
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for goods_swiper
@@ -169,12 +190,14 @@ CREATE TABLE `goods_swiper`  (
   `position` int NULL DEFAULT NULL COMMENT '显示顺序的权重',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods_swiper
 -- ----------------------------
 INSERT INTO `goods_swiper` VALUES (1, 16, 'http://localhost:8888/1726753375193.mp4', 1, 0, '2024-09-19 21:49:43');
 INSERT INTO `goods_swiper` VALUES (2, 16, 'http://localhost:8888/1726753377499.png', 0, 1, '2024-09-19 21:49:43');
+INSERT INTO `goods_swiper` VALUES (3, 17, 'http://localhost:8888/1726753375193.mp4', 1, 0, '2024-09-20 15:30:04');
+INSERT INTO `goods_swiper` VALUES (4, 17, 'http://localhost:8888/1726753377499.png', 0, 1, '2024-09-20 15:30:04');
 
 SET FOREIGN_KEY_CHECKS = 1;
