@@ -175,7 +175,6 @@ class GoodsService {
       `
       
       const result2 = await conn.execute(statement2, [id]);
-      console.log('result2', result2);
 
       // 提交事务
       await conn.commit();
@@ -256,6 +255,54 @@ class GoodsService {
     };
   }
 
+  async endCurrentBatch(params) {
+    const { id } = params
+    
+    const statement = `
+      UPDATE goods_batch
+        SET batch_status = 0
+        WHERE id = ?
+    `
+    const result = await connection.execute(statement, [id])
+    
+    return result[0]
+  }
+
+  async getHistoryBatchesList(params) {
+    const queryParams = [];
+  
+    let whereClause = ` WHERE 1=1`
+  
+    // if (params.phone) {
+    //   whereClause += ` AND phone LIKE ?`
+    //   queryParams.push(`%${params.phone}%`)
+    // }
+  
+    // if (params.name) {
+    //   whereClause += ` AND name LIKE ?`
+    //   queryParams.push(`%${params.name}%`)
+    // }
+  
+    // 查询总记录数
+    const countStatement = `SELECT COUNT(*) as total FROM admin` + whereClause;
+    const totalResult = await connection.execute(countStatement, queryParams);
+    const total = totalResult[0][0].total;  // 获取总记录数
+  
+    // 分页：根据 pageNo 和 pageSize 动态设置 LIMIT 和 OFFSET
+    const pageNo = params.pageNo;
+    const pageSize = params.pageSize;
+    const offset = (pageNo - 1) * pageSize;
+  
+    // 构建分页查询的 SQL 语句
+    const statement = `SELECT id,phone,name,role FROM admin` + whereClause + ` LIMIT ? OFFSET ?`;
+    queryParams.push(String(pageSize), String(offset));
+    const result = await connection.execute(statement, queryParams);
+  
+    return {
+      total,  // 总记录数
+      records: result[0],  // 当前页的数据
+    };
+  }
 }
 
 module.exports = new GoodsService()

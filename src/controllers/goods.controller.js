@@ -39,6 +39,26 @@ class GoodsController {
 
     ctx.body = result
   }
+
+  async endCurrentBatch(ctx, next) {
+    const params = ctx.request.body
+    
+    if (!params.id) {
+      throw new Error('缺少必传参数')
+    }
+    
+    const result = await service.endCurrentBatch(params)
+
+    ctx.body = '操作成功'
+  }
+
+  async getHistoryBatchesList(ctx, next) {
+    const params = ctx.request.query
+    
+    const result = await service.getHistoryBatchesList(params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new GoodsController()
