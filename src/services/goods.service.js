@@ -55,38 +55,30 @@ class GoodsService {
     // 获取连接并开启事务
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
-      console.log('swiperList', swiperList)
       // require 的文件中已经通过 getConnection 获取过连接，但这个过程仅仅是检查连接池是否成功创建，并不会对后续的事务操作产生影响。
       // 即使已经调用过 getConnection，在具体的业务逻辑中，仍然需要通过 connections.getConnection() 获取一个新的连接实例来开启事务。连接池的设计就是为了能够高效地管理和复用数据库连接。
       await conn.beginTransaction();  // 开启事务
-      console.log('?');
       // 删除轮播图和富文本的图片记录
       const deleteGoodsMediaFileStatement = `DELETE FROM goods_media WHERE goods_id = ?`
-      console.log('??', goodsId)
       const deleteGoodsMediaFileResult = await conn.execute(deleteGoodsMediaFileStatement, [goodsId]);
-      console.log('???')
       // 重新插入全部的轮播图和富文本的图片记录
       if (swiperList.length > 0) {
         const statement2 = `INSERT goods_media (goods_id, url, fileType, useType, position) VALUES (?, ?, ?, ?, ?)`;
         
         for (let index = 0; index < swiperList.length; index++) {
           const swiperItem = swiperList[index];
-          console.log([goodsId, swiperItem.url, swiperItem.type, 'swiper', index]);
           await conn.execute(statement2, [goodsId, swiperItem.url, swiperItem.type, 'swiper', index])
         }
       }
       let richTextImgSrcList = richTextExtractImageSrc(goodsRichText)
-      console.log('richTextImgSrcList', richTextImgSrcList);
       if (richTextImgSrcList.length > 0) {
         const statement2 = `INSERT goods_media (goods_id, url, fileType, useType) VALUES (?, ?, ?, ?)`;
         
         for (let index = 0; index < richTextImgSrcList.length; index++) {
           const srcItem = richTextImgSrcList[index];
-          console.log([goodsId, srcItem, 'image', 'richText']);
           await conn.execute(statement2, [goodsId, srcItem, 'image', 'richText'])
         }
       }
-
 
       // 处理商品基本信息
       const statement1 = `
