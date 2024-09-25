@@ -1,6 +1,8 @@
 const connection = require('../app/database')
 const generateDatetimeId = require('../utils/genarateDatetimeId')
 
+const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
+
 const dayjs = require('dayjs');
 
 class GoodsService {
@@ -23,21 +25,12 @@ class GoodsService {
         goodsName, goodsUnit, goodsIsSelling, goodsRemark, goodsRichText
       ]);
 
-      if (swiperList.length > 0) {
-        const createdGoodsId = result1[0].insertId
-
-        const statement2 = `INSERT goods_swiper (goods_id, url, position, type) VALUES (?, ?, ?, ?)`;
-        
-        for (let index = 0; index < swiperList.length; index++) {
-          const swiperItem = swiperList[index];
-          await conn.execute(statement2, [createdGoodsId, swiperItem.url, index, swiperItem.type==='image'?0:1])
-        }
-      }
+      console.log('result1[0]', result1[0])
 
       // 提交事务
       await conn.commit();
 
-      return 'success'
+      return result1[0].insertId
     } catch (error) {
       // 出现错误时回滚事务
       await conn.rollback();
@@ -55,17 +48,45 @@ class GoodsService {
       goodsUnit, 
       goodsIsSelling, 
       goodsRemark = '', 
+      swiperList = [],
       goodsRichText = '<p>暂无更多介绍</p>', 
-      swiperList = [] 
     } = params;
 
     // 获取连接并开启事务
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
-
+      console.log('swiperList', swiperList)
       // require 的文件中已经通过 getConnection 获取过连接，但这个过程仅仅是检查连接池是否成功创建，并不会对后续的事务操作产生影响。
       // 即使已经调用过 getConnection，在具体的业务逻辑中，仍然需要通过 connections.getConnection() 获取一个新的连接实例来开启事务。连接池的设计就是为了能够高效地管理和复用数据库连接。
       await conn.beginTransaction();  // 开启事务
+      console.log('?');
+      // 删除轮播图和富文本的图片记录
+      const deleteGoodsMediaFileStatement = `DELETE FROM goods_media WHERE goods_id = ?`
+      console.log('??', goodsId)
+      const deleteGoodsMediaFileResult = await conn.execute(deleteGoodsMediaFileStatement, [goodsId]);
+      console.log('???')
+      // 重新插入全部的轮播图和富文本的图片记录
+      if (swiperList.length > 0) {
+        const statement2 = `INSERT goods_media (goods_id, url, fileType, useType, position) VALUES (?, ?, ?, ?, ?)`;
+        
+        for (let index = 0; index < swiperList.length; index++) {
+          const swiperItem = swiperList[index];
+          console.log([goodsId, swiperItem.url, swiperItem.type, 'swiper', index]);
+          await conn.execute(statement2, [goodsId, swiperItem.url, swiperItem.type, 'swiper', index])
+        }
+      }
+      let richTextImgSrcList = richTextExtractImageSrc(goodsRichText)
+      console.log('richTextImgSrcList', richTextImgSrcList);
+      if (richTextImgSrcList.length > 0) {
+        const statement2 = `INSERT goods_media (goods_id, url, fileType, useType) VALUES (?, ?, ?, ?)`;
+        
+        for (let index = 0; index < richTextImgSrcList.length; index++) {
+          const srcItem = richTextImgSrcList[index];
+          console.log([goodsId, srcItem, 'image', 'richText']);
+          await conn.execute(statement2, [goodsId, srcItem, 'image', 'richText'])
+        }
+      }
+
 
       // 处理商品基本信息
       const statement1 = `
@@ -77,18 +98,6 @@ class GoodsService {
       const result1 = await conn.execute(statement1, [
         goodsName, goodsUnit, goodsIsSelling, goodsRemark, goodsRichText, goodsId
       ]);
-
-      // 处理轮播图
-      // if (swiperList.length > 0) {
-      //   const createdGoodsId = result1[0].insertId
-
-      //   const statement2 = `INSERT goods_swiper (goods_id, url, position, type) VALUES (?, ?, ?, ?)`;
-        
-      //   for (let index = 0; index < swiperList.length; index++) {
-      //     const swiperItem = swiperList[index];
-      //     await conn.execute(statement2, [createdGoodsId, swiperItem.url, index, swiperItem.type==='image'?0:1])
-      //   }
-      // }
 
       // 处理批次
       if (params.batchType !== undefined) {
@@ -159,15 +168,16 @@ class GoodsService {
       const statement1 = `
         SELECT 
           goods.*, 
-          goods_swiper.*,
+          goods_media.*,
           goods.id AS goods_id, 
-          goods_swiper.id AS swiper_id
+          goods_media.id AS swiper_id
         FROM goods
-        LEFT JOIN goods_swiper ON goods.id = goods_swiper.goods_id
+        LEFT JOIN goods_media ON goods.id = goods_media.goods_id
         WHERE goods.id = ?
       `
       
       const result1 = await conn.execute(statement1, [id]);
+      console.log('result1', result1[0]);
       
       const statement2 = `
         SELECT * FROM goods_batch 
@@ -179,6 +189,18 @@ class GoodsService {
       // 提交事务
       await conn.commit();
 
+      let swiperList = []
+      result1[0].forEach(item => {
+        if (item.url) {
+          swiperList.push({
+            id: item.swiper_id,
+            url: item.url,
+            type: item.type===1?'video':'image',
+            position: item.position
+          })
+        }
+      })
+
       let goods = {
         goodsId: result1[0][0].goods_id,
         goodsName: result1[0][0].goods_name,
@@ -186,14 +208,7 @@ class GoodsService {
         goodsIsSelling: result1[0][0].goods_isSelling,
         goodsRemark: result1[0][0].goods_remark,
         goodsRichText: result1[0][0].goods_richText,
-        swiperList: result1[0].map(item => {
-          return {
-            id: item.swiper_id,
-            url: item.url,
-            type: item.type===1?'video':'image',
-            position: item.position
-          }
-        }),
+        swiperList,
         currentBatch: result2[0] ? result2[0][0] : null
       }
 
@@ -235,13 +250,14 @@ class GoodsService {
     // 构建分页查询的 SQL 语句
     const statement = `
       SELECT 
-        goods.*, 
-        CASE 
-          WHEN goods_batch.batch_status = 1 THEN 1
-          ELSE 0 
-        END as hasCurrentBatch
+          goods.*, 
+          MAX(CASE 
+                WHEN goods_batch.batch_status = 1 THEN 1
+                ELSE 0 
+              END) as hasCurrentBatch
       FROM goods 
       LEFT JOIN goods_batch ON goods.id = goods_batch.goods_id
+      GROUP BY goods.id
       ORDER BY goods.createTime DESC 
       LIMIT ? OFFSET ?
     `
@@ -260,41 +276,48 @@ class GoodsService {
     
     const statement = `
       UPDATE goods_batch
-        SET batch_status = 0
+        SET batch_status = 0, batch_endTime = ?
         WHERE id = ?
     `
-    const result = await connection.execute(statement, [id])
+    const result = await connection.execute(statement, [dayjs().format('YYYY-MM-DD HH:mm:ss'), id])
     
     return result[0]
   }
 
   async getHistoryBatchesList(params) {
+    const { id, pageNo, pageSize, batchNo, startTime, endTime } = params
+    console.log(startTime);
+    console.log(endTime);
     const queryParams = [];
   
-    let whereClause = ` WHERE 1=1`
+    let whereClause = ` WHERE goods_id = ? AND batch_status = 0`
+    queryParams.push(id)
   
-    // if (params.phone) {
-    //   whereClause += ` AND phone LIKE ?`
-    //   queryParams.push(`%${params.phone}%`)
-    // }
+    if (batchNo) {
+      whereClause += ` AND batch_no LIKE ?`
+      queryParams.push(`%${batchNo}%`)
+    }
   
-    // if (params.name) {
-    //   whereClause += ` AND name LIKE ?`
-    //   queryParams.push(`%${params.name}%`)
-    // }
+    if (startTime) {
+      whereClause += ` AND batch_startTime >= ?`
+      queryParams.push(`${startTime} 00:00:00`)
+    }
+    if (endTime) {
+      whereClause += ` AND batch_endTime <= ?`
+      queryParams.push(`${endTime } 23:59:59`)
+    }
   
     // 查询总记录数
-    const countStatement = `SELECT COUNT(*) as total FROM admin` + whereClause;
+    const countStatement = `SELECT COUNT(*) as total FROM goods_batch` + whereClause;
+    console.log(countStatement);
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
   
     // 分页：根据 pageNo 和 pageSize 动态设置 LIMIT 和 OFFSET
-    const pageNo = params.pageNo;
-    const pageSize = params.pageSize;
     const offset = (pageNo - 1) * pageSize;
   
     // 构建分页查询的 SQL 语句
-    const statement = `SELECT id,phone,name,role FROM admin` + whereClause + ` LIMIT ? OFFSET ?`;
+    const statement = `SELECT * FROM goods_batch` + whereClause + ` LIMIT ? OFFSET ?`;
     queryParams.push(String(pageSize), String(offset));
     const result = await connection.execute(statement, queryParams);
   

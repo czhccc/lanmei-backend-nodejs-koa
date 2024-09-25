@@ -8,11 +8,12 @@ const {
 
 const {
   fileHandle,
-  returnUploadResponse
+  // returnUploadResponse,
+  renameUploadedFile
 } = require('../middlewares/upload.middleware')
 
 const uploadRouter = new Router({prefix: '/upload'})
-uploadRouter.post('/', verifyToken, fileHandle, returnUploadResponse)
+uploadRouter.post('/', verifyToken, fileHandle, renameUploadedFile)
 // uploadRouter.get('/', UploadController.test)
 
 module.exports = uploadRouter

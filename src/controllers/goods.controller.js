@@ -13,8 +13,10 @@ class GoodsController {
       const result = await service.updateGoods(params)
       ctx.body = '修改成功'
     } else {
-      const result = await service.createGoods(params)
-      ctx.body = '新增成功'
+      const goodsId = await service.createGoods(params)
+      ctx.body = {
+        goodsId
+      }
     }
 
   }
@@ -24,7 +26,7 @@ class GoodsController {
     
     const { id } = params
     if (!id) {
-      throw new Error('缺少必填字段')
+      throw new Error('缺少必填字段：商品id')
     }
 
     const result = await service.getGoodsDetailById(params)
@@ -43,8 +45,9 @@ class GoodsController {
   async endCurrentBatch(ctx, next) {
     const params = ctx.request.body
     
-    if (!params.id) {
-      throw new Error('缺少必传参数')
+    const { id } = params
+    if (!id) {
+      throw new Error('缺少必填字段：商品id')
     }
     
     const result = await service.endCurrentBatch(params)
@@ -54,6 +57,11 @@ class GoodsController {
 
   async getHistoryBatchesList(ctx, next) {
     const params = ctx.request.query
+
+    const { id } = params
+    if (!id) {
+      throw new Error('缺少必填字段：商品id')
+    }
     
     const result = await service.getHistoryBatchesList(params)
 
