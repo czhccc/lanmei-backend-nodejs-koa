@@ -10,6 +10,8 @@ const useRoutes = require('../router/index')
 
 const app = new Koa()
 
+require('./scheduledTasks'); // 引入定时任务
+
 // 静态资源
 app.use(staticAssets(path.join(__dirname, '../../files')))
 

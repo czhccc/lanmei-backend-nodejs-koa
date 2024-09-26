@@ -164,7 +164,7 @@ class GoodsService {
           goods.id AS goods_id, 
           goods_media.id AS swiper_id
         FROM goods
-        LEFT JOIN goods_media ON goods.id = goods_media.goods_id
+        LEFT JOIN goods_media ON goods.id = goods_media.goods_id AND goods_media.useType = 'swiper'
         WHERE goods.id = ?
       `
       
@@ -187,7 +187,7 @@ class GoodsService {
           swiperList.push({
             id: item.swiper_id,
             url: item.url,
-            type: item.type===1?'video':'image',
+            type: item.fileType,
             position: item.position
           })
         }
