@@ -6,7 +6,7 @@ class CommentController {
 
     const result = await service.comment(params)
 
-    ctx.body = '评论成功'
+    ctx.body = result
   }
 
   async getCommentList(ctx, next) {
@@ -30,6 +30,22 @@ class CommentController {
     const params = ctx.request.query
     
     const result = await service.getCommentDetailById(params)
+
+    ctx.body = result
+  }
+
+  async getCommentListByWechat(ctx, next) {
+    const params = ctx.request.query
+    
+    const result = await service.getCommentListByWechat(params)
+
+    ctx.body = result
+  }
+
+  async getUserAllComments(ctx, next) {
+    const params = ctx.request.query
+    
+    const result = await service.getUserAllComments(params)
 
     ctx.body = result
   }

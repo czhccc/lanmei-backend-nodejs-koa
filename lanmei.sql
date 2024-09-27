@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 26/09/2024 18:38:35
+ Date: 27/09/2024 18:01:37
 */
 
 SET NAMES utf8mb4;
@@ -32,7 +32,7 @@ CREATE TABLE `aboutus`  (
 -- ----------------------------
 -- Records of aboutus
 -- ----------------------------
-INSERT INTO `aboutus` VALUES (1, '[{\"lat\": \"29.505098\", \"lon\": \"120.686843\", \"address\": \"嵊州市美汐蓝莓专业合作社\"}, {\"lat\": \"30.236717\", \"lon\": \"120.432993\", \"address\": \"萧山国际机场T4航站楼\"}]', '[{\"type\": \"手机号\", \"contact\": \"13999999999\"}, {\"type\": \"微信号\", \"contact\": \"wx123456789\"}]', '<p>hello</p><p><img src=\"http://localhost:8888/aboutUs_20240926-095925_kk4oxv.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p><p>111111111</p>');
+INSERT INTO `aboutus` VALUES (1, '[{\"lat\": \"29.505098\", \"lon\": \"120.686843\", \"address\": \"嵊州市美汐蓝莓专业合作社\"}, {\"lat\": \"30.236717\", \"lon\": \"120.432993\", \"address\": \"萧山国际机场T4航站楼\"}]', '[{\"type\": \"手机号\", \"contact\": \"13999999999\"}, {\"type\": \"微信号\", \"contact\": \"wx123456789\"}]', '<p><span style=\"color: rgb(225, 60, 57);\">hello11</span></p><p><br></p><p><br></p><p><img src=\"http://localhost:8888/aboutUs_20240926-095925_kk4oxv.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p><p><img src=\"http://localhost:8888/aboutUs_20240927-164828_dj1dct.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p><p>111111111</p>');
 
 -- ----------------------------
 -- Table structure for admin
@@ -97,7 +97,7 @@ CREATE TABLE `comment`  (
   `author` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 19 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of comment
@@ -106,6 +106,20 @@ INSERT INTO `comment` VALUES (1, '俞佳妮俞佳妮俞佳妮', '13989536936', '
 INSERT INTO `comment` VALUES (2, '俞佳妮2俞佳妮2俞佳妮2', '13989536936', '2024-09-13 22:38:28');
 INSERT INTO `comment` VALUES (3, '俞佳妮3俞佳妮3俞佳妮3', '13989536936', '2024-09-14 11:00:56');
 INSERT INTO `comment` VALUES (4, '俞佳妮4俞佳妮3俞佳妮4', '13989536936', '2024-09-14 11:32:12');
+INSERT INTO `comment` VALUES (5, '11111', '1111', '2024-09-27 15:48:03');
+INSERT INTO `comment` VALUES (6, '2', '2', '2024-09-27 15:48:07');
+INSERT INTO `comment` VALUES (7, '3', '3', '2024-09-27 15:48:11');
+INSERT INTO `comment` VALUES (8, '4', '4', '2024-09-27 15:48:14');
+INSERT INTO `comment` VALUES (9, '5', '5', '2024-09-27 15:48:18');
+INSERT INTO `comment` VALUES (10, '6', '6', '2024-09-27 15:48:21');
+INSERT INTO `comment` VALUES (11, '7', '7', '2024-09-27 15:48:24');
+INSERT INTO `comment` VALUES (12, '8', '8', '2024-09-27 15:48:27');
+INSERT INTO `comment` VALUES (13, '9', '9', '2024-09-27 15:48:30');
+INSERT INTO `comment` VALUES (14, '10', '10', '2024-09-27 15:48:34');
+INSERT INTO `comment` VALUES (15, '11', '11', '2024-09-27 15:48:37');
+INSERT INTO `comment` VALUES (16, '微信留言测试', '13989536936', '2024-09-27 17:45:42');
+INSERT INTO `comment` VALUES (17, '123', '13989536936', '2024-09-27 17:53:32');
+INSERT INTO `comment` VALUES (18, '789', '13989536936', '2024-09-27 17:53:36');
 
 -- ----------------------------
 -- Table structure for comment_response
@@ -120,7 +134,7 @@ CREATE TABLE `comment_response`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `comment_id`(`comment_id` ASC) USING BTREE,
   CONSTRAINT `comment_id` FOREIGN KEY (`comment_id`) REFERENCES `comment` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of comment_response
@@ -133,6 +147,9 @@ INSERT INTO `comment_response` VALUES (5, 1, '我是回复3我是回复3我是�
 INSERT INTO `comment_response` VALUES (6, 1, '我是回复4我是回复4我是回复4', 'czh', '2024-09-14 15:25:07');
 INSERT INTO `comment_response` VALUES (7, 1, '我是回复5我是回复5我是回复5', 'czh', '2024-09-14 15:26:40');
 INSERT INTO `comment_response` VALUES (8, 1, '我是回复6我是回复6我是回复6', 'czh', '2024-09-14 15:27:12');
+INSERT INTO `comment_response` VALUES (9, 15, '11的内容回复', 'czh', '2024-09-27 16:17:55');
+INSERT INTO `comment_response` VALUES (10, 14, '10的内容回复', 'czh', '2024-09-27 16:19:12');
+INSERT INTO `comment_response` VALUES (11, 13, '???', 'czh', '2024-09-27 17:43:06');
 
 -- ----------------------------
 -- Table structure for goods
@@ -273,12 +290,13 @@ CREATE TABLE `other_file`  (
   `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of other_file
 -- ----------------------------
 INSERT INTO `other_file` VALUES (4, 'http://localhost:8888/testtesttest.jpg', '测试用', '2024-09-25 09:48:41');
-INSERT INTO `other_file` VALUES (10, 'http://localhost:8888/aboutUs_20240926-095925_kk4oxv.jpg', 'aboutUs', '2024-09-26 09:59:28');
+INSERT INTO `other_file` VALUES (15, 'http://localhost:8888/aboutUs_20240926-095925_kk4oxv.jpg', 'aboutUs', '2024-09-27 16:54:12');
+INSERT INTO `other_file` VALUES (16, 'http://localhost:8888/aboutUs_20240927-164828_dj1dct.jpg', 'aboutUs', '2024-09-27 16:54:12');
 
 SET FOREIGN_KEY_CHECKS = 1;
