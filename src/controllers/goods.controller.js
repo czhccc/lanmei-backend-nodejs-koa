@@ -45,11 +45,6 @@ class GoodsController {
   async endCurrentBatch(ctx, next) {
     const params = ctx.request.body
     
-    const { id } = params
-    if (!id) {
-      throw new Error('缺少必填字段：商品id')
-    }
-    
     const result = await service.endCurrentBatch(params)
 
     ctx.body = '操作成功'

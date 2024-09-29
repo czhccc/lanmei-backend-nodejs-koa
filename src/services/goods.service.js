@@ -221,11 +221,11 @@ class GoodsService {
     let whereClause = ` WHERE 1=1`;
     let havingClause = '';
 
-    if (params.goodsNo !== undefined) {
+    if (params.goodsNo !== undefined && params.goodsNo) {
       whereClause += ` AND id LIKE ?`;  // 只返回有回复的评论
       queryParams.push(`%${params.goodsNo}%`)
     }
-    if (params.goodsName !== undefined) {
+    if (params.goodsName !== undefined && params.goodsName) {
       whereClause += ` AND goods_name LIKE ?`;  // 只返回有回复的评论
       queryParams.push(`%${params.goodsName}%`)
     }
@@ -282,13 +282,18 @@ class GoodsService {
           MAX(CASE 
               WHEN gb.batch_status = 1 THEN gb.batch_type 
               ELSE NULL 
-          END) AS currentBatchType
+          END) AS currentBatchType,
+          MIN(CASE 
+              WHEN gm.fileType = 'image' AND gm.useType = 'swiper' THEN gm.url 
+              ELSE NULL 
+          END) AS goodsCoverImg  -- 获取最小 position 的图片 url
       FROM (
           SELECT * 
           FROM goods 
           ${whereClause}
       ) AS g
       LEFT JOIN goods_batch AS gb ON g.id = gb.goods_id
+      LEFT JOIN goods_media AS gm ON g.id = gm.goods_id  -- 连接 goods_media 表
       GROUP BY g.id
       ${havingClause}
       ORDER BY g.createTime DESC 
@@ -305,22 +310,38 @@ class GoodsService {
   }
 
   async endCurrentBatch(params) {
-    const { id } = params
+    const { batchId, goodsId } = params
     
-    const statement = `
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
+
+      const statement1 = `
       UPDATE goods_batch
-        SET batch_status = 0, batch_endTime = ?
-        WHERE id = ?
-    `
-    const result = await connection.execute(statement, [dayjs().format('YYYY-MM-DD HH:mm:ss'), id])
-    
-    return result[0]
+          SET batch_status = 0, batch_endTime = ?
+          WHERE id = ?
+      `
+      const result1 = await conn.execute(statement1, [dayjs().format('YYYY-MM-DD HH:mm:ss'), batchId])
+
+      const statement2 = `UPDATE goods SET goods_isSelling = 0 WHERE id = ?`
+      const result2 = await conn.execute(statement2, [goodsId])
+
+      await conn.commit();
+
+      return 'success'
+    } catch (error) {
+      // 出现错误时回滚事务
+      await conn.rollback();
+      throw new Error('mysql事务失败，已回滚');
+    } finally {
+      // 释放连接
+      conn.release();
+    }
+
   }
 
   async getHistoryBatchesList(params) {
     const { id, pageNo, pageSize, batchNo, startTime, endTime } = params
-    console.log(startTime);
-    console.log(endTime);
+
     const queryParams = [];
   
     let whereClause = ` WHERE goods_id = ? AND batch_status = 0`
