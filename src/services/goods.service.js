@@ -7,7 +7,7 @@ const dayjs = require('dayjs');
 
 class GoodsService {
   async createGoods(params) {
-    const { goodsName, goodsUnit, goodsIsSelling, goodsRemark = '', goodsRichText = '<p>暂无更多介绍</p>', swiperList = [] } = params;
+    const { goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark = '', goodsRichText = '<p>暂无更多介绍</p>', swiperList = [] } = params;
     
     // 获取连接并开启事务
     const conn = await connection.getConnection();  // 从连接池获取连接
@@ -18,14 +18,12 @@ class GoodsService {
       await conn.beginTransaction();  // 开启事务
 
       const statement1 = `INSERT goods 
-        (goods_name, goods_unit, goods_isSelling, goods_remark, goods_richText) 
-        VALUES (?, ?, ?, ?, ?)`;
+        (goods_name, goods_unit, goods_categoryId, goods_isSelling, goods_remark, goods_richText) 
+        VALUES (?, ?, ?, ?, ?, ?)`;
 
       const result1 = await conn.execute(statement1, [
-        goodsName, goodsUnit, goodsIsSelling, goodsRemark, goodsRichText
+        goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText
       ]);
-
-      console.log('result1[0]', result1[0])
 
       // 提交事务
       await conn.commit();
@@ -45,7 +43,8 @@ class GoodsService {
     const { 
       goodsId,
       goodsName, 
-      goodsUnit, 
+      goodsUnit,
+      goodsCategoryId,
       goodsIsSelling, 
       goodsRemark = '', 
       swiperList = [],
@@ -83,12 +82,11 @@ class GoodsService {
       // 处理商品基本信息
       const statement1 = `
         UPDATE goods
-        SET goods_name = ?, goods_unit = ?, goods_isSelling = ?, goods_remark = ?, goods_richText = ?
+        SET goods_name = ?, goods_unit = ?, goods_categoryId = ?, goods_isSelling = ?, goods_remark = ?, goods_richText = ?
         WHERE id = ?
       `
-
       const result1 = await conn.execute(statement1, [
-        goodsName, goodsUnit, goodsIsSelling, goodsRemark, goodsRichText, goodsId
+        goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText, goodsId
       ]);
 
       // 处理批次
@@ -197,6 +195,7 @@ class GoodsService {
         goodsId: result1[0][0].goods_id,
         goodsName: result1[0][0].goods_name,
         goodsUnit: result1[0][0].goods_unit,
+        goodsCategoryId: result1[0][0].goods_categoryId,
         goodsIsSelling: result1[0][0].goods_isSelling,
         goodsRemark: result1[0][0].goods_remark,
         goodsRichText: result1[0][0].goods_richText,
@@ -220,17 +219,53 @@ class GoodsService {
     const queryParams = [];
 
     let whereClause = ` WHERE 1=1`;
+    let havingClause = '';
 
-    // if (params.hasResponsed !== undefined) {
-    //   if (params.hasResponsed === 'true') { // 在前端和后端之间通过 HTTP 请求传递参数时，尤其是在 GET 或 POST 请求的 URL 参数或请求体中，参数都会被转换成字符串格式。
-    //     whereClause += ` AND r.response IS NOT NULL`;  // 只返回有回复的评论
-    //   } else {
-    //     whereClause += ` AND r.response IS NULL`;  // 只返回没有回复的评论
-    //   }
-    // }
+    if (params.goodsNo !== undefined) {
+      whereClause += ` AND id LIKE ?`;  // 只返回有回复的评论
+      queryParams.push(`%${params.goodsNo}%`)
+    }
+    if (params.goodsName !== undefined) {
+      whereClause += ` AND goods_name LIKE ?`;  // 只返回有回复的评论
+      queryParams.push(`%${params.goodsName}%`)
+    }
+    if (params.goodsCategoryId !== undefined) {
+      whereClause += ` AND goods_categoryId = ?`;  // 只返回有回复的评论
+      queryParams.push(params.goodsCategoryId)
+    }
+    if (params.goodsIsSelling !== undefined) {
+      whereClause += ` AND goods_isSelling = ?`;  // 只返回有回复的评论
+      queryParams.push(params.goodsIsSelling)
+    }
+
+    if (params.currentBatch !== undefined) {
+      havingClause += ` HAVING `;
+      if (Number(params.currentBatch) === 0) {
+          havingClause += `currentBatchType = 0`;
+      } else if (Number(params.currentBatch) === 1) {
+          havingClause += `currentBatchType = 1`;
+      } else if (Number(params.currentBatch) === -1) {
+          havingClause += `currentBatchType IS NULL`;
+      }
+    }
 
     // 查询总记录数
-    const countStatement = `SELECT COUNT(*) as total FROM goods`
+    const countStatement = `
+      SELECT COUNT(*) as total 
+      FROM (
+          SELECT 
+              g.*, 
+              MAX(CASE 
+                  WHEN gb.batch_status = 1 THEN gb.batch_type 
+                  ELSE NULL 
+              END) AS currentBatchType
+          FROM goods AS g
+          LEFT JOIN goods_batch AS gb ON g.id = gb.goods_id
+          ${whereClause}
+          GROUP BY g.id
+          ${havingClause}
+      ) AS totalCount
+    `
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
 
@@ -240,17 +275,23 @@ class GoodsService {
     const offset = (pageNo - 1) * pageSize;
 
     // 构建分页查询的 SQL 语句
-    const statement = `
+    const statement = 
+    `
       SELECT 
-          goods.*, 
+          g.*, 
           MAX(CASE 
-                WHEN goods_batch.batch_status = 1 THEN 1
-                ELSE 0 
-              END) as hasCurrentBatch
-      FROM goods 
-      LEFT JOIN goods_batch ON goods.id = goods_batch.goods_id
-      GROUP BY goods.id
-      ORDER BY goods.createTime DESC 
+              WHEN gb.batch_status = 1 THEN gb.batch_type 
+              ELSE NULL 
+          END) AS currentBatchType
+      FROM (
+          SELECT * 
+          FROM goods 
+          ${whereClause}
+      ) AS g
+      LEFT JOIN goods_batch AS gb ON g.id = gb.goods_id
+      GROUP BY g.id
+      ${havingClause}
+      ORDER BY g.createTime DESC 
       LIMIT ? OFFSET ?
     `
 

@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 27/09/2024 18:01:37
+ Date: 29/09/2024 16:03:06
 */
 
 SET NAMES utf8mb4;
@@ -81,11 +81,42 @@ CREATE TABLE `batch`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of batch
 -- ----------------------------
+
+-- ----------------------------
+-- Table structure for category
+-- ----------------------------
+DROP TABLE IF EXISTS `category`;
+CREATE TABLE `category`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `parent_id` int NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of category
+-- ----------------------------
+INSERT INTO `category` VALUES (1, '水果', NULL);
+INSERT INTO `category` VALUES (2, '蓝莓', 1);
+INSERT INTO `category` VALUES (3, '百香果', 1);
+INSERT INTO `category` VALUES (4, '养殖类', NULL);
+INSERT INTO `category` VALUES (5, '鸭子', 4);
+INSERT INTO `category` VALUES (6, '鸡', 4);
+INSERT INTO `category` VALUES (7, '海鲜', NULL);
+INSERT INTO `category` VALUES (8, '鳖', 7);
+INSERT INTO `category` VALUES (9, '鱼', 7);
+INSERT INTO `category` VALUES (10, '虾', 7);
+INSERT INTO `category` VALUES (11, '111', NULL);
+INSERT INTO `category` VALUES (12, '222', 11);
+INSERT INTO `category` VALUES (13, '333', NULL);
+INSERT INTO `category` VALUES (14, '33', 13);
+INSERT INTO `category` VALUES (15, '444', NULL);
+INSERT INTO `category` VALUES (16, '啊啊啊啊啊啊啊啊啊啊', 15);
 
 -- ----------------------------
 -- Table structure for comment
@@ -159,47 +190,49 @@ CREATE TABLE `goods`  (
   `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
   `goods_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `goods_unit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `goods_categoryId` int NULL DEFAULT NULL,
   `goods_isSelling` int NULL DEFAULT NULL COMMENT '1上架；0不上架',
   `goods_remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `goods_richText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 51 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 52 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
-INSERT INTO `goods` VALUES (16, '商品3名称', '商品3单位', 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 21:49:43', '2024-09-19 21:49:43');
-INSERT INTO `goods` VALUES (17, '商品3名称', '商品3单位', 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:30:04', '2024-09-20 15:30:04');
-INSERT INTO `goods` VALUES (18, '无无无', '无无无', 0, '无无无', '<p>暂无更多介绍</p>', '2024-09-20 16:40:44', '2024-09-20 16:40:44');
-INSERT INTO `goods` VALUES (19, 'test4', '斤', 1, 'test4test4test4', '<p>暂无更多介绍</p>', '2024-09-24 15:44:29', '2024-09-24 15:44:29');
-INSERT INTO `goods` VALUES (20, '123', '123', 0, '123', '<p>暂无更多介绍</p>', '2024-09-24 16:00:33', '2024-09-24 16:00:33');
-INSERT INTO `goods` VALUES (21, '999', '999', 0, '999', '<p>暂无更多介绍</p>', '2024-09-24 16:03:11', '2024-09-24 16:03:11');
-INSERT INTO `goods` VALUES (22, '88', '88', 0, '88', '<p>暂无更多介绍</p>', '2024-09-24 16:03:43', '2024-09-24 16:03:43');
-INSERT INTO `goods` VALUES (24, 'test', '斤', 0, 'test~test', '<p>暂无更多介绍</p>', '2024-09-24 16:06:20', '2024-09-24 16:06:20');
-INSERT INTO `goods` VALUES (25, '1111', '1111', 0, '1111', '<p>暂无更多介绍</p>', '2024-09-24 16:07:46', '2024-09-24 16:07:46');
-INSERT INTO `goods` VALUES (26, '222', '222', 0, '222', '<p>暂无更多介绍</p>', '2024-09-24 16:09:18', '2024-09-24 16:09:18');
-INSERT INTO `goods` VALUES (27, '333', '333', 0, '333', '<p>暂无更多介绍</p>', '2024-09-24 16:09:34', '2024-09-24 16:09:34');
-INSERT INTO `goods` VALUES (28, '55', '55', 0, '55', '<p>暂无更多介绍</p>', '2024-09-24 16:11:55', '2024-09-24 16:11:55');
-INSERT INTO `goods` VALUES (29, '555', '555', 0, '555', '<p>暂无更多介绍</p>', '2024-09-24 16:13:23', '2024-09-24 16:13:23');
-INSERT INTO `goods` VALUES (30, '66', '66', 0, '66', '<p>暂无更多介绍</p>', '2024-09-24 16:14:21', '2024-09-24 16:14:21');
-INSERT INTO `goods` VALUES (31, '77', '77', 0, '77', '<p>暂无更多介绍</p>', '2024-09-24 16:17:02', '2024-09-24 16:17:02');
-INSERT INTO `goods` VALUES (32, '99', '99', 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:17:53', '2024-09-24 16:17:53');
-INSERT INTO `goods` VALUES (33, '88', '88', 0, '88', '<p>暂无更多介绍</p>', '2024-09-24 16:23:56', '2024-09-24 16:23:56');
-INSERT INTO `goods` VALUES (34, '99', '99', 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:24:20', '2024-09-24 16:24:20');
-INSERT INTO `goods` VALUES (35, '777', '777', 0, '777', '<p>暂无更多介绍</p>', '2024-09-24 16:27:26', '2024-09-24 16:27:26');
-INSERT INTO `goods` VALUES (36, '99', '99', 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:27:49', '2024-09-24 16:27:49');
-INSERT INTO `goods` VALUES (37, '88', '88', 0, '8', '<p>暂无更多介绍</p>', '2024-09-24 16:28:06', '2024-09-24 16:28:06');
-INSERT INTO `goods` VALUES (38, '8', '8', 0, '8', '<p>暂无更多介绍</p>', '2024-09-24 16:28:37', '2024-09-24 16:28:37');
-INSERT INTO `goods` VALUES (39, '1', '1', 0, '1', '<p>暂无更多介绍</p>', '2024-09-24 16:29:01', '2024-09-24 16:29:01');
-INSERT INTO `goods` VALUES (40, '1', '1', 0, '1', '<p>暂无更多介绍</p>', '2024-09-24 16:29:18', '2024-09-24 16:29:18');
-INSERT INTO `goods` VALUES (41, '3', '3', 0, '3', '<p>暂无更多介绍</p>', '2024-09-24 16:29:40', '2024-09-24 16:29:40');
-INSERT INTO `goods` VALUES (43, 'testtest', '斤', 0, 'testtesttesttest', '<p>商品介绍富文本</p><p><br></p><p><img src=\"http://localhost:8888/goods-43_20240924-174300_l373zy.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-24 17:18:46', '2024-09-24 17:43:10');
-INSERT INTO `goods` VALUES (46, '111', '111', 0, '111', '<p>111</p><p><br></p><p><img src=\"http://localhost:8888/goods-undefined_20240925-181110_v1devj.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p>', '2024-09-25 18:14:50', '2024-09-25 18:14:50');
-INSERT INTO `goods` VALUES (48, '1', '1', 0, '1', '<p>暂无更多介绍</p><p><br></p><p><img src=\"http://localhost:8888/goods-undefined_20240925-181827_6anzoe.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', '2024-09-25 18:19:31', '2024-09-25 18:19:31');
-INSERT INTO `goods` VALUES (49, '222', '222', 0, '222', '<p>暂无更多介绍</p><p><br></p><p><img src=\"http://localhost:8888/goods-49_20240926-104550_vfxi83.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p>', '2024-09-25 18:25:05', '2024-09-26 10:45:54');
-INSERT INTO `goods` VALUES (50, '11', '11', 0, '11', '<p>暂无更多介绍</p>', '2024-09-26 10:46:35', '2024-09-26 10:46:35');
+INSERT INTO `goods` VALUES (16, '商品3名称', '商品3单位', NULL, 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 21:49:43', '2024-09-19 21:49:43');
+INSERT INTO `goods` VALUES (17, '商品3名称', '商品3单位', NULL, 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:30:04', '2024-09-20 15:30:04');
+INSERT INTO `goods` VALUES (18, '无无无', '无无无', NULL, 0, '无无无', '<p>暂无更多介绍</p>', '2024-09-20 16:40:44', '2024-09-20 16:40:44');
+INSERT INTO `goods` VALUES (19, 'test4', '斤', NULL, 1, 'test4test4test4', '<p>暂无更多介绍</p>', '2024-09-24 15:44:29', '2024-09-24 15:44:29');
+INSERT INTO `goods` VALUES (20, '123', '123', NULL, 0, '123', '<p>暂无更多介绍</p>', '2024-09-24 16:00:33', '2024-09-24 16:00:33');
+INSERT INTO `goods` VALUES (21, '999', '999', NULL, 0, '999', '<p>暂无更多介绍</p>', '2024-09-24 16:03:11', '2024-09-24 16:03:11');
+INSERT INTO `goods` VALUES (22, '88', '88', NULL, 0, '88', '<p>暂无更多介绍</p>', '2024-09-24 16:03:43', '2024-09-24 16:03:43');
+INSERT INTO `goods` VALUES (24, 'test', '斤', NULL, 0, 'test~test', '<p>暂无更多介绍</p>', '2024-09-24 16:06:20', '2024-09-24 16:06:20');
+INSERT INTO `goods` VALUES (25, '1111', '1111', NULL, 0, '1111', '<p>暂无更多介绍</p>', '2024-09-24 16:07:46', '2024-09-24 16:07:46');
+INSERT INTO `goods` VALUES (26, '222', '222', NULL, 0, '222', '<p>暂无更多介绍</p>', '2024-09-24 16:09:18', '2024-09-24 16:09:18');
+INSERT INTO `goods` VALUES (27, '333', '333', NULL, 0, '333', '<p>暂无更多介绍</p>', '2024-09-24 16:09:34', '2024-09-24 16:09:34');
+INSERT INTO `goods` VALUES (28, '55', '55', NULL, 0, '55', '<p>暂无更多介绍</p>', '2024-09-24 16:11:55', '2024-09-24 16:11:55');
+INSERT INTO `goods` VALUES (29, '555', '555', NULL, 0, '555', '<p>暂无更多介绍</p>', '2024-09-24 16:13:23', '2024-09-24 16:13:23');
+INSERT INTO `goods` VALUES (30, '66', '66', NULL, 0, '66', '<p>暂无更多介绍</p>', '2024-09-24 16:14:21', '2024-09-24 16:14:21');
+INSERT INTO `goods` VALUES (31, '77', '77', NULL, 0, '77', '<p>暂无更多介绍</p>', '2024-09-24 16:17:02', '2024-09-24 16:17:02');
+INSERT INTO `goods` VALUES (32, '99', '99', NULL, 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:17:53', '2024-09-24 16:17:53');
+INSERT INTO `goods` VALUES (33, '88', '88', 10, 0, '88', '<p>暂无更多介绍</p>', '2024-09-24 16:23:56', '2024-09-29 14:20:14');
+INSERT INTO `goods` VALUES (34, '99', '99', 6, 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:24:20', '2024-09-29 14:20:12');
+INSERT INTO `goods` VALUES (35, '777', '777', 5, 0, '777', '<p>暂无更多介绍</p>', '2024-09-24 16:27:26', '2024-09-29 14:20:10');
+INSERT INTO `goods` VALUES (36, '99', '99', 6, 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:27:49', '2024-09-29 14:20:09');
+INSERT INTO `goods` VALUES (37, '88', '88', 5, 0, '8', '<p>暂无更多介绍</p>', '2024-09-24 16:28:06', '2024-09-29 14:20:04');
+INSERT INTO `goods` VALUES (38, '8', '8', 5, 0, '8', '<p>暂无更多介绍</p>', '2024-09-24 16:28:37', '2024-09-29 14:20:05');
+INSERT INTO `goods` VALUES (39, '1', '1', 6, 0, '1', '<p>暂无更多介绍</p>', '2024-09-24 16:29:01', '2024-09-29 14:20:08');
+INSERT INTO `goods` VALUES (40, '1', '1', 3, 0, '1', '<p>暂无更多介绍</p>', '2024-09-24 16:29:18', '2024-09-29 14:20:03');
+INSERT INTO `goods` VALUES (41, '3', '3', 3, 0, '3', '<p>暂无更多介绍</p>', '2024-09-24 16:29:40', '2024-09-29 14:20:01');
+INSERT INTO `goods` VALUES (43, 'testtest', '斤', 3, 0, 'testtesttesttest', '<p>商品介绍富文本</p><p><br></p><p><img src=\"http://localhost:8888/goods-43_20240924-174300_l373zy.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-24 17:18:46', '2024-09-29 14:20:02');
+INSERT INTO `goods` VALUES (46, '111', '111', 2, 0, '111', '<p>111</p><p><br></p><p><img src=\"http://localhost:8888/goods-undefined_20240925-181110_v1devj.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p>', '2024-09-25 18:14:50', '2024-09-29 14:19:59');
+INSERT INTO `goods` VALUES (48, '1', '1', 2, 0, '1', '<p>暂无更多介绍</p><p><br></p><p><img src=\"http://localhost:8888/goods-undefined_20240925-181827_6anzoe.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', '2024-09-25 18:19:31', '2024-09-29 14:20:00');
+INSERT INTO `goods` VALUES (49, '222', '222', 2, 0, '222', '<p>暂无更多介绍</p><p><br></p><p><img src=\"http://localhost:8888/goods-49_20240926-104550_vfxi83.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p>', '2024-09-25 18:25:05', '2024-09-29 14:19:57');
+INSERT INTO `goods` VALUES (50, '11', '11', 2, 1, '11', '<p>暂无更多介绍</p>', '2024-09-26 10:46:35', '2024-09-29 16:02:33');
+INSERT INTO `goods` VALUES (51, '123', '123', 8, 1, NULL, '<p>暂无更多介绍</p>', '2024-09-29 14:24:37', '2024-09-29 16:02:25');
 
 -- ----------------------------
 -- Table structure for goods_batch
@@ -226,7 +259,7 @@ CREATE TABLE `goods_batch`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods_batch
@@ -234,7 +267,11 @@ CREATE TABLE `goods_batch`  (
 INSERT INTO `goods_batch` VALUES (1, 17, '20240920154212_zp51w5', 0, 0, '2024-09-20 15:42:12', '2024-09-24 09:19:30', NULL, 10.00, 20.00, 1.0, '\"[{\\\"quantity\\\":2,\\\"discount\\\":10},{\\\"quantity\\\":4,\\\"discount\\\":20}]\"', '1111111111111111111111111111', '商品3名称', '商品3单位', '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:42:12', '2024-09-24 09:19:30');
 INSERT INTO `goods_batch` VALUES (2, 16, '20240920155132_9rsbwu', 1, 1, '2024-09-20 15:51:32', NULL, 15.00, NULL, NULL, 1.0, '\"[{\\\"quantity\\\":3,\\\"discount\\\":1},{\\\"quantity\\\":6,\\\"discount\\\":2}]\"', '2222222222222222222', '商品3名称', '商品3单位', '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:51:32', '2024-09-23 09:03:17');
 INSERT INTO `goods_batch` VALUES (3, 17, '20240924100157_g6cpvq', 1, 0, '2024-09-24 10:01:57', '2024-09-24 10:33:09', 1.00, NULL, NULL, 1.0, '\"[{\\\"quantity\\\":2,\\\"discount\\\":1},{\\\"quantity\\\":4,\\\"discount\\\":2}]\"', '22222222222', '商品3名称', '商品3单位', '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-24 10:01:57', '2024-09-24 10:33:09');
-INSERT INTO `goods_batch` VALUES (4, 17, '20240924110209_10lvfz', 1, 0, '2024-09-24 11:02:09', '2024-09-26 11:33:58', 3.00, NULL, NULL, 3.0, '\"[{\\\"quantity\\\":3,\\\"discount\\\":3}]\"', '3', '商品3名称', '商品3单位', '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-24 11:02:09', '2024-09-26 11:33:58');
+INSERT INTO `goods_batch` VALUES (4, 17, '20240924110209_10lvfz', 0, 1, '2024-09-24 11:02:09', '2024-09-26 11:33:58', 3.00, NULL, NULL, 3.0, '\"[{\\\"quantity\\\":3,\\\"discount\\\":3}]\"', '3', '商品3名称', '商品3单位', '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-24 11:02:09', '2024-09-29 15:30:03');
+INSERT INTO `goods_batch` VALUES (5, 51, '20240929155423_bab015', 0, 1, '2024-09-29 15:54:23', NULL, NULL, 0.01, 0.01, 1.0, '\"[]\"', '', '123', '123', NULL, '<p>暂无更多介绍</p>', '2024-09-29 15:54:23', '2024-09-29 15:54:23');
+INSERT INTO `goods_batch` VALUES (6, 50, '20240929155434_jto5ze', 1, 1, '2024-09-29 15:54:34', NULL, 0.01, NULL, NULL, 1.0, '\"[]\"', '', '11', '11', '11', '<p>暂无更多介绍</p>', '2024-09-29 15:54:34', '2024-09-29 15:54:34');
+INSERT INTO `goods_batch` VALUES (7, 51, '20240929160225_jpydsp', 0, 1, '2024-09-29 16:02:25', NULL, NULL, 0.01, 0.01, 1.0, '\"[]\"', '', '123', '123', NULL, '<p>暂无更多介绍</p>', '2024-09-29 16:02:25', '2024-09-29 16:02:25');
+INSERT INTO `goods_batch` VALUES (8, 50, '20240929160233_xhl28v', 1, 1, '2024-09-29 16:02:33', NULL, 0.01, NULL, NULL, 1.0, '\"[]\"', '', '11', '11', '11', '<p>暂无更多介绍</p>', '2024-09-29 16:02:33', '2024-09-29 16:02:33');
 
 -- ----------------------------
 -- Table structure for goods_media
