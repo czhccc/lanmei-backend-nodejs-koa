@@ -93,8 +93,8 @@ class GoodsService {
       if (params.batchType !== undefined) {
         const { 
           goodsId,
+          batchId,
           batchType, 
-          batchStatus, 
           batchMinPrice, 
           batchMaxPrice,
           batchUnitPrice,
@@ -103,34 +103,60 @@ class GoodsService {
           batchRemark
         } = params;
 
-        if (params.batchType === 0) { // 预订
-          const statement3 = `
-            INSERT goods_batch 
-            (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_minPrice, batch_maxPrice, batch_minQuantity, 
-            batch_discounts, batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `
+        let statement3 = null
+        let values3 = null
 
-          const result3 = await conn.execute(statement3, [
-            goodsId, generateDatetimeId(), batchType, batchStatus, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
-            batchMinPrice, batchMaxPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
-            goodsName, goodsUnit, goodsRemark, goodsRichText
-          ]);
+        if (batchType === 0) { // 预订
+          if (batchId!==undefined && batchId!==null) {
+            statement3 = `
+              UPDATE goods_batch 
+              SET batch_type=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
+              batch_minQuantity=?, batch_discounts=?, batch_remark=?
+              WHERE id=?
+            `
+            values3 = [
+              batchType, null, batchMinPrice, batchMaxPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchId
+            ]
+          } else {
+            statement3 = `
+              INSERT goods_batch 
+              (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_minPrice, batch_maxPrice, batch_minQuantity, 
+              batch_discounts, batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `
+            values3 = [
+              goodsId, generateDatetimeId(), batchType, 1, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+              batchMinPrice, batchMaxPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
+              goodsName, goodsUnit, goodsRemark, goodsRichText
+            ]
+          }
         } else if (params.batchType === 1) { // 现卖
-          const statement3 = `
-            INSERT goods_batch 
-            (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_unitPrice, batch_minQuantity, batch_discounts, 
-            batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `
-
-          const result3 = await conn.execute(statement3, [
-            goodsId, generateDatetimeId(), batchType, batchStatus, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
-            batchUnitPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
-            goodsName, goodsUnit, goodsRemark, goodsRichText
-          ]);
+          if (batchId) {
+            statement3 = `
+              UPDATE goods_batch 
+              SET batch_type=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
+              batch_minQuantity=?, batch_discounts=?, batch_remark=?
+              WHERE id=?
+            `
+            values3 = [
+              batchType, batchUnitPrice, null, null, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchId
+            ]
+          } else {
+            statement3 = `
+              INSERT goods_batch 
+              (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_unitPrice, batch_minQuantity, 
+              batch_discounts, batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `
+            values3 = [
+              goodsId, generateDatetimeId(), batchType, 1, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+              batchUnitPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
+              goodsName, goodsUnit, goodsRemark, goodsRichText
+            ]
+          }
         }
-
+        console.log('values3', values3);
+        const result3 = await conn.execute(statement3, values3);
       }
 
       // 提交事务
@@ -279,22 +305,26 @@ class GoodsService {
     `
       SELECT 
           g.*, 
-          MAX(CASE 
-              WHEN gb.batch_status = 1 THEN gb.batch_type 
-              ELSE NULL 
-          END) AS currentBatchType,
+          gb.id AS currentBatchId,
+          gb.batch_no AS currentBatchNo,
+          gb.batch_type AS currentBatchType,
+          gb.batch_unitPrice AS currentBatchUnitPrice,
+          gb.batch_minPrice AS currentBatchMinPrice,
+          gb.batch_maxPrice AS currentBatchMaxPrice,
+          
           MIN(CASE 
               WHEN gm.fileType = 'image' AND gm.useType = 'swiper' THEN gm.url 
               ELSE NULL 
           END) AS goodsCoverImg  -- 获取最小 position 的图片 url
+
       FROM (
           SELECT * 
           FROM goods 
           ${whereClause}
       ) AS g
-      LEFT JOIN goods_batch AS gb ON g.id = gb.goods_id
-      LEFT JOIN goods_media AS gm ON g.id = gm.goods_id  -- 连接 goods_media 表
-      GROUP BY g.id
+      LEFT JOIN goods_batch AS gb ON g.id = gb.goods_id AND gb.batch_status = 1
+      LEFT JOIN goods_media AS gm ON g.id = gm.goods_id  
+      GROUP BY g.id, gb.id, gb.batch_no, gb.batch_type, gb.batch_unitPrice, gb.batch_minPrice, gb.batch_maxPrice
       ${havingClause}
       ORDER BY g.createTime DESC 
       LIMIT ? OFFSET ?
