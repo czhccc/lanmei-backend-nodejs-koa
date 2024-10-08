@@ -90,7 +90,8 @@ class GoodsService {
       ]);
 
       // 处理批次
-      if (params.batchType !== undefined) {
+      if (params.batchType!==undefined && params.batchType!==null) {
+        console.log('处理批次');
         const { 
           goodsId,
           batchId,
@@ -130,7 +131,7 @@ class GoodsService {
               goodsName, goodsUnit, goodsRemark, goodsRichText
             ]
           }
-        } else if (params.batchType === 1) { // 现卖
+        } else if (batchType === 1) { // 现卖
           if (batchId) {
             statement3 = `
               UPDATE goods_batch 
