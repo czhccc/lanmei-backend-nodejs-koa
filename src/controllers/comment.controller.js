@@ -19,7 +19,7 @@ class CommentController {
 
   async response(ctx, next) {
     let params = ctx.request.body
-    params.author = ctx.theAdmin.name
+    params.author = ctx.theUser.phone
     
     const result = await service.response(params)
 

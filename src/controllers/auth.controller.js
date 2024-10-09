@@ -9,25 +9,23 @@ class AuthController {
   async authToken(ctx, next) { // 颁发token
     const params = ctx.request.body
 
-    const theAdmin = ctx.theAdmin
+    const theUser = ctx.theUser
     
-    const token = jwt.sign({ // admin信息
-      id: theAdmin.id,
-      phone: theAdmin.phone,
-      name: theAdmin.name,
-      role: theAdmin.role
-    }, 
-    TOKEN_PRIVATE_KEY,
-    {
-      expiresIn: TOKEN_DURATION,
-      algorithm: 'RS256',
-    })
+    const token = jwt.sign(
+      {
+        phone: theUser.phone,
+      }, 
+      TOKEN_PRIVATE_KEY,
+      {
+        expiresIn: TOKEN_DURATION,
+        algorithm: 'RS256',
+      }
+    )
 
-    const decodedToken = jwt.decode(token); 
+    // const decodedToken = jwt.decode(token); 
 
     ctx.body = {
-      phone: theAdmin.phone,
-      name: theAdmin.name,
+      phone: theUser.phone,
       token
     }
   }

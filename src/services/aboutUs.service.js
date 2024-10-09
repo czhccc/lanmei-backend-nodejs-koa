@@ -51,34 +51,6 @@ class AboutUsService {
 
       await conn.commit();
 
-      // // 删除指定的文件
-      // let filesFolderPath = path.join(__dirname, '..', '..', 'files');
-      // fs.readdir(filesFolderPath, (err, files) => {
-      //   if (err) {
-      //     throw new Error('读取文件目录失败')
-      //   }
-    
-      //   files.forEach(file => {
-      //     let keep = false
-      //     imgSrcList.forEach(url => {
-      //       let urlFilename = path.basename(new URL(url).pathname)
-      //       if (file === urlFilename) {
-      //         keep = true
-      //       }
-      //     })
-      //     if (!keep) {
-      //       const filePath = path.join(filesFolderPath, file);
-      //       console.log('filePath', filePath);
-
-      //       fs.unlink(filePath, (err) => {
-      //         if (err) {
-      //           throw new Error('删除文件失败')
-      //         }
-      //       })
-      //     }
-      //   });
-      // })
-
       return 'success'
     } catch (error) {
       // 出现错误时回滚事务

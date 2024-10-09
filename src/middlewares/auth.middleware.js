@@ -26,7 +26,7 @@ const verifyLoginParams = async (ctx, next) => {
     }
   }
 
-  ctx.theAdmin = adminByPhone[0] // 传递数据库中查出的admin
+  ctx.theUser = adminByPhone[0] // 传递数据库中查出的admin
 
   await next()
 }
@@ -46,7 +46,7 @@ const verifyToken = async (ctx, next) => {
     const adminInfo = jwt.verify(token, TOKEN_PUBLIC_KEY, {
       algorithm: ["RS256"]
     })
-    ctx.theAdmin = adminInfo
+    ctx.theUser = adminInfo
   } catch (error) {
     throw new Error(errorTypes.UNAUTHORIZED)
   }
