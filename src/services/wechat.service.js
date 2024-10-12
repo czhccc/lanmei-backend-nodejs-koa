@@ -1,6 +1,10 @@
-const connection = require('../app/database')
+const dayjs = require('dayjs')
+
+const connection = require('../app/database');
 
 class WechatService {
+
+  // 用户收货地址
   async addAddress(params) {
     const { name, phone, user, region, detail, isDefault } = params
 
@@ -30,7 +34,6 @@ class WechatService {
       conn.release();
     }
   }
-
   async editAddress(params) {
     const { id, name, phone, user, region, detail, isDefault } = params
 
@@ -46,7 +49,6 @@ class WechatService {
 
     return '提交成功'
   }
-
   async getAddressList(params) {
     const { user } = params
 
@@ -56,7 +58,6 @@ class WechatService {
 
     return result[0]
   }
-
   async deleteAddress(params) {
     const { id } = params
 
@@ -64,6 +65,56 @@ class WechatService {
     const result = await connection.execute(statement, [ id ]);
     return '删除成功'
   }
+
+  // 用户首页通知
+  async notify(params) {
+    const { content, thePhone } = params
+    const insertStatement = `INSERT wechat_home_notify (content, createBy) VALUES (?,?)`
+    const insertResult = await connection.execute(insertStatement, [
+      content, thePhone
+    ])
+    return insertResult
+  }
+  async getNotificationList(params) {
+    const queryParams = [];
+  
+    let whereClause = ` WHERE 1=1`;
+  
+    // if (params.phone) {
+    //   whereClause += ` AND phone LIKE ?`;
+    //   queryParams.push(`%${params.phone}%`);
+    // }
+  
+    const countStatement = `SELECT COUNT(*) as total FROM wechat_home_notify` + whereClause;
+    const totalResult = await connection.execute(countStatement, queryParams);
+    const total = totalResult[0][0].total;
+  
+    const pageNo = params.pageNo;
+    const pageSize = params.pageSize;
+    const offset = (pageNo - 1) * pageSize;
+  
+    const statement = `
+      SELECT * FROM wechat_home_notify 
+      ${whereClause} 
+      ORDER BY createTime DESC 
+      LIMIT ? OFFSET ?
+    `;
+    queryParams.push(String(pageSize), String(offset));
+    const result = await connection.execute(statement, queryParams);
+  
+    return {
+      total,
+      records: result[0],
+    };
+  }
+  async getLatestNotification() {
+    const statement = `SELECT * FROM wechat_home_notify ORDER BY createTime DESC LIMIT 1`
+    const result = await connection.execute(statement);
+    let record = result[0][0]
+    record.createTime = dayjs(record.createTime).format('YYYY-MM-DD HH:mm')
+    return record;
+  }
+  
 }
 
 module.exports = new WechatService()

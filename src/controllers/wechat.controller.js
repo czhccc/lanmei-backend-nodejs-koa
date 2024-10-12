@@ -63,35 +63,43 @@ class WechatController {
 
   }
 
+  // 用户收货地址
   async getAddressList(ctx, next) {
     const params = ctx.request.query
-
     const result = await service.getAddressList(params)
-
     ctx.body = result
   }
-
   async addAddress(ctx, next) {
     const params = ctx.request.body
-
     const result = await service.addAddress(params)
-
     ctx.body = result
   }
-
   async editAddress(ctx, next) {
     const params = ctx.request.body
-
     const result = await service.editAddress(params)
-
     ctx.body = result
   }
-  
   async deleteAddress(ctx, next) {
     const params = ctx.request.body
-
     const result = await service.deleteAddress(params)
+    ctx.body = result
+  }
 
+  // 用户首页通知
+  async getNotificationList(ctx, next) {
+    const params = ctx.request.query
+    const result = await service.getNotificationList(params)
+    ctx.body = result
+  }
+  async notify(ctx, next) {
+    let params = ctx.request.body
+    params.thePhone = ctx.theUser.phone
+    const result = await service.notify(params)
+    ctx.body = result
+  }
+  async getLatestNotification(ctx, next) {
+    let params = ctx.request.query
+    const result = await service.getLatestNotification(params)
     ctx.body = result
   }
 }

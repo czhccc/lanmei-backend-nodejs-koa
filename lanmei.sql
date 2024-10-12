@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 09/10/2024 17:31:03
+ Date: 12/10/2024 15:00:34
 */
 
 SET NAMES utf8mb4;
@@ -390,6 +390,24 @@ CREATE TABLE `order`  (
 -- ----------------------------
 
 -- ----------------------------
+-- Table structure for order_action
+-- ----------------------------
+DROP TABLE IF EXISTS `order_action`;
+CREATE TABLE `order_action`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `order_id` int NOT NULL COMMENT '订单id',
+  `action` enum('新增','删除','修改') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `detail` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '细节的文本内容',
+  `createBy` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '操作人',
+  `createTime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of order_action
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for other_file
 -- ----------------------------
 DROP TABLE IF EXISTS `other_file`;
@@ -407,5 +425,29 @@ CREATE TABLE `other_file`  (
 INSERT INTO `other_file` VALUES (4, 'http://localhost:8888/testtesttest.jpg', '测试用', '2024-09-25 09:48:41');
 INSERT INTO `other_file` VALUES (15, 'http://localhost:8888/aboutUs_20240926-095925_kk4oxv.jpg', 'aboutUs', '2024-09-27 16:54:12');
 INSERT INTO `other_file` VALUES (16, 'http://localhost:8888/aboutUs_20240927-164828_dj1dct.jpg', 'aboutUs', '2024-09-27 16:54:12');
+
+-- ----------------------------
+-- Table structure for wechat_home_notify
+-- ----------------------------
+DROP TABLE IF EXISTS `wechat_home_notify`;
+CREATE TABLE `wechat_home_notify`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `content` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `createBy` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of wechat_home_notify
+-- ----------------------------
+INSERT INTO `wechat_home_notify` VALUES (1, '爱爱爱爱爱', '13989536936', '2024-10-12 11:36:06');
+INSERT INTO `wechat_home_notify` VALUES (2, '99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999', '13989536936', '2024-10-12 11:56:21');
+INSERT INTO `wechat_home_notify` VALUES (3, '新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新', '13989536936', '2024-10-12 11:57:11');
+INSERT INTO `wechat_home_notify` VALUES (4, '新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新', '13989536936', '2024-10-12 11:57:43');
+INSERT INTO `wechat_home_notify` VALUES (5, '我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。我是通知测试。', '13989536936', '2024-10-12 14:16:40');
+INSERT INTO `wechat_home_notify` VALUES (6, '新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新', '13989536936', '2024-10-12 14:34:17');
+INSERT INTO `wechat_home_notify` VALUES (7, '', '13989536936', '2024-10-12 14:45:25');
+INSERT INTO `wechat_home_notify` VALUES (8, '我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你', '13989536936', '2024-10-12 14:48:06');
 
 SET FOREIGN_KEY_CHECKS = 1;
