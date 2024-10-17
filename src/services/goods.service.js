@@ -9,34 +9,17 @@ class GoodsService {
   async createGoods(params) {
     const { goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark = '', goodsRichText = '<p>暂无更多介绍</p>', swiperList = [] } = params;
     
-    // 获取连接并开启事务
-    const conn = await connection.getConnection();  // 从连接池获取连接
-    try {
-
-      // require 的文件中已经通过 getConnection 获取过连接，但这个过程仅仅是检查连接池是否成功创建，并不会对后续的事务操作产生影响。
-      // 即使已经调用过 getConnection，在具体的业务逻辑中，仍然需要通过 connections.getConnection() 获取一个新的连接实例来开启事务。连接池的设计就是为了能够高效地管理和复用数据库连接。
-      await conn.beginTransaction();  // 开启事务
-
-      const statement1 = `INSERT goods 
+    const statement1 = `
+      INSERT goods 
         (goods_name, goods_unit, goods_categoryId, goods_isSelling, goods_remark, goods_richText) 
-        VALUES (?, ?, ?, ?, ?, ?)`;
+        VALUES (?, ?, ?, ?, ?, ?)
+    `
 
-      const result1 = await conn.execute(statement1, [
-        goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText
-      ]);
+    const result1 = await connection.execute(statement1, [
+      goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText
+    ]);
 
-      // 提交事务
-      await conn.commit();
-
-      return result1[0].insertId
-    } catch (error) {
-      // 出现错误时回滚事务
-      await conn.rollback();
-      throw new Error('mysql事务失败，已回滚');
-    } finally {
-      // 释放连接
-      conn.release();
-    }
+    return result1[0].insertId
   }
 
   async updateGoods(params) {
@@ -48,7 +31,7 @@ class GoodsService {
       goodsIsSelling, 
       goodsRemark = '', 
       swiperList = [],
-      goodsRichText = '<p>暂无更多介绍</p>', 
+      goodsRichText = '<p>暂无更多介绍</p>',
     } = params;
 
     // 获取连接并开启事务
@@ -57,107 +40,73 @@ class GoodsService {
       // require 的文件中已经通过 getConnection 获取过连接，但这个过程仅仅是检查连接池是否成功创建，并不会对后续的事务操作产生影响。
       // 即使已经调用过 getConnection，在具体的业务逻辑中，仍然需要通过 connections.getConnection() 获取一个新的连接实例来开启事务。连接池的设计就是为了能够高效地管理和复用数据库连接。
       await conn.beginTransaction();  // 开启事务
-      // 删除轮播图和富文本的图片记录
-      const deleteGoodsMediaFileStatement = `DELETE FROM goods_media WHERE goods_id = ?`
-      const deleteGoodsMediaFileResult = await conn.execute(deleteGoodsMediaFileStatement, [goodsId]);
-      // 重新插入全部的轮播图和富文本的图片记录
-      if (swiperList.length > 0) {
-        const statement2 = `INSERT goods_media (goods_id, url, fileType, useType, position) VALUES (?, ?, ?, ?, ?)`;
+
+      // // 删除轮播图和富文本的图片记录
+      // const deleteGoodsMediaFileStatement = `DELETE FROM goods_media WHERE goods_id = ?`
+      // const deleteGoodsMediaFileResult = await conn.execute(deleteGoodsMediaFileStatement, [goodsId]);
+      // // 重新插入全部的轮播图和富文本的图片记录
+      // if (swiperList.length > 0) {
+      //   const statement2 = `INSERT goods_media (goods_id, url, fileType, useType, position) VALUES (?, ?, ?, ?, ?)`;
         
-        for (let index = 0; index < swiperList.length; index++) {
-          const swiperItem = swiperList[index];
-          await conn.execute(statement2, [goodsId, swiperItem.url, swiperItem.type, 'swiper', index])
-        }
-      }
-      let richTextImgSrcList = richTextExtractImageSrc(goodsRichText)
-      if (richTextImgSrcList.length > 0) {
-        const statement2 = `INSERT goods_media (goods_id, url, fileType, useType) VALUES (?, ?, ?, ?)`;
+      //   for (let index = 0; index < swiperList.length; index++) {
+      //     const swiperItem = swiperList[index];
+      //     await conn.execute(statement2, [goodsId, swiperItem.url, swiperItem.type, 'swiper', index])
+      //   }
+      // }
+      // let richTextImgSrcList = richTextExtractImageSrc(goodsRichText)
+      // if (richTextImgSrcList.length > 0) {
+      //   const statement2 = `INSERT goods_media (goods_id, url, fileType, useType) VALUES (?, ?, ?, ?)`;
         
-        for (let index = 0; index < richTextImgSrcList.length; index++) {
-          const srcItem = richTextImgSrcList[index];
-          await conn.execute(statement2, [goodsId, srcItem, 'image', 'richText'])
-        }
-      }
+      //   for (let index = 0; index < richTextImgSrcList.length; index++) {
+      //     const srcItem = richTextImgSrcList[index];
+      //     await conn.execute(statement2, [goodsId, srcItem, 'image', 'richText'])
+      //   }
+      // }
 
       // 处理商品基本信息
-      const statement1 = `
+      const goodsBaseInfoStatement = `
         UPDATE goods
-        SET goods_name = ?, goods_unit = ?, goods_categoryId = ?, goods_isSelling = ?, goods_remark = ?, goods_richText = ?
+        SET goods_name=?, goods_unit=?, goods_categoryId=?, goods_isSelling=?, goods_remark=?, goods_richText=?
         WHERE id = ?
       `
-      const result1 = await conn.execute(statement1, [
+      const goodsBaseInfoResult = await conn.execute(goodsBaseInfoStatement, [
         goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText, goodsId
       ]);
 
       // 处理批次
-      if (params.batchType!==undefined && params.batchType!==null) {
+      if (params.batchType) {
         console.log('处理批次');
-        const { 
-          goodsId,
-          batchId,
+        const {
+          batchNo,
           batchType, 
+          batchStartTime,
           batchMinPrice, 
           batchMaxPrice,
           batchUnitPrice,
           batchMinQuantity, 
           batchDiscounts,
-          batchRemark
+          batchRemark,
+          batchStock
         } = params;
 
-        let statement3 = null
-        let values3 = null
-
-        if (batchType === 0) { // 预订
-          if (batchId!==undefined && batchId!==null) {
-            statement3 = `
-              UPDATE goods_batch 
-              SET batch_type=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
-              batch_minQuantity=?, batch_discounts=?, batch_remark=?
-              WHERE id=?
-            `
-            values3 = [
-              batchType, null, batchMinPrice, batchMaxPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchId
-            ]
-          } else {
-            statement3 = `
-              INSERT goods_batch 
-              (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_minPrice, batch_maxPrice, batch_minQuantity, 
-              batch_discounts, batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `
-            values3 = [
-              goodsId, generateDatetimeId(), batchType, 1, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
-              batchMinPrice, batchMaxPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
-              goodsName, goodsUnit, goodsRemark, goodsRichText
-            ]
-          }
-        } else if (batchType === 1) { // 现卖
-          if (batchId) {
-            statement3 = `
-              UPDATE goods_batch 
-              SET batch_type=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
-              batch_minQuantity=?, batch_discounts=?, batch_remark=?
-              WHERE id=?
-            `
-            values3 = [
-              batchType, batchUnitPrice, null, null, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchId
-            ]
-          } else {
-            statement3 = `
-              INSERT goods_batch 
-              (goods_id, batch_no, batch_type, batch_status, batch_startTime, batch_unitPrice, batch_minQuantity, 
-              batch_discounts, batch_remark, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `
-            values3 = [
-              goodsId, generateDatetimeId(), batchType, 1, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
-              batchUnitPrice, batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark,
-              goodsName, goodsUnit, goodsRemark, goodsRichText
-            ]
-          }
-        }
-        console.log('values3', values3);
-        const result3 = await conn.execute(statement3, values3);
+        let batchStatement = `
+          UPDATE goods
+            SET batch_no=?, batch_type=?, batch_startTime=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
+                batch_minQuantity=?, batch_discounts=?, batch_remark=?, batch_stock=?
+          WHERE id=?
+        `;
+        
+        let batchValues = [
+          batchNo || generateDatetimeId(),
+          batchType, 
+          batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          batchUnitPrice || null, batchMinPrice || null, batchMaxPrice || null,
+          batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchStock,
+          goodsId
+        ];
+        
+        const batchResult = await conn.execute(batchStatement, batchValues);
+        
       }
 
       // 提交事务
@@ -182,52 +131,30 @@ class GoodsService {
     try {
       await conn.beginTransaction();  // 开启事务
 
-      const statement1 = `
-        SELECT 
-          goods.*, 
-          goods_media.*,
-          goods.id AS goods_id, 
-          goods_media.id AS swiper_id
-        FROM goods
-        LEFT JOIN goods_media ON goods.id = goods_media.goods_id AND goods_media.useType = 'swiper'
-        WHERE goods.id = ?
+      const statement = `
+        SELECT * FROM goods WHERE goods.id = ?
       `
       
-      const result1 = await conn.execute(statement1, [id]);
-      console.log('result1', result1[0]);
-      
-      const statement2 = `
-        SELECT * FROM goods_batch 
-        WHERE goods_batch.goods_id = ? AND goods_batch.batch_status = 1
-      `
-      
-      const result2 = await conn.execute(statement2, [id]);
+      const result = await conn.execute(statement, [id]);
 
       // 提交事务
       await conn.commit();
 
-      let swiperList = []
-      result1[0].forEach(item => {
-        if (item.url) {
-          swiperList.push({
-            id: item.swiper_id,
-            url: item.url,
-            type: item.fileType,
-            position: item.position
-          })
-        }
-      })
+      // let swiperList = []
+      // result[0].forEach(item => {
+      //   if (item.url) {
+      //     swiperList.push({
+      //       id: item.swiper_id,
+      //       url: item.url,
+      //       type: item.fileType,
+      //       position: item.position
+      //     })
+      //   }
+      // })
 
       let goods = {
-        goodsId: result1[0][0].goods_id,
-        goodsName: result1[0][0].goods_name,
-        goodsUnit: result1[0][0].goods_unit,
-        goodsCategoryId: result1[0][0].goods_categoryId,
-        goodsIsSelling: result1[0][0].goods_isSelling,
-        goodsRemark: result1[0][0].goods_remark,
-        goodsRichText: result1[0][0].goods_richText,
-        swiperList,
-        currentBatch: result2[0] ? result2[0][0] : null
+        ...result[0][0],
+        // swiperList,
       }
 
       return goods
@@ -368,6 +295,20 @@ class GoodsService {
       conn.release();
     }
 
+  }
+
+  async changeGoodsIsSelling(params) {
+    const { 
+      id,
+      value
+    } = params
+    
+      const statement = `
+        UPDATE goods SET goods_isSelling = ? WHERE id = ?
+      `
+      const result = await connection.execute(statement, [value, id])
+
+      return 'success'
   }
 
   async getHistoryBatchesList(params) {

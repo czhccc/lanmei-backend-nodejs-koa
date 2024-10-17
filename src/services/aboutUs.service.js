@@ -5,10 +5,20 @@ const connection = require('../app/database')
 
 const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
 
+const {
+  BASE_URL
+} = require('../app/config')
+
 class AboutUsService {
   async updateAboutUs(params) {
-    const imgSrcList = richTextExtractImageSrc(params.aboutUs)
-    console.log(imgSrcList)
+    let aboutUs = params.aboutUs
+
+    let savedAboutUs = aboutUs.replaceAll(BASE_URL, 'BASE_URL')
+
+    const imgSrcList = richTextExtractImageSrc(aboutUs).map(url => {
+      return url.replace(`${BASE_URL}/`, '')
+    })
+    console.log('imgSrcList', imgSrcList)
 
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
@@ -35,7 +45,7 @@ class AboutUsService {
         const result = await conn.execute(statement, [
           JSON.stringify(params.address),
           JSON.stringify(params.contact),
-          params.aboutUs,
+          savedAboutUs,
           1
         ])
       } else { // 没值，插入
@@ -44,7 +54,7 @@ class AboutUsService {
         const result = await conn.execute(statement, [
           JSON.stringify(params.address),
           JSON.stringify(params.contact),
-          params.aboutUs,
+          savedAboutUs,
           1
         ])
       }
@@ -66,8 +76,12 @@ class AboutUsService {
     const statement = `SELECT * from aboutUs WHERE id=1`
 
     const result = await connection.execute(statement, [])
+
     // 数据库存的是json格式，mysql2查询后自动解析
-    return result[0]
+
+    result[0][0].aboutUs = result[0][0].aboutUs.replaceAll('BASE_URL', BASE_URL)
+
+    return result[0][0]
   }
 }
 

@@ -3,27 +3,9 @@ const path = require('path')
 
 const Multer = require('koa-multer')
 
-// 格式化日期函数
-function formatDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  // 返回带有分隔符的日期时间字符串
-  return `${year}${month}${day}-${hours}${minutes}${seconds}`;
-}
-
-// 生成随机字符串函数
-function generateRandomString(length) {
-  return Math.random().toString(36).substr(2, length); // 随机生成一串字符
-}
-
 const storage = Multer.diskStorage({
   destination: (req, file, cb) => {
-    let dir = path.join(__dirname, '..', '..', 'files');
+    let dir = path.join(__dirname, '..', '..', 'files/tempFiles');
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
@@ -31,8 +13,17 @@ const storage = Multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const extname = path.extname(file.originalname);  // 获取文件扩展名
-    const formattedDate = formatDate();  // 格式化后的日期
-    const randomString = generateRandomString(6);  // 生成6位随机字符
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const formattedDate = `${year}${month}${day}${hours}${minutes}${seconds}`;  // 格式化后的日期
+
+    const randomString = Math.random().toString(36).substr(2, 6);  // 生成6位随机字符
     const filename = `${formattedDate}_${randomString}${extname}`;  // 拼接文件名
 
     req.myFilename = filename
@@ -46,82 +37,51 @@ const fileUpload = Multer({ storage })
 
 const fileHandle = fileUpload.single('file')
 
-// 自定义响应消息的中间件
-// const returnUploadResponse = async (ctx, next) => {
-//   if (!ctx.req.file) {
-//     ctx.status = 400
-//     ctx.body = {
-//       message: 'No file uploaded'
-//     }
-//     return
-//   }
-
-//   // 返回上传成功的响应信息
-  
-// }
-
 const renameUploadedFile = async (ctx, next) => {
-  let theType = ctx.req.body.flag.split('-')[0]
-  let theTypeValue = ctx.req.body.flag.split('-')[1]
+  let theType = ctx.req.body.flag.split('-')[0];
+  let theTypeValue = ctx.req.body.flag.split('-')[1];
 
-  let oldFilename = ctx.req.myFilename
-  let newFilename = theTypeValue ? `${theType}-${theTypeValue}_${oldFilename}` : `${theType}_${oldFilename}`
+  // 构造旧的文件路径
+  let oldFilename = ctx.req.myFilename;
+  let oldPath = path.join(__dirname, '..', '..', `files/tempFIles`, oldFilename);
 
-  let oldPath = path.join(__dirname, '..', '..', 'files', oldFilename);
-  let newPath = path.join(__dirname, '..', '..', 'files', newFilename);
+  // 根据文件类型设置新的存放路径和文件名
+  let newFilename = theTypeValue ? `${theType}-${theTypeValue}_${oldFilename}` : `${theType}_${oldFilename}`;
+  let newDir = path.join(__dirname, '..', '..', `files/${theType}`);
 
-  // 重命名文件
+  // 如果目标文件夹不存在，则创建
+  if (!fs.existsSync(newDir)) {
+    fs.mkdirSync(newDir, { recursive: true });
+  }
+
+  // 新的文件路径
+  let newPath = path.join(newDir, newFilename);
+
+  // 重命名并移动文件
   await new Promise((resolve, reject) => {
     fs.rename(oldPath, newPath, (err) => {
       if (err) {
-        return reject(new Error('文件重命名失败'));
+        return reject(new Error('文件重命名或移动失败'));
       }
       resolve();
     });
   });
 
-  // 设置 ctx.body 在重命名成功后
+  // 设置响应，在重命名和移动成功后返回文件信息
   ctx.body = {
-    url: `http://localhost:8888/${newFilename}`,
+    fileKey: `${theType}/${newFilename}`,  // 返回文件的新路径
     fileInfo: {
       originalname: ctx.req.file.originalname,
       filename: newFilename,
-      destination: ctx.req.file.destination,
+      destination: newDir,  // 返回新文件夹路径
       size: ctx.req.file.size,
     },
   }
-
-  // fs.rename(oldPath, newPath, (err) => {
-  //   if (err) {
-  //     console.log('err', err)
-  //     throw new Error('文件重命名失败')
-  //   }
-  //   console.log('文件重命名成功')
-  //   console.log({
-  //     url: `http://localhost:8888/${newFilename}`,
-  //     fileInfo: {
-  //       originalname: ctx.req.file.originalname,
-  //       filename: newFilename,
-  //       destination: ctx.req.file.destination,
-  //       size: ctx.req.file.size
-  //     }
-  //   })
-  //   ctx.body = {
-  //     url: `http://localhost:8888/${newFilename}`,
-  //     fileInfo: {
-  //       originalname: ctx.req.file.originalname,
-  //       filename: newFilename,
-  //       destination: ctx.req.file.destination,
-  //       size: ctx.req.file.size
-  //     }
-  //   }
-  // });
 
 }
 
 
 module.exports = {
   fileHandle,
-  // returnUploadResponse,
   renameUploadedFile
 }

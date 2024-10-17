@@ -65,3 +65,13 @@ cron.schedule('30 10 26 * *', () => {
 // setTimeout(() => {
 //   clearUselessFiles()
 // }, 2000)
+
+
+
+
+
+
+
+
+// TODO
+// 定时清理tempFiles下的文件

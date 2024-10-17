@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 12/10/2024 15:00:34
+ Date: 17/10/2024 13:59:12
 */
 
 SET NAMES utf8mb4;
@@ -32,7 +32,7 @@ CREATE TABLE `aboutus`  (
 -- ----------------------------
 -- Records of aboutus
 -- ----------------------------
-INSERT INTO `aboutus` VALUES (1, '[{\"lat\": \"29.505098\", \"lon\": \"120.686843\", \"address\": \"嵊州市美汐蓝莓专业合作社\"}, {\"lat\": \"30.236717\", \"lon\": \"120.432993\", \"address\": \"萧山国际机场T4航站楼\"}]', '[{\"type\": \"手机号\", \"contact\": \"13999999999\"}, {\"type\": \"微信号\", \"contact\": \"wx123456789\"}]', '<p><span style=\"color: rgb(225, 60, 57);\">hello11</span></p><p><br></p><p><br></p><p><img src=\"http://localhost:8888/aboutUs_20240926-095925_kk4oxv.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p><p><img src=\"http://localhost:8888/aboutUs_20240927-164828_dj1dct.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p><p>111111111</p>');
+INSERT INTO `aboutus` VALUES (1, '[{\"lat\": \"29.505098\", \"lon\": \"120.686843\", \"address\": \"嵊州市美汐蓝莓专业合作社\"}, {\"lat\": \"30.236717\", \"lon\": \"120.432993\", \"address\": \"萧山国际机场T4航站楼\"}]', '[{\"type\": \"手机号\", \"contact\": \"13999999999\"}, {\"type\": \"微信号\", \"contact\": \"wx123456789\"}]', '<p><span style=\"color: rgb(225, 60, 57);\">hello11</span></p><p><img src=\"BASE_URL/aboutUs/aboutUs_20241017114541_dceemr.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p><img src=\"BASE_URL/aboutUs/aboutUs_20241017135609_uor1l4.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p><p>111111111</p><p><br></p><p><br></p>');
 
 -- ----------------------------
 -- Table structure for admin
@@ -59,32 +59,35 @@ INSERT INTO `admin` VALUES (10, '13333333333', 'e10adc3949ba59abbe56e057f20f883e
 INSERT INTO `admin` VALUES (11, '13222222222', '96e79218965eb72c92a549dd5a330112', 'czh2', 1, '2024-09-12 16:07:30', '2024-09-12 16:11:13');
 
 -- ----------------------------
--- Table structure for batch
+-- Table structure for batch_history
 -- ----------------------------
-DROP TABLE IF EXISTS `batch`;
-CREATE TABLE `batch`  (
+DROP TABLE IF EXISTS `batch_history`;
+CREATE TABLE `batch_history`  (
   `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
   `goods_id` int NOT NULL,
-  `batch_no` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `batch_type` int NOT NULL COMMENT '预订 / 现卖',
-  `batch_startTime` datetime NOT NULL,
-  `batch_endTime` datetime NULL DEFAULT NULL,
-  `batch_sellPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '现卖时的价格',
-  `batch_minPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
-  `batch_maxPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
-  `batch_minQuantity` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '最小购买或预订的数量',
-  `batch_discount` json NULL COMMENT '优惠策略',
+  `no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `type` enum('preorder','stock') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '预订 / 现卖',
+  `startTime` datetime NOT NULL,
+  `endTime` datetime NULL DEFAULT NULL,
+  `unitPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '现卖时的价格',
+  `minPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
+  `maxPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '预订时的价格区间',
+  `minQuantity` decimal(10, 1) NOT NULL COMMENT '最小购买或预订的数量',
+  `discounts` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '优惠策略',
+  `totalSalesVolumn` decimal(10, 2) NULL DEFAULT NULL COMMENT '总出售量',
+  `coverImage` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '封面图片',
+  `remark` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '批次备注',
   `snapshot_goodsName` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
   `snapshot_goodsUnit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
   `snapshot_goodsRemark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '商品快照',
   `snapshot_goodsRichText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '商品快照',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `updateTime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
--- Records of batch
+-- Records of batch_history
 -- ----------------------------
 
 -- ----------------------------
@@ -223,48 +226,29 @@ CREATE TABLE `goods`  (
   `goods_isSelling` int NULL DEFAULT NULL COMMENT '1上架；0不上架',
   `goods_remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `goods_richText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  `goods_coverImage` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `batch_no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `batch_type` enum('preorder','stock') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `batch_startTime` datetime NULL DEFAULT NULL,
+  `batch_unitPrice` decimal(10, 2) NULL DEFAULT NULL,
+  `batch_minPrice` decimal(10, 2) NULL DEFAULT NULL,
+  `batch_maxPrice` decimal(10, 2) NULL DEFAULT NULL,
+  `batch_minQuantity` decimal(10, 1) NULL DEFAULT NULL,
+  `batch_discounts` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '已售出的总量',
+  `batch_remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `batch_stock` decimal(10, 2) NULL DEFAULT NULL COMMENT '剩余量',
+  `batch_totalSalesVolumn` decimal(10, 2) NULL DEFAULT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 55 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 59 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
-INSERT INTO `goods` VALUES (16, '商品3名称', '商品3单位', NULL, 1, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-19 21:49:43', '2024-09-19 21:49:43');
-INSERT INTO `goods` VALUES (17, '商品3名称', '商品3单位', NULL, 0, '商品3备注商品3备注商品3备注', '<p>我是商品3</p><p><br></p><p><img src=\"http://localhost:8888/1726753142143.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-20 15:30:04', '2024-10-08 09:44:07');
-INSERT INTO `goods` VALUES (18, '无无无', '无无无', NULL, 0, '无无无', '<p>暂无更多介绍</p>', '2024-09-20 16:40:44', '2024-09-20 16:40:44');
-INSERT INTO `goods` VALUES (19, 'test4', '斤', NULL, 1, 'test4test4test4', '<p>暂无更多介绍</p>', '2024-09-24 15:44:29', '2024-09-24 15:44:29');
-INSERT INTO `goods` VALUES (20, '123', '123', NULL, 0, '123', '<p>暂无更多介绍</p>', '2024-09-24 16:00:33', '2024-09-24 16:00:33');
-INSERT INTO `goods` VALUES (21, '999', '999', NULL, 0, '999', '<p>暂无更多介绍</p>', '2024-09-24 16:03:11', '2024-09-24 16:03:11');
-INSERT INTO `goods` VALUES (22, '88', '88', NULL, 0, '88', '<p>暂无更多介绍</p>', '2024-09-24 16:03:43', '2024-09-24 16:03:43');
-INSERT INTO `goods` VALUES (24, 'test', '斤', NULL, 0, 'test~test', '<p>暂无更多介绍</p>', '2024-09-24 16:06:20', '2024-09-24 16:06:20');
-INSERT INTO `goods` VALUES (25, '1111', '1111', NULL, 0, '1111', '<p>暂无更多介绍</p>', '2024-09-24 16:07:46', '2024-09-24 16:07:46');
-INSERT INTO `goods` VALUES (26, '222', '222', NULL, 0, '222', '<p>暂无更多介绍</p>', '2024-09-24 16:09:18', '2024-09-24 16:09:18');
-INSERT INTO `goods` VALUES (27, '333', '333', NULL, 0, '333', '<p>暂无更多介绍</p>', '2024-09-24 16:09:34', '2024-09-24 16:09:34');
-INSERT INTO `goods` VALUES (28, '55', '55', NULL, 0, '55', '<p>暂无更多介绍</p>', '2024-09-24 16:11:55', '2024-09-24 16:11:55');
-INSERT INTO `goods` VALUES (29, '555', '555', NULL, 0, '555', '<p>暂无更多介绍</p>', '2024-09-24 16:13:23', '2024-09-24 16:13:23');
-INSERT INTO `goods` VALUES (30, '66', '66', NULL, 0, '66', '<p>暂无更多介绍</p>', '2024-09-24 16:14:21', '2024-09-24 16:14:21');
-INSERT INTO `goods` VALUES (31, '77', '77', NULL, 0, '77', '<p>暂无更多介绍</p>', '2024-09-24 16:17:02', '2024-09-24 16:17:02');
-INSERT INTO `goods` VALUES (32, '99', '99', NULL, 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:17:53', '2024-09-24 16:17:53');
-INSERT INTO `goods` VALUES (33, '88', '88', 10, 0, '88', '<p>暂无更多介绍</p>', '2024-09-24 16:23:56', '2024-09-29 14:20:14');
-INSERT INTO `goods` VALUES (34, '99', '99', 6, 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:24:20', '2024-09-29 14:20:12');
-INSERT INTO `goods` VALUES (35, '777', '777', 5, 0, '777', '<p>暂无更多介绍</p>', '2024-09-24 16:27:26', '2024-09-29 14:20:10');
-INSERT INTO `goods` VALUES (36, '99', '99', 6, 0, '99', '<p>暂无更多介绍</p>', '2024-09-24 16:27:49', '2024-09-29 14:20:09');
-INSERT INTO `goods` VALUES (37, '88', '88', 5, 1, '8', '<p>暂无更多介绍</p>', '2024-09-24 16:28:06', '2024-09-30 14:24:33');
-INSERT INTO `goods` VALUES (38, '8', '8', 5, 0, '8', '<p>暂无更多介绍</p>', '2024-09-24 16:28:37', '2024-09-29 14:20:05');
-INSERT INTO `goods` VALUES (39, '1', '1', 6, 1, '1', '<p>暂无更多介绍</p>', '2024-09-24 16:29:01', '2024-09-30 11:52:46');
-INSERT INTO `goods` VALUES (40, '1', '1', 3, 0, '1', '<p>暂无更多介绍</p>', '2024-09-24 16:29:18', '2024-09-29 18:11:05');
-INSERT INTO `goods` VALUES (41, '3', '3', 3, 0, '3', '<p>暂无更多介绍</p>', '2024-09-24 16:29:40', '2024-09-29 14:20:01');
-INSERT INTO `goods` VALUES (43, 'testtest', '斤', 3, 0, 'testtesttesttest', '<p>商品介绍富文本</p><p><br></p><p><img src=\"http://localhost:8888/goods-43_20240924-174300_l373zy.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-09-24 17:18:46', '2024-09-29 14:20:02');
-INSERT INTO `goods` VALUES (46, '111', '111', 2, 0, '111', '<p>111</p><p><br></p><p><img src=\"http://localhost:8888/goods-undefined_20240925-181110_v1devj.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p>', '2024-09-25 18:14:50', '2024-09-29 14:19:59');
-INSERT INTO `goods` VALUES (48, '1', '1', 2, 0, '1', '<p>暂无更多介绍</p><p><br></p><p><img src=\"http://localhost:8888/goods-undefined_20240925-181827_6anzoe.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', '2024-09-25 18:19:31', '2024-09-29 14:20:00');
-INSERT INTO `goods` VALUES (49, '222', '222', 2, 1, '222', '<p>暂无更多介绍</p><p><br></p><p><img src=\"http://localhost:8888/goods-49_20240926-104550_vfxi83.jpg\" alt=\"\" data-href=\"\" style=\"width: 30%;\"/></p>', '2024-09-25 18:25:05', '2024-09-30 14:31:11');
-INSERT INTO `goods` VALUES (50, '11', '11', 2, 1, '11', '<p>暂无更多介绍</p>', '2024-09-26 10:46:35', '2024-09-29 16:02:33');
-INSERT INTO `goods` VALUES (51, '123', '123', 8, 0, NULL, '<p>暂无更多介绍</p>', '2024-09-29 14:24:37', '2024-10-02 18:03:01');
-INSERT INTO `goods` VALUES (52, '烤鸭', '只', 20, 0, '7890', '<p>暂无更多介绍</p>', '2024-10-02 17:57:46', '2024-10-02 17:57:46');
-INSERT INTO `goods` VALUES (53, '烤鸭', '只', 20, 0, '', '<p>暂无更多介绍</p>', '2024-10-02 17:58:57', '2024-10-02 17:58:57');
-INSERT INTO `goods` VALUES (54, '11', '11', 2, 0, '11', '<p>暂无更多介绍</p>', '2024-10-03 11:51:34', '2024-10-03 11:51:34');
+INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓', '斤', 2, 1, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', NULL, '20241015105924_yajmt4', 'stock', '2024-10-15 11:27:11', 2.00, NULL, NULL, 2.0, '[{\"quantity\":2,\"discount\":2},{\"quantity\":4,\"discount\":4}]', '222222222222222222222222222222222222222222222222222222', 200.00, NULL, '2024-10-15 09:14:14', '2024-10-17 09:13:55');
+INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', NULL, '20241015123317_b57mn5', 'preorder', '2024-10-15 12:33:17', NULL, 10.00, 20.00, 3.0, '[{\"quantity\":1,\"discount\":1},{\"quantity\":2,\"discount\":2}]', '我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注', 20.00, NULL, '2024-10-15 11:49:45', '2024-10-15 12:33:17');
+INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 0, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p>', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-17 09:20:31', '2024-10-17 09:20:41');
 
 -- ----------------------------
 -- Table structure for goods_batch
@@ -291,7 +275,7 @@ CREATE TABLE `goods_batch`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 35 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 36 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods_batch
@@ -320,6 +304,7 @@ INSERT INTO `goods_batch` VALUES (31, 54, '20241003122159_gim9r5', 0, 0, '2024-1
 INSERT INTO `goods_batch` VALUES (32, 54, '20241003122230_f6n4d7', 0, 0, '2024-10-03 12:22:30', '2024-10-03 12:22:34', NULL, 0.01, 0.01, 1.0, '[]', '', '11', '11', '11', '<p>暂无更多介绍</p>', '2024-10-03 12:22:30', '2024-10-03 12:22:34');
 INSERT INTO `goods_batch` VALUES (33, 54, '20241003122339_hztbek', 0, 0, '2024-10-03 12:23:39', '2024-10-03 12:23:51', NULL, 0.01, 0.01, 1.0, '[]', '', '11', '11', '11', '<p>暂无更多介绍</p>', '2024-10-03 12:23:39', '2024-10-03 12:23:51');
 INSERT INTO `goods_batch` VALUES (34, 54, '20241003122358_0r7es4', 1, 0, '2024-10-03 12:23:58', '2024-10-03 12:24:01', 0.01, NULL, NULL, 1.0, '[]', '', '11', '11', '11', '<p>暂无更多介绍</p>', '2024-10-03 12:23:58', '2024-10-03 12:24:01');
+INSERT INTO `goods_batch` VALUES (35, 55, '20241015094037_7vl4hg', 0, 1, '2024-10-15 09:40:37', NULL, NULL, 0.01, 0.02, 1.0, '[{\"quantity\":2,\"discount\":1},{\"quantity\":4,\"discount\":2}]', '我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注', '测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '2024-10-15 09:40:37', '2024-10-15 09:40:37');
 
 -- ----------------------------
 -- Table structure for goods_media
@@ -339,15 +324,6 @@ CREATE TABLE `goods_media`  (
 -- ----------------------------
 -- Records of goods_media
 -- ----------------------------
-INSERT INTO `goods_media` VALUES (21, 48, 'http://localhost:8888/goods-48_20240929-165348_ym7a97.jpg', 'image', 'swiper', 0, '2024-09-29 16:54:38');
-INSERT INTO `goods_media` VALUES (22, 48, 'http://localhost:8888/goods-48_20240929-165436_gaegyn.png', 'image', 'swiper', 1, '2024-09-29 16:54:38');
-INSERT INTO `goods_media` VALUES (23, 48, 'http://localhost:8888/goods-undefined_20240925-181827_6anzoe.png', 'image', 'richText', NULL, '2024-09-29 16:54:38');
-INSERT INTO `goods_media` VALUES (24, 50, 'http://localhost:8888/goods-50_20240929-173359_t3281c.png', 'image', 'swiper', 0, '2024-09-29 17:34:01');
-INSERT INTO `goods_media` VALUES (35, 49, 'http://localhost:8888/goods-49_20240926-104539_dfs35t.jpg', 'image', 'swiper', 0, '2024-09-30 14:31:11');
-INSERT INTO `goods_media` VALUES (36, 49, 'http://localhost:8888/goods-49_20240926-104544_qyvvu3.mp4', 'video', 'swiper', 1, '2024-09-30 14:31:11');
-INSERT INTO `goods_media` VALUES (37, 49, 'http://localhost:8888/goods-49_20240926-104550_vfxi83.jpg', 'image', 'richText', NULL, '2024-09-30 14:31:11');
-INSERT INTO `goods_media` VALUES (43, 51, 'http://localhost:8888/goods-51_20240929-173411_mj48u0.png', 'image', 'swiper', 0, '2024-10-02 18:06:55');
-INSERT INTO `goods_media` VALUES (59, 54, 'http://localhost:8888/goods-54_20241003-115138_nuredx.png', 'image', 'swiper', 0, '2024-10-03 12:23:58');
 
 -- ----------------------------
 -- Table structure for order
@@ -401,7 +377,7 @@ CREATE TABLE `order_action`  (
   `createBy` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '操作人',
   `createTime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of order_action
@@ -417,14 +393,14 @@ CREATE TABLE `other_file`  (
   `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 28 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of other_file
 -- ----------------------------
 INSERT INTO `other_file` VALUES (4, 'http://localhost:8888/testtesttest.jpg', '测试用', '2024-09-25 09:48:41');
-INSERT INTO `other_file` VALUES (15, 'http://localhost:8888/aboutUs_20240926-095925_kk4oxv.jpg', 'aboutUs', '2024-09-27 16:54:12');
-INSERT INTO `other_file` VALUES (16, 'http://localhost:8888/aboutUs_20240927-164828_dj1dct.jpg', 'aboutUs', '2024-09-27 16:54:12');
+INSERT INTO `other_file` VALUES (26, 'aboutUs/aboutUs_20241017114541_dceemr.png', 'aboutUs', '2024-10-17 13:56:11');
+INSERT INTO `other_file` VALUES (27, 'aboutUs/aboutUs_20241017135609_uor1l4.jpg', 'aboutUs', '2024-10-17 13:56:11');
 
 -- ----------------------------
 -- Table structure for wechat_home_notify
