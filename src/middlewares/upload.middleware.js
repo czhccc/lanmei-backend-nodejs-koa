@@ -37,7 +37,7 @@ const fileUpload = Multer({ storage })
 
 const fileHandle = fileUpload.single('file')
 
-const renameUploadedFile = async (ctx, next) => {
+const classifyUploadedFile = async (ctx, next) => {
   let theType = ctx.req.body.flag.split('-')[0];
   let theTypeValue = ctx.req.body.flag.split('-')[1];
 
@@ -83,5 +83,5 @@ const renameUploadedFile = async (ctx, next) => {
 
 module.exports = {
   fileHandle,
-  renameUploadedFile
+  classifyUploadedFile
 }

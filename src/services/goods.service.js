@@ -5,6 +5,10 @@ const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
 
 const dayjs = require('dayjs');
 
+const {
+  BASE_URL
+} = require('../app/config')
+
 class GoodsService {
   async createGoods(params) {
     const { goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark = '', goodsRichText = '<p>暂无更多介绍</p>', swiperList = [] } = params;
@@ -30,6 +34,7 @@ class GoodsService {
       goodsCategoryId,
       goodsIsSelling, 
       goodsRemark = '', 
+      coverImageUrl,
       swiperList = [],
       goodsRichText = '<p>暂无更多介绍</p>',
     } = params;
@@ -41,36 +46,55 @@ class GoodsService {
       // 即使已经调用过 getConnection，在具体的业务逻辑中，仍然需要通过 connections.getConnection() 获取一个新的连接实例来开启事务。连接池的设计就是为了能够高效地管理和复用数据库连接。
       await conn.beginTransaction();  // 开启事务
 
-      // // 删除轮播图和富文本的图片记录
-      // const deleteGoodsMediaFileStatement = `DELETE FROM goods_media WHERE goods_id = ?`
-      // const deleteGoodsMediaFileResult = await conn.execute(deleteGoodsMediaFileStatement, [goodsId]);
-      // // 重新插入全部的轮播图和富文本的图片记录
-      // if (swiperList.length > 0) {
-      //   const statement2 = `INSERT goods_media (goods_id, url, fileType, useType, position) VALUES (?, ?, ?, ?, ?)`;
-        
-      //   for (let index = 0; index < swiperList.length; index++) {
-      //     const swiperItem = swiperList[index];
-      //     await conn.execute(statement2, [goodsId, swiperItem.url, swiperItem.type, 'swiper', index])
-      //   }
+      // 删除封面图、轮播图和富文本的图片记录
+      const deleteGoodsMediaFileStatement = `DELETE FROM goods_media WHERE goods_id = ?`
+      const deleteGoodsMediaFileResult = await conn.execute(deleteGoodsMediaFileStatement, [goodsId]);
+
+      // 重新插入封面图的图片记录
+      // if (coverImageUrl) {
+      //   const coverImageStatement = `INSERT goods_media (goods_id, url, fileType, useType) VALUES (?, ?, ?, ?)`;
+      //   await conn.execute(coverImageStatement, [goodsId, coverImageUrl.replace(`${BASE_URL}/`, ''), 'image', 'coverImage'])
       // }
-      // let richTextImgSrcList = richTextExtractImageSrc(goodsRichText)
-      // if (richTextImgSrcList.length > 0) {
-      //   const statement2 = `INSERT goods_media (goods_id, url, fileType, useType) VALUES (?, ?, ?, ?)`;
+
+      // 重新插入轮播图的图片记录
+      if (swiperList.length > 0) {
+        const statement2 = `INSERT goods_media (goods_id, url, fileType, useType, position) VALUES (?, ?, ?, ?, ?)`;
         
-      //   for (let index = 0; index < richTextImgSrcList.length; index++) {
-      //     const srcItem = richTextImgSrcList[index];
-      //     await conn.execute(statement2, [goodsId, srcItem, 'image', 'richText'])
-      //   }
-      // }
+        for (let index = 0; index < swiperList.length; index++) {
+          const swiperItem = swiperList[index];
+          await conn.execute(statement2, [goodsId, swiperItem.url.replace(`${BASE_URL}/`, ''), swiperItem.type, 'swiper', index])
+        }
+      }
+
+
+      // 重新插入富文本的图片记录
+      const imgSrcList = richTextExtractImageSrc(goodsRichText).map(url => {
+        return url.replace(`${BASE_URL}/`, '')
+      })
+      console.log('imgSrcList', imgSrcList)
+      
+      for (const imgFileName of imgSrcList) {
+        const goodsRichTextImgsStatement = `
+          INSERT goods_media (goods_id, url, fileType, useType) VALUES (?,?,?,?)
+        `
+        const goodsRichTextImgsResult = await conn.execute(goodsRichTextImgsStatement, [goodsId, imgFileName, 'image', 'richText'])
+      }
 
       // 处理商品基本信息
       const goodsBaseInfoStatement = `
         UPDATE goods
-        SET goods_name=?, goods_unit=?, goods_categoryId=?, goods_isSelling=?, goods_remark=?, goods_richText=?
+        SET goods_name=?, goods_unit=?, goods_categoryId=?, goods_isSelling=?, goods_remark=?, goods_richText=?, goods_coverImage=?
         WHERE id = ?
       `
       const goodsBaseInfoResult = await conn.execute(goodsBaseInfoStatement, [
-        goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText, goodsId
+        goodsName, 
+        goodsUnit, 
+        goodsCategoryId, 
+        goodsIsSelling, 
+        goodsRemark, 
+        goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), 
+        coverImageUrl.replace(`${BASE_URL}/`, ''),
+        goodsId
       ]);
 
       // 处理批次
@@ -116,6 +140,7 @@ class GoodsService {
     } catch (error) {
       // 出现错误时回滚事务
       await conn.rollback();
+      console.log(error)
       throw new Error('mysql事务失败，已回滚');
     } finally {
       // 释放连接
@@ -131,36 +156,43 @@ class GoodsService {
     try {
       await conn.beginTransaction();  // 开启事务
 
-      const statement = `
-        SELECT * FROM goods WHERE goods.id = ?
+      const goodsBaseInfoStatement = `
+        SELECT * FROM goods WHERE id = ?
       `
-      
-      const result = await conn.execute(statement, [id]);
+      const goodsBaseInfoResult = await conn.execute(goodsBaseInfoStatement, [id]);
+
+      // const goodsCoverImageStatement = `
+      //   SELECT * FROM goods_media WHERE goods_id = ? AND useType = 'coverImage'
+      // `
+      // const goodsCoverImageResult = await conn.execute(goodsCoverImageStatement, [id]);
+
+      const goodsSwiperStatement = `
+        SELECT * FROM goods_media WHERE goods_id = ? AND useType = 'swiper'
+      `
+      const goodsSwiperResult = await conn.execute(goodsSwiperStatement, [id]);
 
       // 提交事务
       await conn.commit();
 
-      // let swiperList = []
-      // result[0].forEach(item => {
-      //   if (item.url) {
-      //     swiperList.push({
-      //       id: item.swiper_id,
-      //       url: item.url,
-      //       type: item.fileType,
-      //       position: item.position
-      //     })
-      //   }
-      // })
+      let swiperList = goodsSwiperResult[0].map(item => {
+        return {
+          ...item,
+          url: `${BASE_URL}/${item.url}`
+        }
+      })
 
       let goods = {
-        ...result[0][0],
-        // swiperList,
+        ...goodsBaseInfoResult[0][0],
+        goods_richText: goodsBaseInfoResult[0][0].goods_richText.replaceAll('BASE_URL', BASE_URL),
+        goods_coverImage: `${BASE_URL}/${goodsBaseInfoResult[0][0].goods_coverImage}`,
+        swiperList,
       }
 
       return goods
     } catch (error) {
       // 出现错误时回滚事务
       await conn.rollback();
+      console.log(error);
       throw new Error('mysql事务失败，已回滚');
     } finally {
       // 释放连接
