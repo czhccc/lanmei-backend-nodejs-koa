@@ -24,12 +24,12 @@ class AboutUsService {
     try {
       await conn.beginTransaction();  // 开启事务
 
-      const deleteStatement = `DELETE FROM other_file WHERE type = 'aboutUs'`
+      const deleteStatement = `DELETE FROM about_us_images`
       const imgUrlResult = await conn.execute(deleteStatement, [])
 
       for (const item of imgSrcList) {
-        const insertStatement = `INSERT other_file (url, type) VALUES (?,?)`
-        const queryResult = await conn.execute(insertStatement, [item, 'aboutUs'])
+        const insertStatement = `INSERT about_us_images (url) VALUES (?)`
+        const queryResult = await conn.execute(insertStatement, [item])
       }
 
       const queryStatement = `SELECT COUNT(*) as total FROM aboutUs`

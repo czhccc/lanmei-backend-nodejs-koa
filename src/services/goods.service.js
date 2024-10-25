@@ -50,12 +50,6 @@ class GoodsService {
       const deleteGoodsMediaFileStatement = `DELETE FROM goods_media WHERE goods_id = ?`
       const deleteGoodsMediaFileResult = await conn.execute(deleteGoodsMediaFileStatement, [goodsId]);
 
-      // 重新插入封面图的图片记录
-      // if (coverImageUrl) {
-      //   const coverImageStatement = `INSERT goods_media (goods_id, url, fileType, useType) VALUES (?, ?, ?, ?)`;
-      //   await conn.execute(coverImageStatement, [goodsId, coverImageUrl.replace(`${BASE_URL}/`, ''), 'image', 'coverImage'])
-      // }
-
       // 重新插入轮播图的图片记录
       if (swiperList.length > 0) {
         const statement2 = `INSERT goods_media (goods_id, url, fileType, useType, position) VALUES (?, ?, ?, ?, ?)`;
@@ -161,11 +155,6 @@ class GoodsService {
       `
       const goodsBaseInfoResult = await conn.execute(goodsBaseInfoStatement, [id]);
 
-      // const goodsCoverImageStatement = `
-      //   SELECT * FROM goods_media WHERE goods_id = ? AND useType = 'coverImage'
-      // `
-      // const goodsCoverImageResult = await conn.execute(goodsCoverImageStatement, [id]);
-
       const goodsSwiperStatement = `
         SELECT * FROM goods_media WHERE goods_id = ? AND useType = 'swiper'
       `
@@ -184,7 +173,7 @@ class GoodsService {
       let goods = {
         ...goodsBaseInfoResult[0][0],
         goods_richText: goodsBaseInfoResult[0][0].goods_richText.replaceAll('BASE_URL', BASE_URL),
-        goods_coverImage: `${BASE_URL}/${goodsBaseInfoResult[0][0].goods_coverImage}`,
+        goods_coverImage: goodsBaseInfoResult[0][0].goods_coverImage ? `${BASE_URL}/${goodsBaseInfoResult[0][0].goods_coverImage}` : null,
         swiperList,
       }
 
@@ -203,54 +192,38 @@ class GoodsService {
 
   async getGoodsList(params) {
     const queryParams = [];
-
+    console.log(params);
     let whereClause = ` WHERE 1=1`;
-    let havingClause = '';
 
     if (params.goodsNo !== undefined && params.goodsNo) {
-      whereClause += ` AND id LIKE ?`;  // 只返回有回复的评论
+      whereClause += ` AND id LIKE ?`;
       queryParams.push(`%${params.goodsNo}%`)
     }
     if (params.goodsName !== undefined && params.goodsName) {
-      whereClause += ` AND goods_name LIKE ?`;  // 只返回有回复的评论
+      whereClause += ` AND goods_name LIKE ?`;
       queryParams.push(`%${params.goodsName}%`)
     }
     if (params.goodsCategoryId !== undefined) {
-      whereClause += ` AND goods_categoryId = ?`;  // 只返回有回复的评论
-      queryParams.push(params.goodsCategoryId)
+      whereClause += ` AND goods_categoryId = ?`;
+      queryParams.push(Number(params.goodsCategoryId))
     }
     if (params.goodsIsSelling !== undefined) {
-      whereClause += ` AND goods_isSelling = ?`;  // 只返回有回复的评论
+      whereClause += ` AND goods_isSelling = ?`;
       queryParams.push(params.goodsIsSelling)
     }
-
-    if (params.currentBatch !== undefined) {
-      havingClause += ` HAVING `;
-      if (Number(params.currentBatch) === 0) {
-          havingClause += `currentBatchType = 0`;
-      } else if (Number(params.currentBatch) === 1) {
-          havingClause += `currentBatchType = 1`;
-      } else if (Number(params.currentBatch) === -1) {
-          havingClause += `currentBatchType IS NULL`;
+    if (params.batchType !== undefined) {
+      if (params.batchType!=='null') {
+        whereClause += ` AND batch_type = ?`;
+        queryParams.push(params.batchType)
+      } else if (params.batchType==='null') {
+        whereClause += ` AND batch_type IS NULL`;
       }
+      
     }
 
     // 查询总记录数
     const countStatement = `
-      SELECT COUNT(*) as total 
-      FROM (
-          SELECT 
-              g.*, 
-              MAX(CASE 
-                  WHEN gb.batch_status = 1 THEN gb.batch_type 
-                  ELSE NULL 
-              END) AS currentBatchType
-          FROM goods AS g
-          LEFT JOIN goods_batch AS gb ON g.id = gb.goods_id
-          ${whereClause}
-          GROUP BY g.id
-          ${havingClause}
-      ) AS totalCount
+      SELECT COUNT(*) as total FROM goods ${whereClause}
     `
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
@@ -263,30 +236,8 @@ class GoodsService {
     // 构建分页查询的 SQL 语句
     const statement = 
     `
-      SELECT 
-          g.*, 
-          gb.id AS currentBatchId,
-          gb.batch_no AS currentBatchNo,
-          gb.batch_type AS currentBatchType,
-          gb.batch_unitPrice AS currentBatchUnitPrice,
-          gb.batch_minPrice AS currentBatchMinPrice,
-          gb.batch_maxPrice AS currentBatchMaxPrice,
-          
-          MIN(CASE 
-              WHEN gm.fileType = 'image' AND gm.useType = 'swiper' THEN gm.url 
-              ELSE NULL 
-          END) AS goodsCoverImg  -- 获取最小 position 的图片 url
-
-      FROM (
-          SELECT * 
-          FROM goods 
-          ${whereClause}
-      ) AS g
-      LEFT JOIN goods_batch AS gb ON g.id = gb.goods_id AND gb.batch_status = 1
-      LEFT JOIN goods_media AS gm ON g.id = gm.goods_id  
-      GROUP BY g.id, gb.id, gb.batch_no, gb.batch_type, gb.batch_unitPrice, gb.batch_minPrice, gb.batch_maxPrice
-      ${havingClause}
-      ORDER BY g.createTime DESC 
+      SELECT * FROM goods ${whereClause}
+      ORDER BY createTime DESC 
       LIMIT ? OFFSET ?
     `
 
@@ -295,31 +246,57 @@ class GoodsService {
 
     return {
       total,  // 总记录数
-      records: result[0],  // 当前页的数据
+      records: result[0].map(item => {
+        return {
+          ...item,
+          goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
+        }
+      }),  // 当前页的数据
     };
   }
 
   async endCurrentBatch(params) {
-    const { batchId, goodsId } = params
+    const { goodsId } = params
     
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
+      await conn.beginTransaction();  // 开启事务
 
-      const statement1 = `
-      UPDATE goods_batch
-          SET batch_status = 0, batch_endTime = ?
+      const getBatchInfoStatement = `
+        SELECT * FROM goods WHERE id = ?
+      `
+      const getBatchInfoResult = await connection.execute(getBatchInfoStatement, [goodsId]);
+      const batchInfo = getBatchInfoResult[0][0];
+
+      const endCurrentStatement = `
+        UPDATE goods
+          SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+          batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
+          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL
           WHERE id = ?
       `
-      const result1 = await conn.execute(statement1, [dayjs().format('YYYY-MM-DD HH:mm:ss'), batchId])
+      const endCurrentResult = await conn.execute(endCurrentStatement, [goodsId])
 
-      const statement2 = `UPDATE goods SET goods_isSelling = 0 WHERE id = ?`
-      const result2 = await conn.execute(statement2, [goodsId])
+      const InsertHistoryBatchStatement = `
+        INSERT batch_history 
+          (goods_id, no, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
+            discounts, totalSalesVolumn, coverImage, remark, 
+              snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `
+      const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
+        goodsId, batchInfo.batch_no, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+          batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
+          batchInfo.batch_discounts, 0, batchInfo.goods_coverImage, batchInfo.batch_remark,
+            batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText
+      ])
 
       await conn.commit();
 
       return 'success'
     } catch (error) {
       // 出现错误时回滚事务
+      console.log(error)
       await conn.rollback();
       throw new Error('mysql事务失败，已回滚');
     } finally {

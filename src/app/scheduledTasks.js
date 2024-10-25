@@ -8,44 +8,120 @@ const connection = require('./database')
 const clearUselessFiles = async () => {
   console.log('执行定时任务');
 
-  let queryOtherFileStatement = `SELECT * FROM other_file`;
-  const queryOtherFileResult = await connection.execute(queryOtherFileStatement, []);
-  const otherFileName = queryOtherFileResult[0].map(item => path.basename(new URL(item.url).pathname))
-
-  let queryGoodsFileStatement = `SELECT * FROM goods_media`;
-  const queryGoodsFileResult = await connection.execute(queryGoodsFileStatement, []);
-  const goodsFileName = queryGoodsFileResult[0].map(item => path.basename(new URL(item.url).pathname))
-
-  let allFileName = [...otherFileName, ...goodsFileName]
-  console.log('allFileName', allFileName);
-
-  
-  let filesFolderPath = path.join(__dirname, '..', '..', 'files');
-  fs.readdir(filesFolderPath, (err, files) => {
+  // 清理 aboutUs 文件夹
+  let getAboutUsFilesStatement = `SELECT * FROM about_us_images`;
+  const getAboutUsFilesResult = await connection.execute(getAboutUsFilesStatement, []);
+  const aboutUsFiles = getAboutUsFilesResult[0].map(item => item.url.split('/')[1])
+  console.log('aboutUsFiles', aboutUsFiles);
+  let aboutUsFolderPath = path.join(__dirname, '..', '..', 'files', 'aboutUs');
+  fs.readdir(aboutUsFolderPath, (err, files) => {
     if (err) {
-      throw new Error('读取文件目录失败')
+      throw new Error('读取aboutUs文件目录失败')
     }
     
     files.forEach(file => {
-      // console.log('file', file)
       let keep = false
-      allFileName.forEach(filename => {
+      aboutUsFiles.forEach(filename => {
         if (file === filename) {
           keep = true
         }
       })
       if (!keep) {
-        const filePath = path.join(filesFolderPath, file);
+        const filePath = path.join(aboutUsFolderPath, file);
         fs.unlink(filePath, (err) => {
           if (err) {
-            throw new Error('删除文件失败')
+            throw new Error('删除aboutUs文件失败')
           }
         })
       }
     });
 
-    console.log('文件清理完成')
+    console.log('aboutUs文件清理完成')
   })
+
+
+  // 清理 goods_richText 文件夹
+  let getGoodsRichTextFilesStatement = `SELECT * FROM goods_media WHERE useType='richText'`;
+  const getGoodsRichTextFilesResult = await connection.execute(getGoodsRichTextFilesStatement, []);
+  const goodsRichTextFiles = getGoodsRichTextFilesResult[0].map(item => item.url.split('/')[1])
+  let goodsRichTextFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_richText');
+  fs.readdir(goodsRichTextFolderPath, (err, files) => {
+    if (err) {
+      throw new Error('读取goodsRichText文件目录失败')
+    }
+    
+    files.forEach(file => {
+      let keep = false
+      goodsRichTextFiles.forEach(filename => {
+        if (file === filename) {
+          keep = true
+        }
+      })
+      if (!keep) {
+        const filePath = path.join(goodsRichTextFolderPath, file);
+        fs.unlink(filePath, (err) => {
+          if (err) {
+            throw new Error('删除goodsRichText文件失败')
+          }
+        })
+      }
+    });
+
+    console.log('goodsRichText文件清理完成')
+  })
+
+
+  // 清理 goods_richText 文件夹
+  let getGoodsSwiperFilesStatement = `SELECT * FROM goods_media WHERE useType='swiper'`;
+  const getGoodsSwiperFilesResult = await connection.execute(getGoodsSwiperFilesStatement, []);
+  const goodsSwiperFiles = getGoodsSwiperFilesResult[0].map(item => item.url.split('/')[1])
+  let goodsSwiperFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_swiper');
+  fs.readdir(goodsSwiperFolderPath, (err, files) => {
+    if (err) {
+      throw new Error('读取goodsSwiper文件目录失败')
+    }
+    
+    files.forEach(file => {
+      let keep = false
+      goodsSwiperFiles.forEach(filename => {
+        if (file === filename) {
+          keep = true
+        }
+      })
+      if (!keep) {
+        const filePath = path.join(goodsSwiperFolderPath, file);
+        fs.unlink(filePath, (err) => {
+          if (err) {
+            throw new Error('删除goodsSwiper文件失败')
+          }
+        })
+      }
+    });
+
+    console.log('goodsSwiper文件清理完成')
+  })
+
+
+  // 清理 tempFiles文件夹
+  let tempFilesFolderPath = path.join(__dirname, '..', '..', 'files', 'tempFiles');
+  fs.readdir(tempFilesFolderPath, (err, files) => {
+    if (err) {
+      throw new Error('读取tempFiles文件目录失败')
+    }
+    
+    files.forEach(file => {
+      const filePath = path.join(tempFilesFolderPath, file);
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          throw new Error('删除tempFiles文件失败')
+        }
+      })
+    });
+
+    console.log('tempFiles文件清理完成')
+  })
+
+  
 }
 
 // 执行定时任务
@@ -58,13 +134,13 @@ const clearUselessFiles = async () => {
 // | └──────── 小时 (0-23)
 // └────────── 分钟 (0-59)
 
-cron.schedule('30 10 26 * *', () => {
+// cron.schedule('30 10 26 * *', () => {
   // clearUselessFiles()
-});
+// });
 
 // setTimeout(() => {
 //   clearUselessFiles()
-// }, 2000)
+// }, 4000)
 
 
 
