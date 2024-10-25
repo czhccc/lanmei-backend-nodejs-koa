@@ -272,7 +272,8 @@ class GoodsService {
         UPDATE goods
           SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL
+          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL,
+          goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentResult = await conn.execute(endCurrentStatement, [goodsId])
@@ -325,25 +326,25 @@ class GoodsService {
 
     const queryParams = [];
   
-    let whereClause = ` WHERE goods_id = ? AND batch_status = 0`
+    let whereClause = ` WHERE goods_id = ?`
     queryParams.push(id)
   
     if (batchNo) {
-      whereClause += ` AND batch_no LIKE ?`
+      whereClause += ` AND no LIKE ?`
       queryParams.push(`%${batchNo}%`)
     }
   
     if (startTime) {
-      whereClause += ` AND batch_startTime >= ?`
+      whereClause += ` AND startTime >= ?`
       queryParams.push(`${startTime} 00:00:00`)
     }
     if (endTime) {
-      whereClause += ` AND batch_endTime <= ?`
+      whereClause += ` AND endTime <= ?`
       queryParams.push(`${endTime } 23:59:59`)
     }
   
     // 查询总记录数
-    const countStatement = `SELECT COUNT(*) as total FROM goods_batch` + whereClause;
+    const countStatement = `SELECT COUNT(*) as total FROM batch_history` + whereClause;
     console.log(countStatement);
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
@@ -352,7 +353,7 @@ class GoodsService {
     const offset = (pageNo - 1) * pageSize;
   
     // 构建分页查询的 SQL 语句
-    const statement = `SELECT * FROM goods_batch` + whereClause + ` LIMIT ? OFFSET ?`;
+    const statement = `SELECT * FROM batch_history` + whereClause + ` LIMIT ? OFFSET ?`;
     queryParams.push(String(pageSize), String(offset));
     const result = await connection.execute(statement, queryParams);
   
