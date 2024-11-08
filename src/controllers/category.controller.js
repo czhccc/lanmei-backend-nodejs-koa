@@ -10,7 +10,7 @@ class CategoryController {
   }
 
   async getCategory(ctx, next) {
-    const params = ctx.request.body
+    const params = ctx.request.query
 
     const result = await service.getCategory(params)
 

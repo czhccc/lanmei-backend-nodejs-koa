@@ -46,21 +46,56 @@ class AboutUsService {
   }
 
   async getCategory(params) {
-    const statement = `SELECT * from category`
+    let whereClause = ``
+    if (params.isSelling) {
+      console.log('AND g.goods_isSelling = 1');
+      whereClause = ` AND g.goods_isSelling = 1`
+    }
+    const statement = `
+      SELECT 
+          c.*,
+          COUNT(g.id) AS goodsCount
+      FROM 
+          category c
+      LEFT JOIN 
+          goods g ON c.id = g.goods_categoryId ${whereClause}
+      GROUP BY 
+          c.id;
+    `
 
     const result = await connection.execute(statement, [])
-
     let treeData = []
-    for (const item of result[0]) {
-      if (!item.parent_id) {
-        treeData.push({
-          ...item,
-          children: []
-        })
-      } else {
-        let parent = treeData.find(el => el.id === item.parent_id)
-        parent.children.push(item)
+
+    if (!params.isSelling) {
+      for (const item of result[0]) {
+        if (!item.parent_id) {
+          treeData.push({
+            id: item.id,
+            name: item.name,
+            children: []
+          })
+        } else {
+          let parent = treeData.find(el => el.id === item.parent_id)
+          parent.children.push(item)
+        }
       }
+    } else {
+      let tempArr = []
+      for (const item of result[0]) {
+        if (!item.parent_id) {
+          tempArr.push({
+            id: item.id,
+            name: item.name,
+            children: []
+          })
+        } else {
+          let parent = tempArr.find(el => el.id === item.parent_id)
+          if (item.goodsCount > 0) {
+            parent.children.push(item)
+          }
+        }
+      }
+      treeData = tempArr.filter(item => item.children.length > 0)
     }
 
     return treeData
