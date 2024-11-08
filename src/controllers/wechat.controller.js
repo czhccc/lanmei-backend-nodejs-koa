@@ -84,6 +84,11 @@ class WechatController {
     const result = await service.deleteAddress(params)
     ctx.body = result
   }
+  async getDefaultAddress(ctx, next) {
+    const params = ctx.request.query
+    const result = await service.getDefaultAddress(params)
+    ctx.body = result
+  }
 
   // 用户首页通知
   async getNotificationList(ctx, next) {

@@ -65,6 +65,16 @@ class WechatService {
     const result = await connection.execute(statement, [ id ]);
     return '删除成功'
   }
+  async getDefaultAddress(params) {
+    const { user } = params
+
+    const statement = `SELECT * from customer_address WHERE user=? AND isDefault=1`
+
+    const result = await connection.execute(statement, [ user ])
+
+    return result[0]
+  }
+
 
   // 用户首页通知
   async notify(params) {

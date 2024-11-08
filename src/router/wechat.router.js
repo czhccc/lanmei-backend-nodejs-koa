@@ -17,6 +17,7 @@ wechatRouter.get('/address', verifyToken, WechatController.getAddressList)
 wechatRouter.post('/address/add', verifyToken, WechatController.addAddress)
 wechatRouter.post('/address/edit', verifyToken, WechatController.editAddress)
 wechatRouter.post('/address/delete', verifyToken, WechatController.deleteAddress)
+wechatRouter.get('/address/default', verifyToken, WechatController.getDefaultAddress)
 
 // 用户首页通知
 wechatRouter.get('/notify', verifyToken, tableResponseHandler, WechatController.getNotificationList)
