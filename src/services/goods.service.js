@@ -280,13 +280,13 @@ class GoodsService {
 
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
-          (goods_id, no, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
+          (no, goods_id、, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
             discounts, totalSalesVolumn, coverImage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
-        goodsId, batchInfo.batch_no, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+        batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
           batchInfo.batch_discounts, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
             batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText

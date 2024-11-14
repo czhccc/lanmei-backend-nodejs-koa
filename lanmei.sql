@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 08/11/2024 18:05:57
+ Date: 14/11/2024 17:59:35
 */
 
 SET NAMES utf8mb4;
@@ -79,9 +79,8 @@ INSERT INTO `admin` VALUES (11, '13222222222', '96e79218965eb72c92a549dd5a330112
 -- ----------------------------
 DROP TABLE IF EXISTS `batch_history`;
 CREATE TABLE `batch_history`  (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `goods_id` int NOT NULL,
   `no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `goods_id` int NOT NULL,
   `type` enum('preorder','stock') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '预订 / 现卖',
   `startTime` datetime NOT NULL,
   `endTime` datetime NULL DEFAULT NULL,
@@ -99,14 +98,14 @@ CREATE TABLE `batch_history`  (
   `snapshot_goodsRichText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '商品快照',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`no` DESC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of batch_history
 -- ----------------------------
-INSERT INTO `batch_history` VALUES (1, 58, '20241023114034_qndwqc', 'stock', '2024-10-23 11:40:34', '2024-10-25 10:43:14', 20.00, NULL, NULL, 1.0, '[{\"quantity\":2,\"discount\":2},{\"quantity\":4,\"discount\":4}]', 0.00, 'goods_coverImage/goods_coverImage-58_20241022175507_s7ospp.jpg', '我是批次备注', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-10-25 10:43:14', NULL);
-INSERT INTO `batch_history` VALUES (2, 55, '20241015105924_yajmt4', 'stock', '2024-10-15 11:27:11', '2024-11-08 15:46:09', 2.00, NULL, NULL, 2.0, '[{\"quantity\":2,\"discount\":2},{\"quantity\":4,\"discount\":4}]', 0.00, '', '222222222222222222222222222222222222222222222222222222', '测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '2024-11-08 15:46:09', NULL);
+INSERT INTO `batch_history` VALUES ('20241023114034_qndwqc', 58, 'stock', '2024-10-23 11:40:34', '2024-10-25 10:43:14', 20.00, NULL, NULL, 1.0, '[{\"quantity\":2,\"discount\":2},{\"quantity\":4,\"discount\":4}]', 0.00, 'goods_coverImage/goods_coverImage-58_20241022175507_s7ospp.jpg', '我是批次备注', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '2024-10-25 10:43:14', NULL);
+INSERT INTO `batch_history` VALUES ('20241015105924_yajmt4', 55, 'stock', '2024-10-15 11:27:11', '2024-11-08 15:46:09', 2.00, NULL, NULL, 2.0, '[{\"quantity\":2,\"discount\":2},{\"quantity\":4,\"discount\":4}]', 0.00, '', '222222222222222222222222222222222222222222222222222222', '测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '2024-11-08 15:46:09', NULL);
 
 -- ----------------------------
 -- Table structure for category
@@ -269,7 +268,7 @@ INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试�
 INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', NULL, '20241015123317_b57mn5', 'preorder', '2024-10-15 12:33:17', NULL, 10.00, 20.00, 3.0, '[{\"quantity\":1,\"discount\":1},{\"quantity\":2,\"discount\":2}]', '我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注', 20.00, NULL, '2024-10-15 11:49:45', '2024-10-15 12:33:17');
 INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 1, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', 'goods_coverImage/goods_coverImage-58_20241022175507_s7ospp.jpg', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-17 09:20:31', '2024-10-25 10:43:14');
 INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 1, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '20241108150452_op4ki6', 'preorder', '2024-11-08 15:04:52', NULL, 10.00, 20.00, 2.0, '[{\"quantity\":4,\"discount\":10},{\"quantity\":8,\"discount\":20}]', '批次备注', 1000.00, NULL, '2024-10-25 10:16:32', '2024-11-08 15:57:58');
-INSERT INTO `goods` VALUES (60, '111', '111', 2, 1, '111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '20241108161821_q86q8e', 'preorder', '2024-11-08 16:18:21', NULL, 0.01, 0.02, 1.0, '[]', '', 0.00, NULL, '2024-11-08 16:17:53', '2024-11-08 16:18:28');
+INSERT INTO `goods` VALUES (60, '111', '111', 2, 1, '111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '20241108161821_q86q8e', 'preorder', '2024-11-08 16:18:21', NULL, 0.01, 0.02, 1.0, '[{\"quantity\":2,\"discount\":0.01},{\"quantity\":4,\"discount\":0.02}]', '', 0.00, NULL, '2024-11-08 16:17:53', '2024-11-13 17:57:07');
 
 -- ----------------------------
 -- Table structure for goods_media
@@ -301,39 +300,46 @@ INSERT INTO `goods_media` VALUES (113, 55, 'goods_swiper/goods_swiper-55_2024110
 DROP TABLE IF EXISTS `order`;
 CREATE TABLE `order`  (
   `id` int NOT NULL AUTO_INCREMENT,
+  `order_no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '订单号：年月日时分秒 + 手机号后四位',
   `user` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '下单用户的手机号',
   `goods_id` int NOT NULL,
-  `batch_id` int NOT NULL,
-  `order_type` enum('自动生成','手动添加') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
-  `goods_type` enum('预订','现货') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `batch_no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '批次编号',
+  `generation_type` enum('auto','manual') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '自动生成还是手动添加',
+  `batch_type` enum('preorder','stock') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '预订 / 现货',
   `num` int NOT NULL COMMENT '数量',
-  `receive_method` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '收货方式：快递、送货上门',
-  `receive_name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `receive_phone` varchar(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `receive_region` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `receive_detail` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `receive_method` enum('post','delivery') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '收货方式：快递、送货上门',
+  `receive_name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '收货人姓名',
+  `receive_phone` varchar(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '收货人手机号',
+  `receive_region` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '收获人 省市区',
+  `receive_address` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '收货人 详细地址',
   `remark_customer` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '用户的备注信息',
-  `total_price` decimal(10, 2) NOT NULL COMMENT '总金额（优惠前）',
+  `total_price` decimal(10, 2) NULL DEFAULT NULL COMMENT '总金额（优惠前）-现货',
+  `total_minPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '总金额（优惠前）-预订',
+  `total_maxPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '总金额（优惠前）-预订',
   `discount_amount` decimal(10, 2) NULL DEFAULT NULL COMMENT '优惠的金额',
-  `discount` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '优惠策略，JSON格式的数组对象',
-  `delivery` enum('邮寄','送货上门') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '邮寄 / 送货上门',
   `postage` decimal(10, 2) NOT NULL COMMENT '邮费',
-  `status` enum('已预订','已付款','待付款','已完结') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `status` enum('reserved','paid','unpaid','completed') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '订单状态（现货：已付款->送货/到货后变完结）（预订：已预订->）',
   `pay_time` datetime NULL DEFAULT NULL COMMENT '付款时间',
   `end_time` datetime NULL DEFAULT NULL COMMENT '完结时间',
   `order_time` datetime NULL DEFAULT NULL COMMENT '预订时间，预订类型才有',
+  `snapshot_coverImage` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '商品快照 封面图',
   `snapshot_goodsName` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
   `snapshot_goodsUnit` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
   `snapshot_goodsRemark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
   `snapshot_goodsRichText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
+  `snapshot_discounts` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '优惠策略，JSON格式的数组对象',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of order
 -- ----------------------------
+INSERT INTO `order` VALUES (2, '202411141647286936', '13989536936', 60, '20241108161821_q86q8e', 'auto', 'preorder', 2, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '999', NULL, 0.02, 0.04, 0.01, 10.00, 'reserved', NULL, NULL, '2024-11-14 16:47:28', 'http://localhost:8888/goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '111', '111', '111', '<p>暂无更多介绍</p>', '[{\"quantity\":2,\"discount\":0.01},{\"quantity\":4,\"discount\":0.02}]', '2024-11-14 16:47:28', '2024-11-14 17:31:20');
+INSERT INTO `order` VALUES (3, '202411141721306936', '13989536936', 55, '20241108154857_ghxj0v', 'auto', 'stock', 6, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '99999', 540.00, NULL, NULL, 10.00, 10.00, 'paid', NULL, NULL, '2024-11-14 17:21:30', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[{\"quantity\":6,\"discount\":10},{\"quantity\":10,\"discount\":20}]', '2024-11-14 17:21:30', '2024-11-14 17:31:35');
+INSERT INTO `order` VALUES (4, '202411141733486936', '13989536936', 55, '20241108154857_ghxj0v', 'auto', 'stock', 1, 'delivery', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', 90.00, NULL, NULL, 0.00, 10.00, 'paid', NULL, NULL, '2024-11-14 17:33:48', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[{\"quantity\":6,\"discount\":10},{\"quantity\":10,\"discount\":20}]', '2024-11-14 17:33:48', NULL);
+INSERT INTO `order` VALUES (5, '202411141759036936', '13989536936', 60, '20241108161821_q86q8e', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', NULL, 0.01, 0.02, 0.00, 10.00, 'reserved', NULL, NULL, '2024-11-14 17:59:03', 'http://localhost:8888/goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '111', '111', '111', '<p>暂无更多介绍</p>', '[{\"quantity\":2,\"discount\":0.01},{\"quantity\":4,\"discount\":0.02}]', '2024-11-14 17:59:03', NULL);
 
 -- ----------------------------
 -- Table structure for order_action
@@ -347,7 +353,7 @@ CREATE TABLE `order_action`  (
   `createBy` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '操作人',
   `createTime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of order_action
