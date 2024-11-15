@@ -64,12 +64,12 @@ class OrderService {
     `
 
     if (params.order_no) {
-      query += ` AND order_no LIKE %?%`
-      queryParams.push(params.order_no)
+      query += ` AND order_no LIKE ?`
+      queryParams.push(`%${params.order_no}%`)  // 将百分号%包括在查询参数内
     }
     if (params.snapshot_goodsName) {
-      query += ` AND snapshot_goodsName LIKE %?%`
-      queryParams.push(params.snapshot_goodsName)
+      query += ` AND snapshot_goodsName LIKE ?`
+      queryParams.push(`%${params.snapshot_goodsName}%`)
     }
     if (params.status) {
       query += ` AND status=?`
@@ -77,18 +77,26 @@ class OrderService {
     }
     if (params.startTime || params.endTime) {
       query += ` AND (createTime >= ? OR ? IS NULL) AND (createTime <= ? OR ? IS NULL)`
-
-      queryParams.push(params.startTime||null, params.endTime||null)
+      queryParams.push(params.startTime || null, params.startTime || null, params.endTime || null, params.endTime || null)
     }
+
+    // 查询总记录数
+    const countStatement = `
+      SELECT COUNT(*) as total FROM \`order\` WHERE generation_type='auto' AND user=? AND batch_type=? ${query}
+    `
+    const totalResult = await connection.execute(countStatement, queryParams);
+    const total = totalResult[0][0].total;  // 获取总记录数
 
     const pageNo = params.pageNo;
     const pageSize = params.pageSize;
     const offset = (pageNo - 1) * pageSize;
     queryParams.push(String(pageSize), String(offset))
-
     const result = await connection.execute(statement, queryParams)
 
-    return result[0]
+    return {
+      total,  // 总记录数
+      records: result[0]
+    };
   }
 }
 

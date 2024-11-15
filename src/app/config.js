@@ -8,7 +8,7 @@ const BASE_URL = 'http://localhost:8888'
 
 const TOKEN_PRIVATE_KEY = fs.readFileSync(path.resolve(__dirname, './token-keys/private.pem'))
 const TOKEN_PUBLIC_KEY = fs.readFileSync(path.resolve(__dirname, './token-keys/public.pem'))
-const TOKEN_DURATION = 1000 * 60 * 60 * 24
+const TOKEN_DURATION = 1000 * 60 * 60 * 24 * 7
 
 module.exports = {
   APP_PORT,

@@ -6,10 +6,12 @@ const {
   verifyToken
 } = require('../middlewares/auth.middleware')
 
+const tableResponseHandler = require('../middlewares/global/table-response-handler');
+
 const orderRouter = new Router({prefix: '/order'})
 
 orderRouter.post('/createOrder', verifyToken, OrderController.createOrder)
 
-orderRouter.get('/getOrderList', verifyToken, OrderController.getOrderList)
+orderRouter.get('/getOrderList', verifyToken, tableResponseHandler, OrderController.getOrderList)
 
 module.exports = orderRouter
