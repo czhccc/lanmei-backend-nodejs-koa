@@ -54,25 +54,35 @@ class OrderService {
   }
 
   async getOrderList(params) {
-    let query = ''
-    let queryParams = [params.user, params.batch_type]
+    let query = ' WHERE 1=1'
+    let queryParams = []
 
-    const statement = `
-      SELECT * from \`order\` WHERE generation_type='auto' AND user=? AND batch_type=? ${query} 
-        ORDER BY createTime DESC 
-          LIMIT ? OFFSET ?
-    `
-
+    if (params.user) {
+      query += ` AND user LIKE ?`
+      queryParams.push(`%${params.user}%`)
+    }
+    if (params.batch_type) {
+      query += ` AND batch_type = ?`
+      queryParams.push(params.batch_type)
+    }
+    if (params.generation_type) {
+      query += ` AND generation_type = ?`
+      queryParams.push(params.generation_type)
+    }
     if (params.order_no) {
       query += ` AND order_no LIKE ?`
-      queryParams.push(`%${params.order_no}%`)  // 将百分号%包括在查询参数内
+      queryParams.push(`%${params.order_no}%`)
+    }
+    if (params.batch_no) {
+      query += ` AND order_no LIKE ?`
+      queryParams.push(`%${params.batch_no}%`)
     }
     if (params.snapshot_goodsName) {
       query += ` AND snapshot_goodsName LIKE ?`
       queryParams.push(`%${params.snapshot_goodsName}%`)
     }
     if (params.status) {
-      query += ` AND status=?`
+      query += ` AND status = ?`
       queryParams.push(params.status)
     }
     if (params.startTime || params.endTime) {
@@ -82,11 +92,16 @@ class OrderService {
 
     // 查询总记录数
     const countStatement = `
-      SELECT COUNT(*) as total FROM \`order\` WHERE generation_type='auto' AND user=? AND batch_type=? ${query}
+      SELECT COUNT(*) as total FROM \`order\` ${query}
     `
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
 
+    const statement = `
+      SELECT * from \`order\` ${query} 
+        ORDER BY createTime DESC 
+          LIMIT ? OFFSET ?
+    `
     const pageNo = params.pageNo;
     const pageSize = params.pageSize;
     const offset = (pageNo - 1) * pageSize;
