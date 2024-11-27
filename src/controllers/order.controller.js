@@ -16,6 +16,30 @@ class OrderController {
 
     ctx.body = result
   }
+
+  async getOrderDetailById(ctx, next) {
+    const params = ctx.request.query
+
+    const result = await service.getOrderDetailById(params)
+
+    ctx.body = result
+  }
+
+  async updateOrder(ctx, next) {
+    const params = ctx.request.body
+    params.thePhone = ctx.theUser.phone
+    const result = await service.updateOrder(params)
+
+    ctx.body = result
+  }
+
+  async getOrderLogsList(ctx, next) {
+    const params = ctx.request.query
+    params.thePhone = ctx.theUser.phone
+    const result = await service.getOrderLogsList(params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new OrderController()

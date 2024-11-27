@@ -14,4 +14,10 @@ orderRouter.post('/createOrder', verifyToken, OrderController.createOrder)
 
 orderRouter.get('/getOrderList', verifyToken, tableResponseHandler, OrderController.getOrderList)
 
+orderRouter.get('/getOrderDetailById', verifyToken, OrderController.getOrderDetailById)
+
+orderRouter.post('/updateOrder', verifyToken, OrderController.updateOrder)
+
+orderRouter.get('/getOrderLogsList', verifyToken, tableResponseHandler, OrderController.getOrderLogsList)
+
 module.exports = orderRouter
