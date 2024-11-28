@@ -4,9 +4,7 @@ const errorTypes = require('../../constants/error-types');
 module.exports = async (ctx, next) => {
   try {
     await next();
-
     if (ctx.body) {
-      console.log('有ctx.body');
       if (typeof ctx.body === 'string') {
         ctx.body = {
           code: 200,

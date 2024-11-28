@@ -3,10 +3,10 @@ const service = require('../services/order.service')
 class OrderController {
   async createOrder(ctx, next) {
     const params = ctx.request.body
-
+    params.thePhone = ctx.theUser.phone
     const result = await service.createOrder(params)
-
-    ctx.body = '操作成功'
+    console.log('controller result', result);
+    ctx.body = result
   }
 
   async getOrderList(ctx, next) {

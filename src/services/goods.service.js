@@ -249,6 +249,7 @@ class GoodsService {
       records: result[0].map(item => {
         return {
           ...item,
+          goods_richText: item.goods_richText.replaceAll('BASE_URL', BASE_URL),
           goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
         }
       }),  // 当前页的数据
@@ -285,6 +286,12 @@ class GoodsService {
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
+      console.log([
+        batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+          batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
+          batchInfo.batch_discounts, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
+            batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText
+      ]);
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,

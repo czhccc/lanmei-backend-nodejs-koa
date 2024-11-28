@@ -13,7 +13,7 @@ class OrderService {
       await conn.beginTransaction();  // 开启事务
 
       const {
-        user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, total_price, remark_self
+        goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, total_price, remark_self
       } = params
 
       let statement = null
@@ -22,33 +22,32 @@ class OrderService {
       if (batch_type === 'preorder') {
         statement = `
           INSERT \`order\` 
-            (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, pay_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, status, order_no, remark_self) 
+            (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, order_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, status, order_no, remark_self) 
               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `
         result = await conn.execute(statement, [
-          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_minPrice, total_maxPrice, 'reserved', `${dayjs().format('YYYYMMDDHHmmss')}${user.slice(-4)}`, remark_self
+          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_minPrice, total_maxPrice, 'reserved', `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}`, remark_self
         ])
       } else {
         statement = `
           INSERT \`order\` 
-            (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, order_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_price, status, order_no, remark_self) 
+            (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, pay_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_price, status, order_no, remark_self) 
               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `
         result = await conn.execute(statement, [
-          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_price, 'paid', `${dayjs().format('YYYYMMDDHHmmss')}${user.slice(-4)}`, remark_self
+          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_price, 'paid', `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}`, remark_self
         ])
       }
       
       await conn.commit();
-
-      return 'success'
+      return {
+        id: result[0].insertId
+      }
     } catch (error) {
-      // 出现错误时回滚事务
       console.log(error)
       await conn.rollback();
       throw new Error('mysql事务失败，已回滚');
     } finally {
-      // 释放连接
       conn.release();
     }
   }
