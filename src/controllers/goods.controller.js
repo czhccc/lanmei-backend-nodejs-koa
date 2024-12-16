@@ -71,6 +71,19 @@ class GoodsController {
 
     ctx.body = result
   }
+
+  async getGoodsAllBatches(ctx, next) {
+    const params = ctx.request.query
+
+    const { id } = params
+    if (!id) {
+      throw new Error('缺少必填字段：商品id')
+    }
+    
+    const result = await service.getGoodsBatches(params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new GoodsController()

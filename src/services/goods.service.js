@@ -281,7 +281,7 @@ class GoodsService {
 
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
-          (no, goods_id、, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
+          (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
             discounts, totalSalesVolumn, coverImage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -330,6 +330,48 @@ class GoodsService {
 
   async getHistoryBatchesList(params) {
     const { id, pageNo, pageSize, batchNo, startTime, endTime } = params
+
+    const queryParams = [];
+  
+    let whereClause = ` WHERE goods_id = ?`
+    queryParams.push(id)
+  
+    if (batchNo) {
+      whereClause += ` AND no LIKE ?`
+      queryParams.push(`%${batchNo}%`)
+    }
+  
+    if (startTime) {
+      whereClause += ` AND startTime >= ?`
+      queryParams.push(`${startTime} 00:00:00`)
+    }
+    if (endTime) {
+      whereClause += ` AND endTime <= ?`
+      queryParams.push(`${endTime } 23:59:59`)
+    }
+  
+    // 查询总记录数
+    const countStatement = `SELECT COUNT(*) as total FROM batch_history` + whereClause;
+    console.log(countStatement);
+    const totalResult = await connection.execute(countStatement, queryParams);
+    const total = totalResult[0][0].total;  // 获取总记录数
+  
+    // 分页：根据 pageNo 和 pageSize 动态设置 LIMIT 和 OFFSET
+    const offset = (pageNo - 1) * pageSize;
+  
+    // 构建分页查询的 SQL 语句
+    const statement = `SELECT * FROM batch_history` + whereClause + ` LIMIT ? OFFSET ?`;
+    queryParams.push(String(pageSize), String(offset));
+    const result = await connection.execute(statement, queryParams);
+  
+    return {
+      total,  // 总记录数
+      records: result[0],  // 当前页的数据
+    };
+  }
+
+  async getGoodsAllBatches(params) {
+    const { id } = params
 
     const queryParams = [];
   

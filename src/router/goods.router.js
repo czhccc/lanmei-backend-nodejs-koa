@@ -25,5 +25,7 @@ goodsRouter.post('/changeGoodsIsSelling', verifyToken, GoodsController.changeGoo
 
 goodsRouter.get('/getHistoryBatchesList', verifyToken, tableResponseHandler, GoodsController.getHistoryBatchesList)
 
+goodsRouter.get('/getGoodsAllBatches', verifyToken, GoodsController.getGoodsAllBatches)
+
 
 module.exports = goodsRouter
