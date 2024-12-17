@@ -21,7 +21,7 @@ class OrderService {
 
       if (batch_type === 'preorder') {
         statement = `
-          INSERT \`order\` 
+          INSERT orders 
             (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, order_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, status, order_no, remark_self) 
               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `
@@ -30,7 +30,7 @@ class OrderService {
         ])
       } else {
         statement = `
-          INSERT \`order\` 
+          INSERT orders 
             (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, pay_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_price, status, order_no, remark_self) 
               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `
@@ -58,7 +58,7 @@ class OrderService {
       await conn.beginTransaction(); // 开启事务
 
       const orderDetailStatement = `
-        SELECT * FROM \`order\` WHERE id = ?
+        SELECT * FROM orders WHERE id = ?
       `
       const orderDetailResult = await conn.execute(orderDetailStatement, [params.id]);
       let originalFields = orderDetailResult[0][0]
@@ -95,7 +95,7 @@ class OrderService {
         const setFields = fieldsToUpdate.map(field => `\`${field}\` = ?`);
         const updateValues = fieldsToUpdate.map(field => params[field]);
         const updateStatement = `
-          UPDATE \`order\`
+          UPDATE orders
           SET ${setFields.join(", ")}
           WHERE id = ?
         `;
@@ -158,13 +158,13 @@ class OrderService {
 
     // 查询总记录数
     const countStatement = `
-      SELECT COUNT(*) as total FROM \`order\` ${query}
+      SELECT COUNT(*) as total FROM orders ${query}
     `
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
 
     const statement = `
-      SELECT * from \`order\` ${query} 
+      SELECT * from orders ${query} 
         ORDER BY createTime DESC 
           LIMIT ? OFFSET ?
     `
@@ -188,7 +188,7 @@ class OrderService {
       await conn.beginTransaction();  // 开启事务
 
       const orderDetailStatement = `
-        SELECT * FROM \`order\` WHERE id = ?
+        SELECT * FROM orders WHERE id = ?
       `
       const orderDetailResult = await conn.execute(orderDetailStatement, [id]);
 
