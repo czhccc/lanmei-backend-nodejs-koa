@@ -7,14 +7,21 @@ const {
 
 class OrderService {
   async createOrder(params) {
-
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
       await conn.beginTransaction();  // 开启事务
 
       const {
-        goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, total_price, remark_self
+        goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, total_price, remark_self=''
       } = params
+
+      // 判断商品是否上架，没上架则无法创建订单
+      const isSellingResult = await conn.execute('SELECT goods_isSelling FROM goods WHERE id = ?', [goods_id]);
+      if (isSellingResult[0][0].goods_isSelling !== 1) {
+        const notSellingError = new Error('商品已下架');
+        notSellingError.code = 'NOT_SELLING';  // 可以自定义错误码
+        throw notSellingError;
+      }
 
       let statement = null
       let result = null
@@ -44,9 +51,14 @@ class OrderService {
         id: result[0].insertId
       }
     } catch (error) {
-      console.log(error)
+      console.log(error.code)
       await conn.rollback();
-      throw new Error('mysql事务失败，已回滚');
+
+      if (error.code === 'NOT_SELLING') {
+        throw new Error('商品已下架')
+      } else {
+        throw new Error('mysql事务失败，已回滚');
+      }
     } finally {
       conn.release();
     }
@@ -140,7 +152,7 @@ class OrderService {
       queryParams.push(`%${params.order_no}%`)
     }
     if (params.batch_no) {
-      query += ` AND order_no LIKE ?`
+      query += ` AND batch_no LIKE ?`
       queryParams.push(`%${params.batch_no}%`)
     }
     if (params.snapshot_goodsName) {

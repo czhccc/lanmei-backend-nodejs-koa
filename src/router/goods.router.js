@@ -27,5 +27,13 @@ goodsRouter.get('/getHistoryBatchesList', verifyToken, tableResponseHandler, Goo
 
 goodsRouter.get('/getGoodsAllBatches', verifyToken, GoodsController.getGoodsAllBatches)
 
+goodsRouter.get('/getBatchTotalInfo', verifyToken, GoodsController.getBatchTotalInfo)
+
+goodsRouter.get('/getBatchTotalInfo', verifyToken, GoodsController.getBatchTotalInfo)
+
+goodsRouter.delete('/deleteCurrentBatch', verifyToken, GoodsController.deleteCurrentBatch)
+
+goodsRouter.post('/cancelAllOrdersInCurrentBatch', verifyToken, GoodsController.cancelAllOrdersInCurrentBatch)
+
 
 module.exports = goodsRouter

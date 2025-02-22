@@ -269,7 +269,13 @@ class GoodsService {
       const getBatchInfoResult = await connection.execute(getBatchInfoStatement, [goodsId]);
       const batchInfo = getBatchInfoResult[0][0];
 
-      const endCurrentStatement = `
+      const batchTotalSalesInfoStatement = `
+        SELECT COUNT(*) AS totalOrdersCount, SUM(num) AS totalSalesVolumn FROM orders where batch_no = ?
+      `
+      const batchTotalSalesInfoResult = await connection.execute(batchTotalSalesInfoStatement, [batchInfo.batch_no])
+      console.log('batchTotalSalesInfoResult', batchTotalSalesInfoResult);
+
+      const endCurrentBatchStatement = `
         UPDATE goods
           SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
@@ -277,25 +283,19 @@ class GoodsService {
           goods_isSelling='0'
           WHERE id = ?
       `
-      const endCurrentResult = await conn.execute(endCurrentStatement, [goodsId])
+      const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [goodsId])
 
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
           (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
-            discounts, totalSalesVolumn, coverImage, remark, 
+            discounts, totalOrdersCount, totalSalesVolumn, coverImage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
-      console.log([
-        batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
-          batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
-            batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText
-      ]);
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
+          batchInfo.batch_discounts, batchTotalSalesInfoResult[0][0].totalOrdersCount, batchTotalSalesInfoResult[0][0].totalSalesVolumn, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
             batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText
       ])
 
@@ -329,7 +329,7 @@ class GoodsService {
   }
 
   async getHistoryBatchesList(params) {
-    const { id, pageNo, pageSize, batchNo, startTime, endTime } = params
+    const { id, pageNo, pageSize, batchNo, startTime, endTime, status } = params
 
     const queryParams = [];
   
@@ -349,10 +349,13 @@ class GoodsService {
       whereClause += ` AND endTime <= ?`
       queryParams.push(`${endTime } 23:59:59`)
     }
+    if (status) {
+      whereClause += ` AND status = ?`
+      queryParams.push(status)
+    }
   
     // 查询总记录数
     const countStatement = `SELECT COUNT(*) as total FROM batch_history` + whereClause;
-    console.log(countStatement);
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
   
@@ -394,7 +397,7 @@ class GoodsService {
   
     // 查询总记录数
     const countStatement = `SELECT COUNT(*) as total FROM batch_history` + whereClause;
-    console.log(countStatement);
+    
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
   
@@ -410,6 +413,148 @@ class GoodsService {
       total,  // 总记录数
       records: result[0],  // 当前页的数据
     };
+  }
+
+  async getBatchTotalInfo(params) {
+    const { id, batchNo } = params
+
+    const queryParams = [];
+  
+    let whereClause = ` WHERE batch_no = ?`
+    queryParams.push(batchNo)
+  
+    const statement = `SELECT COUNT(*) AS totalOrdersCount, SUM(num) AS totalSalesVolumn FROM orders` + whereClause
+    const result = await connection.execute(statement, queryParams)
+  
+    return result[0][0]
+  }
+
+  async deleteCurrentBatch(params) {
+    const { id } = params
+
+    // 判断是否符合删除条件
+    const batchInfoStatement = `SELECT * FROM goods WHERE id=?`
+    const batchInfoResult = await connection.execute(batchInfoStatement, [id])
+    const batchInfo = batchInfoResult[0][0]
+    if (!batchInfo.batch_no) {
+      throw new Error('无当前批次')
+    }
+  
+    const ordersCountStatement = `SELECT COUNT(*) AS totalOrdersCount FROM orders WHERE batch_no = ?`
+    const ordersCountResult = await connection.execute(ordersCountStatement, [batchInfo.batch_no])
+    if (ordersCountResult[0][0].totalOrdersCount !== 0) {
+      throw new Error('当前批次已有订单')
+    }
+
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
+      await conn.beginTransaction();  // 开启事务
+
+      const endCurrentBatchStatement = `
+        UPDATE goods
+          SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+          batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
+          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL,
+          goods_isSelling='0'
+          WHERE id = ?
+      `
+      const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
+
+      const InsertHistoryBatchStatement = `
+        INSERT batch_history 
+          (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
+            discounts, totalOrdersCount, totalSalesVolumn, coverImage, remark, 
+              snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, status) 
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `
+      const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
+        batchInfo.batch_no, id, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+          batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
+          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
+            batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'deleted'
+      ])
+
+      await conn.commit();
+
+      return 'success'
+    } catch (error) {
+      await conn.rollback();
+      throw new Error('mysql事务失败，已回滚');
+    } finally {
+      // 释放连接
+      conn.release();
+    }
+
+  }
+
+  async cancelAllOrdersInCurrentBatch(params) {
+    // 1.修改所有订单状态；2.
+    const { id, canceledReason } = params
+
+    // 判断是否符合删除条件
+    const batchInfoStatement = `SELECT * FROM goods WHERE id=?`
+    const batchInfoResult = await connection.execute(batchInfoStatement, [id])
+    const batchInfo = batchInfoResult[0][0]
+    if (!batchInfo.batch_no) {
+      throw new Error('无当前批次')
+    }
+
+    if (batchInfo.batch_type !== 'preorder') {
+      throw new Errpr('当前非预订批次')
+    }
+  
+    const ordersCountStatement = `SELECT COUNT(*) AS totalOrdersCount FROM orders WHERE batch_no = ?`
+    const ordersCountResult = await connection.execute(ordersCountStatement, [batchInfo.batch_no])
+    if (ordersCountResult[0][0].totalOrdersCount === 0) {
+      throw new Error('当前批次无订单')
+    }
+
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
+      await conn.beginTransaction();  // 开启事务
+
+      const cancelAllOrdersStatement = `
+        UPDATE orders
+          SET status='canceled', canceled_from='self', canceled_reason=?
+          WHERE batch_no = ?
+      `
+      const cancelAllOrdersResult = await conn.execute(cancelAllOrdersStatement, [canceledReason, batchInfo.batch_no])
+
+      const endCurrentBatchStatement = `
+        UPDATE goods
+          SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+          batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
+          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL,
+          goods_isSelling='0'
+          WHERE id = ?
+      `
+      const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
+
+      const InsertHistoryBatchStatement = `
+        INSERT batch_history 
+          (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
+            discounts, totalOrdersCount, totalSalesVolumn, coverImage, remark, 
+              snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, status) 
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `
+      const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
+        batchInfo.batch_no, id, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
+          batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
+          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
+            batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'canceled'
+      ])
+
+      await conn.commit();
+
+      return 'success'
+    } catch (error) {
+      await conn.rollback();
+      throw new Error('mysql事务失败，已回滚');
+    } finally {
+      // 释放连接
+      conn.release();
+    }
+
   }
 }
 

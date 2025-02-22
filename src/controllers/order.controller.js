@@ -5,7 +5,7 @@ class OrderController {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone
     const result = await service.createOrder(params)
-    console.log('controller result', result);
+    
     ctx.body = result
   }
 

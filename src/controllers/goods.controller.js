@@ -84,6 +84,51 @@ class GoodsController {
 
     ctx.body = result
   }
+
+  async getBatchTotalInfo(ctx, next) {
+    const params = ctx.request.query
+
+    const { id, batchNo } = params
+    if (!id) {
+      throw new Error('缺少必填字段：商品id')
+    }
+    if (!batchNo) {
+      throw new Error('缺少必填字段：商品批次')
+    }
+    
+    const result = await service.getBatchTotalInfo(params)
+
+    ctx.body = result
+  }
+
+  async deleteCurrentBatch(ctx, next) {
+    const params = ctx.request.body
+
+    const { id } = params
+    if (!id) {
+      throw new Error('缺少必填字段：商品id')
+    }
+    
+    const result = await service.deleteCurrentBatch(params)
+
+    ctx.body = result
+  }
+
+  async cancelAllOrdersInCurrentBatch(ctx, next) {
+    const params = ctx.request.body
+
+    const { id, canceledReason } = params
+    if (!id) {
+      throw new Error('缺少必填字段：商品id')
+    }
+    if (!canceledReason) {
+      throw new Error('缺少必填字段：取消预订原因')
+    }
+    
+    const result = await service.cancelAllOrdersInCurrentBatch(params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new GoodsController()

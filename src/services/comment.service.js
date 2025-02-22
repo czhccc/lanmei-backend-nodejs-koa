@@ -13,7 +13,7 @@ class CommentService {
         AND createTime < CURDATE() + INTERVAL 1 DAY
     `
     const queryTodayCommentTimesResult = await connection.execute(queryTodayCommentTimesStatement, [params.author])
-    if (queryTodayCommentTimesResult[0].length >= 3) {
+    if (queryTodayCommentTimesResult[0].length >= 10) {
       return '今日留言次数已达上限'
     }
 
