@@ -104,26 +104,25 @@ class GoodsService {
           batchMinQuantity, 
           batchDiscounts,
           batchRemark,
-          batchStock
+          batchRemainingAmount
         } = params;
 
         let batchStatement = `
           UPDATE goods
-            SET batch_no=?, batch_type=?, batch_startTime=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
-                batch_minQuantity=?, batch_discounts=?, batch_remark=?, batch_stock=?
+            SET batch_no=?, batch_type=?, batch_preorder_stage=?, batch_startTime=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
+                batch_minQuantity=?, batch_discounts=?, batch_remark=?, batch_remainingAmount=?
           WHERE id=?
         `;
         
-        let batchValues = [
+        const batchResult = await conn.execute(batchStatement, [
           batchNo || generateDatetimeId(),
           batchType, 
+          batchType==='preorder' ? 'pending' : null,
           batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'),
           batchUnitPrice || null, batchMinPrice || null, batchMaxPrice || null,
-          batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchStock,
+          batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchRemainingAmount,
           goodsId
-        ];
-        
-        const batchResult = await conn.execute(batchStatement, batchValues);
+        ]);
         
       }
 
@@ -270,17 +269,15 @@ class GoodsService {
       const batchInfo = getBatchInfoResult[0][0];
 
       const batchTotalSalesInfoStatement = `
-        SELECT COUNT(*) AS totalOrdersCount, SUM(num) AS totalSalesVolumn FROM orders where batch_no = ?
+        SELECT COUNT(*) AS totalOrdersCount, SUM(num) AS totalAmount FROM orders where batch_no = ?
       `
       const batchTotalSalesInfoResult = await connection.execute(batchTotalSalesInfoStatement, [batchInfo.batch_no])
-      console.log('batchTotalSalesInfoResult', batchTotalSalesInfoResult);
 
       const endCurrentBatchStatement = `
         UPDATE goods
           SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL,
-          goods_isSelling='0'
+          batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [goodsId])
@@ -288,14 +285,14 @@ class GoodsService {
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
           (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
-            discounts, totalOrdersCount, totalSalesVolumn, coverImage, remark, 
+            discounts, totalOrdersCount, totalAmount, coverImage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, batchTotalSalesInfoResult[0][0].totalOrdersCount, batchTotalSalesInfoResult[0][0].totalSalesVolumn, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
+          batchInfo.batch_discounts, batchTotalSalesInfoResult[0][0].totalOrdersCount, batchTotalSalesInfoResult[0][0].totalAmount, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
             batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText
       ])
 
@@ -416,17 +413,105 @@ class GoodsService {
   }
 
   async getBatchTotalInfo(params) {
-    const { id, batchNo } = params
+    const { id } = params
 
-    const queryParams = [];
+    const batchInfoStatement = `SELECT * FROM goods WHERE id=?`
+    const batchInfoResult = await connection.execute(batchInfoStatement, [id])
+    const batchInfo = batchInfoResult[0][0]
+
+    const totalOrdersStatement = `SELECT COUNT(*) AS totalOrdersCount, SUM(num) AS totalAmount FROM orders WHERE batch_no = ?`
+    const totalOrdersResult = await connection.execute(totalOrdersStatement, [batchInfo.batch_no])
+    const totalOrdersInfo = totalOrdersResult[0][0]
+    
+    if (batchInfo.batch_type === 'preorder') { // 预订
+      if (batchInfo.batch_preorder_stage === 'pending') {
+        const statisticsStatement = `
+          SELECT 
+            COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
+            COUNT(CASE WHEN status = 'reserved' THEN 1 END) AS reservedOrdersCount,   -- reserved 状态的订单数量
+            COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
+            SUM(CASE WHEN status = 'reserved' THEN num ELSE 0 END) AS reservedAmount,   -- reserved 状态的 num 总和
+            SUM(CASE WHEN status = 'canceled' THEN num ELSE 0 END) AS canceledAmount   -- canceled 状态的 num 总和
+          FROM orders
+          WHERE batch_no = ? AND status IN ('reserved', 'canceled')
+        `
+        const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
+        const statisticsInfo = statisticsResult[0][0]
+
+        return {
+          totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
+          reservedOrdersCount: +statisticsInfo.reservedOrdersCount, // 已预订订单
+          canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
+          reservedAmount: +statisticsInfo.reservedAmount+statisticsInfo.canceledAmount, // 已预订量
+          canceledAmount: +statisticsInfo.canceledAmount, // 已取消量
+        }
+      } else if (batchInfo.batch_preorder_stage === 'selling') {
+        const statisticsStatement = `
+          SELECT 
+            COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
+            COUNT(CASE WHEN status = 'unpaid' THEN 1 END) AS unpaidOrdersCount,   -- unpaid 状态的订单数量
+            COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
+            COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
+            COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
+            COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
+            SUM(CASE WHEN status = 'unpaid' THEN num ELSE 0 END) AS unpaidAmount,   -- unpaid 状态的 num 总和
+            SUM(CASE WHEN status = 'paid' THEN num ELSE 0 END) AS paidAmount,   -- paid 状态的 num 总和
+            SUM(CASE WHEN status = 'completed' THEN num ELSE 0 END) AS completedAmount,   -- completed 状态的 num 总和
+            SUM(CASE WHEN status = 'canceled' THEN num ELSE 0 END) AS canceledAmount,   -- canceled 状态的 num 总和
+            SUM(CASE WHEN status = 'refunded' THEN num ELSE 0 END) AS refundedAmount   -- refunded 状态的 num 总和
+          FROM orders
+          WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
+        `
+        const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
+        const statisticsInfo = statisticsResult[0][0]
+
+        return {
+          totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
+          reservedOrdersCount: +statisticsInfo.unpaidOrdersCount+statisticsInfo.paidOrdersCount+statisticsInfo.completedOrdersCount+statisticsInfo.refundedOrdersCount, // 已预订订单
+          canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
+          reservedAmount: +statisticsInfo.unpaidAmount+statisticsInfo.paidAmount+statisticsInfo.completedAmount+statisticsInfo.refundedAmount, // 已预订量
   
-    let whereClause = ` WHERE batch_no = ?`
-    queryParams.push(batchNo)
-  
-    const statement = `SELECT COUNT(*) AS totalOrdersCount, SUM(num) AS totalSalesVolumn FROM orders` + whereClause
-    const result = await connection.execute(statement, queryParams)
-  
-    return result[0][0]
+          unpaidOrdersCount: +statisticsInfo.unpaidOrdersCount, // 未付款
+          unpaidAmount: +statisticsInfo.unpaidAmount, // 未付款
+          paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
+          paidAmount: +statisticsInfo.paidAmount, // 已付款
+          completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
+          completedAmount: +statisticsInfo.completedAmount, // 已完成
+          canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消
+          canceledAmount: +statisticsInfo.canceledAmount, // 已取消
+          refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
+          refundedAmount: +statisticsInfo.refundedAmount, // 已退款
+        }
+      }
+    } else {
+      const statisticsStatement = `
+        SELECT 
+          COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
+          COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
+          COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
+          COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
+          SUM(CASE WHEN status = 'paid' THEN num ELSE 0 END) AS paidAmount,   -- paid 状态的 num 总和
+          SUM(CASE WHEN status = 'completed' THEN num ELSE 0 END) AS completedAmount,   -- completed 状态的 num 总和
+          SUM(CASE WHEN status = 'refunded' THEN num ELSE 0 END) AS refundedAmount   -- refunded 状态的 num 总和
+        FROM orders
+        WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
+      `
+      const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
+      const statisticsInfo = statisticsResult[0][0]
+
+      return {
+        totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
+        reservedAmount: +statisticsInfo.paidAmount+statisticsInfo.completedAmount+statisticsInfo.refundedAmount, // 已预订量
+
+        paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
+        paidAmount: +statisticsInfo.paidAmount, // 已付款
+        completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
+        completedAmount: +statisticsInfo.completedAmount, // 已完成
+        refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
+        refundedAmount: +statisticsInfo.refundedAmount, // 已退款
+      }
+    }
+
   }
 
   async deleteCurrentBatch(params) {
@@ -454,8 +539,7 @@ class GoodsService {
         UPDATE goods
           SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL,
-          goods_isSelling='0'
+          batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
@@ -463,7 +547,7 @@ class GoodsService {
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
           (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
-            discounts, totalOrdersCount, totalSalesVolumn, coverImage, remark, 
+            discounts, totalOrdersCount, totalAmount, coverImage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, status) 
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
@@ -488,7 +572,7 @@ class GoodsService {
   }
 
   async cancelAllOrdersInCurrentBatch(params) {
-    // 1.修改所有订单状态；2.
+    // 1.修改所有订单状态；2.结束批次
     const { id, canceledReason } = params
 
     // 判断是否符合删除条件
@@ -524,8 +608,7 @@ class GoodsService {
         UPDATE goods
           SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_remark=NULL, batch_stock=NULL, batch_totalSalesVolumn=NULL,
-          goods_isSelling='0'
+          batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
@@ -533,7 +616,7 @@ class GoodsService {
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
           (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
-            discounts, totalOrdersCount, totalSalesVolumn, coverImage, remark, 
+            discounts, totalOrdersCount, totalAmount, coverImage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, status) 
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
@@ -555,6 +638,55 @@ class GoodsService {
       conn.release();
     }
 
+  }
+
+  async preorderBatchIsReadyToSell(params) {
+    const { id } = params
+
+    const batchInfoStatement = `SELECT * FROM goods WHERE id=?`
+    const batchInfoResult = await connection.execute(batchInfoStatement, [id])
+    const batchInfo = batchInfoResult[0][0]
+    if (!batchInfo.batch_no) {
+      throw new Error('无当前批次')
+    }
+    if (batchInfo.batch_type !== 'preorder') {
+      throw new Errpr('当前非预订批次')
+    }
+  
+    const ordersCountStatement = `SELECT COUNT(*) AS totalOrdersCount FROM orders WHERE batch_no = ?`
+    const ordersCountResult = await connection.execute(ordersCountStatement, [batchInfo.batch_no])
+    if (ordersCountResult[0][0].totalOrdersCount === 0) {
+      throw new Error('当前批次无订单')
+    }
+
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
+      await conn.beginTransaction();  // 开启事务
+
+      const changeStageStatement = `UPDATE goods SET batch_preorder_stage = 'selling' WHERE id = ?`
+      const changeStageResult = await conn.execute(changeStageStatement, [id])
+      
+      const changeOrdersStatusStatement = `UPDATE orders SET status = 'unpaid' WHERE batch_no = ? AND status = 'reserved'`
+      const changeOrdersStatusResult = await conn.execute(changeOrdersStatusStatement, [batchInfo.batch_no])
+
+      await conn.commit();
+
+      return 'success'
+    } catch (error) {
+      await conn.rollback();
+      throw new Error('mysql事务失败，已回滚');
+    } finally {
+      // 释放连接
+      conn.release();
+    }
+
+    try {
+      
+
+      return 'success'  
+    } catch (error) {
+      throw new Error('mysql事务失败，已回滚');
+    }
   }
 }
 

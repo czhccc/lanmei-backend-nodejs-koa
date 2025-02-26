@@ -88,16 +88,13 @@ class GoodsController {
   async getBatchTotalInfo(ctx, next) {
     const params = ctx.request.query
 
-    const { id, batchNo } = params
+    const { id } = params
     if (!id) {
       throw new Error('缺少必填字段：商品id')
     }
-    if (!batchNo) {
-      throw new Error('缺少必填字段：商品批次')
-    }
     
     const result = await service.getBatchTotalInfo(params)
-
+    
     ctx.body = result
   }
 
@@ -126,6 +123,19 @@ class GoodsController {
     }
     
     const result = await service.cancelAllOrdersInCurrentBatch(params)
+
+    ctx.body = result
+  }
+
+  async preorderBatchIsReadyToSell(ctx, next) {
+    const params = ctx.request.body
+
+    const { id } = params
+    if (!id) {
+      throw new Error('缺少必填字段：商品id')
+    }
+    
+    const result = await service.preorderBatchIsReadyToSell(params)
 
     ctx.body = result
   }

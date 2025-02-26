@@ -29,11 +29,11 @@ goodsRouter.get('/getGoodsAllBatches', verifyToken, GoodsController.getGoodsAllB
 
 goodsRouter.get('/getBatchTotalInfo', verifyToken, GoodsController.getBatchTotalInfo)
 
-goodsRouter.get('/getBatchTotalInfo', verifyToken, GoodsController.getBatchTotalInfo)
-
 goodsRouter.delete('/deleteCurrentBatch', verifyToken, GoodsController.deleteCurrentBatch)
 
 goodsRouter.post('/cancelAllOrdersInCurrentBatch', verifyToken, GoodsController.cancelAllOrdersInCurrentBatch)
+
+goodsRouter.post('/preorderBatchIsReadyToSell', verifyToken, GoodsController.preorderBatchIsReadyToSell)
 
 
 module.exports = goodsRouter

@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 22/02/2025 20:51:18
+ Date: 26/02/2025 11:39:19
 */
 
 SET NAMES utf8mb4;
@@ -90,7 +90,7 @@ CREATE TABLE `batch_history`  (
   `minQuantity` decimal(10, 1) NOT NULL COMMENT '最小购买或预订的数量',
   `discounts` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '优惠策略',
   `totalOrdersCount` int NULL DEFAULT NULL COMMENT '总订单数',
-  `totalSalesVolumn` decimal(10, 2) NULL DEFAULT NULL COMMENT '总出售量',
+  `totalAmount` decimal(10, 2) NULL DEFAULT NULL COMMENT '总出售量',
   `coverImage` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '封面图片',
   `remark` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '批次备注',
   `snapshot_goodsName` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '商品快照',
@@ -257,7 +257,8 @@ CREATE TABLE `goods`  (
   `goods_richText` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
   `goods_coverImage` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `batch_no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
-  `batch_type` enum('preorder','stock') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `batch_type` enum('preorder','stock') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '预订 还是 现货',
+  `batch_preorder_stage` enum('pending','selling') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '预订的阶段 预订中、已进货',
   `batch_startTime` datetime NULL DEFAULT NULL,
   `batch_unitPrice` decimal(10, 2) NULL DEFAULT NULL,
   `batch_minPrice` decimal(10, 2) NULL DEFAULT NULL,
@@ -265,8 +266,7 @@ CREATE TABLE `goods`  (
   `batch_minQuantity` decimal(10, 1) NULL DEFAULT NULL,
   `batch_discounts` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '已售出的总量',
   `batch_remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
-  `batch_stock` decimal(10, 2) NULL DEFAULT NULL COMMENT '剩余量',
-  `batch_totalSalesVolumn` decimal(10, 2) NULL DEFAULT NULL,
+  `batch_remainingAmount` decimal(10, 2) NULL DEFAULT NULL COMMENT '剩余量',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
@@ -275,11 +275,11 @@ CREATE TABLE `goods`  (
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
-INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 0, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-15 09:14:14', '2025-02-22 11:13:13');
-INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', NULL, '20241015123317_b57mn5', 'preorder', '2024-10-15 12:33:17', NULL, 10.00, 20.00, 3.0, '[{\"quantity\":1,\"discount\":1},{\"quantity\":2,\"discount\":2}]', '我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注', 20.00, NULL, '2024-10-15 11:49:45', '2024-10-15 12:33:17');
+INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 1, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '20250224211119_3nfcl5', 'preorder', 'selling', '2025-02-24 21:11:19', NULL, 0.01, 0.02, 1.0, '[]', '', 0.00, '2024-10-15 09:14:14', '2025-02-25 20:11:19');
+INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', NULL, '20241015123317_b57mn5', 'preorder', NULL, '2024-10-15 12:33:17', NULL, 10.00, 20.00, 3.0, '[{\"quantity\":1,\"discount\":1},{\"quantity\":2,\"discount\":2}]', '我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注我是批次备注', 20.00, '2024-10-15 11:49:45', '2024-10-15 12:33:17');
 INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 0, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', 'goods_coverImage/goods_coverImage-58_20241022175507_s7ospp.jpg', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-17 09:20:31', '2024-11-28 09:44:06');
 INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 0, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-25 10:16:32', '2025-02-22 20:21:02');
-INSERT INTO `goods` VALUES (60, '111', '111', 2, 0, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '20241216205822_erpxi1', 'stock', '2024-12-16 20:58:22', 1.00, NULL, NULL, 2.0, '[{\"quantity\":2,\"discount\":1},{\"quantity\":4,\"discount\":2}]', '', 100.00, NULL, '2024-11-08 16:17:53', '2024-12-16 20:58:22');
+INSERT INTO `goods` VALUES (60, '111', '111', 2, 1, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '20241216205822_erpxi1', 'stock', NULL, '2024-12-16 20:58:22', 1.00, NULL, NULL, 2.0, '[{\"quantity\":2,\"discount\":1},{\"quantity\":4,\"discount\":2}]', '', 100.00, '2024-11-08 16:17:53', '2025-02-22 21:38:25');
 
 -- ----------------------------
 -- Table structure for goods_media
@@ -294,17 +294,17 @@ CREATE TABLE `goods_media`  (
   `position` int NULL DEFAULT NULL COMMENT 'swiper中显示顺序的权重',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 134 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 136 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods_media
 -- ----------------------------
 INSERT INTO `goods_media` VALUES (114, 60, 'goods_richText/goods_richText-59_20241025101847_9lvi3j.png', 'image', 'richText', NULL, '2024-12-16 20:58:22');
-INSERT INTO `goods_media` VALUES (117, 55, 'goods_swiper/goods_swiper-55_20241108154621_lvxq15.png', 'image', 'swiper', 0, '2025-02-22 11:12:56');
-INSERT INTO `goods_media` VALUES (118, 55, 'goods_swiper/goods_swiper-55_20241108154626_n72lkq.png', 'image', 'swiper', 1, '2025-02-22 11:12:56');
 INSERT INTO `goods_media` VALUES (131, 59, 'goods_swiper/goods_swiper-59_20241025101643_34zc25.mp4', 'video', 'swiper', 0, '2025-02-22 20:20:17');
 INSERT INTO `goods_media` VALUES (132, 59, 'goods_swiper/goods_swiper-59_20241025101645_n58cvh.png', 'image', 'swiper', 1, '2025-02-22 20:20:17');
 INSERT INTO `goods_media` VALUES (133, 59, 'goods_richText/goods_richText-59_20241025101847_9lvi3j.png', 'image', 'richText', NULL, '2025-02-22 20:20:17');
+INSERT INTO `goods_media` VALUES (134, 55, 'goods_swiper/goods_swiper-55_20241108154621_lvxq15.png', 'image', 'swiper', 0, '2025-02-24 21:11:19');
+INSERT INTO `goods_media` VALUES (135, 55, 'goods_swiper/goods_swiper-55_20241108154626_n72lkq.png', 'image', 'swiper', 1, '2025-02-24 21:11:19');
 
 -- ----------------------------
 -- Table structure for orders
@@ -331,7 +331,7 @@ CREATE TABLE `orders`  (
   `total_maxPrice` decimal(10, 2) NULL DEFAULT NULL COMMENT '总金额（优惠前）-预订',
   `discount_amount` decimal(10, 2) NULL DEFAULT NULL COMMENT '优惠的金额',
   `postage` decimal(10, 2) NOT NULL COMMENT '邮费',
-  `status` enum('reserved','paid','unpaid','completed','canceled','refunded') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '订单状态（现货：已付款->送货/到货后变完结）（预订：已预订->）',
+  `status` enum('reserved','unpaid','paid','completed','canceled','refunded') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '订单状态（现货：已付款->送货/到货后变完结）（预订：已预订->）',
   `canceled_from` enum('customer','self') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '取消的人：顾客 / 自己',
   `canceled_reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '取消原因',
   `pay_time` datetime NULL DEFAULT NULL COMMENT '付款时间',
@@ -346,7 +346,7 @@ CREATE TABLE `orders`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 30 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 36 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of orders
@@ -365,6 +365,12 @@ INSERT INTO `orders` VALUES (26, '202502201045486936', '13989536936', 59, '20241
 INSERT INTO `orders` VALUES (27, '202502212031186936', '13989536936', 55, '20241108154857_ghxj0v', 'auto', 'stock', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', 90.00, NULL, NULL, 0.00, 10.00, 'paid', NULL, NULL, '2025-02-21 20:31:18', NULL, NULL, 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[{\"quantity\":6,\"discount\":10},{\"quantity\":10,\"discount\":20}]', '2025-02-21 20:31:18', NULL);
 INSERT INTO `orders` VALUES (28, '202502221341426936', '13989536936', 59, '20250222133953_hyt9xg', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.01, 0.02, 0.00, 10.00, 'canceled', 'self', '取消原因啊', NULL, NULL, '2025-02-22 13:41:42', 'http://localhost:8888/goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', '[]', '2025-02-22 13:41:42', '2025-02-22 20:12:52');
 INSERT INTO `orders` VALUES (29, '202502222020216936', '13989536936', 59, '20250222201828_mt3d1k', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.01, 0.02, 0.00, 10.00, 'canceled', 'self', '111', NULL, NULL, '2025-02-22 20:20:21', 'http://localhost:8888/goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', '[]', '2025-02-22 20:20:21', '2025-02-22 20:21:02');
+INSERT INTO `orders` VALUES (30, '202502242111486936', '13989536936', 55, '20250224211119_3nfcl5', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.01, 0.02, 0.00, 10.00, 'unpaid', NULL, NULL, NULL, NULL, '2025-02-24 21:11:48', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-02-24 21:11:48', '2025-02-25 20:11:19');
+INSERT INTO `orders` VALUES (31, '202502242112006936', '13989536936', 55, '20250224211119_3nfcl5', 'auto', 'preorder', 2, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.02, 0.04, 0.00, 10.00, 'paid', NULL, NULL, NULL, NULL, '2025-02-24 21:12:00', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-02-24 21:12:00', '2025-02-25 22:08:07');
+INSERT INTO `orders` VALUES (32, '202502251712276936', '13989536936', 55, '20250224211119_3nfcl5', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.01, 0.02, 0.00, 10.00, 'canceled', NULL, NULL, NULL, NULL, '2025-02-25 17:12:27', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-02-25 17:12:27', '2025-02-25 20:11:45');
+INSERT INTO `orders` VALUES (33, '202502251848596936', '13989536936', 55, '20250224211119_3nfcl5', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.01, 0.02, 0.00, 10.00, 'completed', NULL, NULL, NULL, NULL, '2025-02-25 18:48:59', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-02-25 18:48:59', '2025-02-25 22:08:09');
+INSERT INTO `orders` VALUES (34, '202502251849026936', '13989536936', 55, '20250224211119_3nfcl5', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.01, 0.02, 0.00, 10.00, 'refunded', NULL, NULL, NULL, NULL, '2025-02-25 18:49:02', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-02-25 18:49:02', '2025-02-25 22:08:15');
+INSERT INTO `orders` VALUES (35, '202502251849046936', '13989536936', 55, '20250224211119_3nfcl5', 'auto', 'preorder', 1, 'post', 'yjn', '13989999999', '北京市北京市东城区', '我是详细地址111', '', '', NULL, 0.01, 0.02, 0.00, 10.00, 'unpaid', NULL, NULL, NULL, NULL, '2025-02-25 18:49:04', 'http://localhost:8888/goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-02-25 18:49:04', '2025-02-25 20:11:19');
 
 -- ----------------------------
 -- Table structure for orders_logs
