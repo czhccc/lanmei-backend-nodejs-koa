@@ -97,12 +97,14 @@ class GoodsService {
         const {
           batchNo,
           batchType, 
+          batchPreorderStage,
           batchStartTime,
           batchMinPrice, 
           batchMaxPrice,
           batchUnitPrice,
           batchMinQuantity, 
           batchDiscounts,
+          batchPostage,
           batchRemark,
           batchRemainingAmount
         } = params;
@@ -110,17 +112,17 @@ class GoodsService {
         let batchStatement = `
           UPDATE goods
             SET batch_no=?, batch_type=?, batch_preorder_stage=?, batch_startTime=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
-                batch_minQuantity=?, batch_discounts=?, batch_remark=?, batch_remainingAmount=?
+                batch_minQuantity=?, batch_discounts=?, batch_postage=?, batch_remark=?, batch_remainingAmount=?
           WHERE id=?
         `;
         
         const batchResult = await conn.execute(batchStatement, [
           batchNo || generateDatetimeId(),
           batchType, 
-          batchType==='preorder' ? 'pending' : null,
+          batchPreorderStage || (batchType==='preorder' ? 'pending' : null),
           batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'),
           batchUnitPrice || null, batchMinPrice || null, batchMaxPrice || null,
-          batchMinQuantity, JSON.stringify(batchDiscounts), batchRemark, batchRemainingAmount,
+          batchMinQuantity, JSON.stringify(batchDiscounts), JSON.stringify(batchPostage), batchRemark, batchRemainingAmount,
           goodsId
         ]);
         
@@ -275,9 +277,11 @@ class GoodsService {
 
       const endCurrentBatchStatement = `
         UPDATE goods
-          SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
-          batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
+          SET 
+            goods_isSelling=0, 
+            batch_no=NULL, batch_type=NULL, batch_preorder_stage=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+            batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL, batch_postage=NULL,
+            batch_remark=NULL, batch_remainingAmount=NULL 
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [goodsId])
@@ -285,15 +289,15 @@ class GoodsService {
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
           (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
-            discounts, totalOrdersCount, totalAmount, coverImage, remark, 
-              snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText) 
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            discounts, totalOrdersCount, totalAmount, coverImage, postage, remark, 
+              snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, status) 
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, batchTotalSalesInfoResult[0][0].totalOrdersCount, batchTotalSalesInfoResult[0][0].totalAmount, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
-            batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText
+          batchInfo.batch_discounts, batchTotalSalesInfoResult[0][0].totalOrdersCount, batchTotalSalesInfoResult[0][0].totalAmount, batchInfo.goods_coverImage || '', JSON.stringify(batchInfo.batch_postage), 
+          batchInfo.batch_remark, batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'completed'
       ])
 
       await conn.commit();
@@ -537,9 +541,9 @@ class GoodsService {
 
       const endCurrentBatchStatement = `
         UPDATE goods
-          SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+          SET batch_no=NULL, batch_type=NULL, batch_preorder_stage=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
+          batch_postage=NULL, batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
@@ -547,14 +551,14 @@ class GoodsService {
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
           (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
-            discounts, totalOrdersCount, totalAmount, coverImage, remark, 
+            discounts, totalOrdersCount, totalAmount, coverImage, postage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, status) 
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, id, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
+          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_postage, batchInfo.batch_remark,
             batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'deleted'
       ])
 
@@ -606,9 +610,9 @@ class GoodsService {
 
       const endCurrentBatchStatement = `
         UPDATE goods
-          SET batch_no=NULL, batch_type=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+          SET batch_no=NULL, batch_type=NULL, batch_preorder_stage=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
+          batch_postage=NULL, batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
@@ -616,14 +620,14 @@ class GoodsService {
       const InsertHistoryBatchStatement = `
         INSERT batch_history 
           (no, goods_id, type, startTime, endTime, unitPrice, minPrice, maxPrice, minQuantity,
-            discounts, totalOrdersCount, totalAmount, coverImage, remark, 
+            discounts, totalOrdersCount, totalAmount, coverImage, postage, remark, 
               snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, status) 
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, id, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_remark,
+          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_postage, batchInfo.batch_remark,
             batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'canceled'
       ])
 
@@ -678,14 +682,6 @@ class GoodsService {
     } finally {
       // 释放连接
       conn.release();
-    }
-
-    try {
-      
-
-      return 'success'  
-    } catch (error) {
-      throw new Error('mysql事务失败，已回滚');
     }
   }
 }

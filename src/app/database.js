@@ -10,7 +10,7 @@ const connections = mysql.createPool({ // 连接池
   password: config.MYSQL_PASSWORD
 })
 
-connections.getConnection((err, connection) => {
+connections.getConnection((error, connection) => {
   connection.connect(err => {
     if (err) {
       console.log('数据库连接池 连接失败', err)
