@@ -6,7 +6,7 @@ class WechatService {
 
   // 用户收货地址
   async addAddress(params) {
-    const { name, phone, user, region, detail, isDefault } = params
+    const { name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault } = params
 
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
@@ -19,9 +19,12 @@ class WechatService {
         ])
       }
 
-      const insertStatement = `INSERT customer_address (name, phone, user, region, detail, isDefault) VALUES (?,?,?,?,?,?)`
+      const insertStatement = `
+        INSERT 
+          customer_address (name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault) 
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)`
       const insertResult = await conn.execute(insertStatement, [
-        name, phone, user, region, detail, isDefault?1:0
+        name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault?1:0
       ])
 
       await conn.commit();
@@ -35,16 +38,16 @@ class WechatService {
     }
   }
   async editAddress(params) {
-    const { id, name, phone, user, region, detail, isDefault } = params
+    const { id, name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault } = params
 
     const updateStatement = `
       UPDATE customer_address 
-      SET name=?, phone=?, user=?, region=?, detail=?, isDefault=?
+      SET name=?, phone=?, user=?, province=?, provinceCode=?, city=?, cityCode=?, district=?, districtCode=?, detail=?, isDefault=?
       WHERE id = ?
     `
 
     const updateResult = await connection.execute(updateStatement, [
-      name, phone, user, region, detail, isDefault, id
+      name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault, id
     ])
 
     return '提交成功'

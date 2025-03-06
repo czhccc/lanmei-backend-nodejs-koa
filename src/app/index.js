@@ -17,7 +17,8 @@ app.use(staticAssets(path.join(__dirname, '../../files')))
 
 // 跨域
 app.use(cors({
-  origin: 'http://localhost:5173',  // 允许所有域名
+  // origin: 'http://localhost:5173',  // 允许所有域名
+  origin: '*',  // 允许所有域名
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],  // 允许的 HTTP 方法
   allowHeaders: ['Content-Type', 'Authorization'],  // 允许的请求头
 }))

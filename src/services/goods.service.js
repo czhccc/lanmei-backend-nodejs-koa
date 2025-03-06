@@ -97,32 +97,30 @@ class GoodsService {
         const {
           batchNo,
           batchType, 
-          batchPreorderStage,
           batchStartTime,
           batchMinPrice, 
           batchMaxPrice,
           batchUnitPrice,
           batchMinQuantity, 
           batchDiscounts,
-          batchPostage,
+          batchShipProvinces,
           batchRemark,
-          batchRemainingAmount
+          batchStockTotalAmount
         } = params;
 
         let batchStatement = `
           UPDATE goods
-            SET batch_no=?, batch_type=?, batch_preorder_stage=?, batch_startTime=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
-                batch_minQuantity=?, batch_discounts=?, batch_postage=?, batch_remark=?, batch_remainingAmount=?
+            SET batch_no=?, batch_type=?, batch_startTime=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
+                batch_minQuantity=?, batch_discounts=?, batch_shipProvinces=?, batch_remark=?, batch_stock_totalAmount=?, batch_stock_remainingAmount=?
           WHERE id=?
         `;
         
         const batchResult = await conn.execute(batchStatement, [
           batchNo || generateDatetimeId(),
           batchType, 
-          batchPreorderStage || (batchType==='preorder' ? 'pending' : null),
           batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'),
           batchUnitPrice || null, batchMinPrice || null, batchMaxPrice || null,
-          batchMinQuantity, JSON.stringify(batchDiscounts), JSON.stringify(batchPostage), batchRemark, batchRemainingAmount,
+          batchMinQuantity, JSON.stringify(batchDiscounts), JSON.stringify(batchShipProvinces), batchRemark, batchStockTotalAmount, batchStockTotalAmount,
           goodsId
         ]);
         
@@ -279,9 +277,9 @@ class GoodsService {
         UPDATE goods
           SET 
             goods_isSelling=0, 
-            batch_no=NULL, batch_type=NULL, batch_preorder_stage=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
-            batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL, batch_postage=NULL,
-            batch_remark=NULL, batch_remainingAmount=NULL 
+            batch_no=NULL, batch_type=NULL, batch_preorder_finalPrice=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+            batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL, batch_shipProvinces=NULL,
+            batch_remark=NULL, batch_stock_totalAmount=NULL, batch_stock_remainingAmont=NULL
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [goodsId])
@@ -296,7 +294,7 @@ class GoodsService {
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, goodsId, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, batchTotalSalesInfoResult[0][0].totalOrdersCount, batchTotalSalesInfoResult[0][0].totalAmount, batchInfo.goods_coverImage || '', JSON.stringify(batchInfo.batch_postage), 
+          batchInfo.batch_discounts, batchTotalSalesInfoResult[0][0].totalOrdersCount, batchTotalSalesInfoResult[0][0].totalAmount, batchInfo.goods_coverImage || '', JSON.stringify(batchInfo.batch_shipProvinces), 
           batchInfo.batch_remark, batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'completed'
       ])
 
@@ -428,7 +426,7 @@ class GoodsService {
     const totalOrdersInfo = totalOrdersResult[0][0]
     
     if (batchInfo.batch_type === 'preorder') { // 预订
-      if (batchInfo.batch_preorder_stage === 'pending') {
+      if (!batchInfo.batch_preorder_finalPrice) { // 预订阶段
         const statisticsStatement = `
           SELECT 
             COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
@@ -449,7 +447,7 @@ class GoodsService {
           reservedAmount: +statisticsInfo.reservedAmount+statisticsInfo.canceledAmount, // 已预订量
           canceledAmount: +statisticsInfo.canceledAmount, // 已取消量
         }
-      } else if (batchInfo.batch_preorder_stage === 'selling') {
+      } else { // 售卖阶段
         const statisticsStatement = `
           SELECT 
             COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
@@ -541,9 +539,9 @@ class GoodsService {
 
       const endCurrentBatchStatement = `
         UPDATE goods
-          SET batch_no=NULL, batch_type=NULL, batch_preorder_stage=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+          SET batch_no=NULL, batch_type=NULL, batch_preorder_finalPrice=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_postage=NULL, batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
+          batch_shipProvinces=NULL, batch_remark=NULL, batch_stock_totalAmount=NULL, batch_stock_remainingAmount=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
@@ -558,7 +556,7 @@ class GoodsService {
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, id, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_postage, batchInfo.batch_remark,
+          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_shipProvinces, batchInfo.batch_remark,
             batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'deleted'
       ])
 
@@ -566,6 +564,7 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
+      console.log(error);
       await conn.rollback();
       throw new Error('mysql事务失败，已回滚');
     } finally {
@@ -610,9 +609,9 @@ class GoodsService {
 
       const endCurrentBatchStatement = `
         UPDATE goods
-          SET batch_no=NULL, batch_type=NULL, batch_preorder_stage=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
+          SET batch_no=NULL, batch_type=NULL, batch_preorder_finalPrice=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
           batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_postage=NULL, batch_remark=NULL, batch_remainingAmount=NULL, goods_isSelling='0'
+          batch_shipProvinces=NULL, batch_remark=NULL, batch_stock_totalAmount=NULL, , batch_stock_remainingAmont=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const endCurrentBatchResult = await conn.execute(endCurrentBatchStatement, [id])
@@ -627,7 +626,7 @@ class GoodsService {
       const InsertHistoryBatchResult = await conn.execute(InsertHistoryBatchStatement, [
         batchInfo.batch_no, id, batchInfo.batch_type, batchInfo.batch_startTime, dayjs().format('YYYY-MM-DD HH:mm:ss'), 
           batchInfo.batch_unitPrice, batchInfo.batch_minPrice, batchInfo.batch_maxPrice, batchInfo.batch_minQuantity,
-          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_postage, batchInfo.batch_remark,
+          batchInfo.batch_discounts, 0, 0, batchInfo.goods_coverImage || '', batchInfo.batch_shipProvinces, batchInfo.batch_remark,
             batchInfo.goods_name, batchInfo.goods_unit, batchInfo.goods_remark, batchInfo.goods_richText, 'canceled'
       ])
 
@@ -645,10 +644,10 @@ class GoodsService {
   }
 
   async preorderBatchIsReadyToSell(params) {
-    const { id } = params
+    const { goodsId, finalPrice } = params
 
     const batchInfoStatement = `SELECT * FROM goods WHERE id=?`
-    const batchInfoResult = await connection.execute(batchInfoStatement, [id])
+    const batchInfoResult = await connection.execute(batchInfoStatement, [goodsId])
     const batchInfo = batchInfoResult[0][0]
     if (!batchInfo.batch_no) {
       throw new Error('无当前批次')
@@ -667,8 +666,8 @@ class GoodsService {
     try {
       await conn.beginTransaction();  // 开启事务
 
-      const changeStageStatement = `UPDATE goods SET batch_preorder_stage = 'selling' WHERE id = ?`
-      const changeStageResult = await conn.execute(changeStageStatement, [id])
+      const changeStageStatement = `UPDATE goods SET batch_preorder_finalPrice = ? WHERE id = ?`
+      const changeStageResult = await conn.execute(changeStageStatement, [finalPrice, goodsId])
       
       const changeOrdersStatusStatement = `UPDATE orders SET status = 'unpaid' WHERE batch_no = ? AND status = 'reserved'`
       const changeOrdersStatusResult = await conn.execute(changeOrdersStatusStatement, [batchInfo.batch_no])

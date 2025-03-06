@@ -130,9 +130,12 @@ class GoodsController {
   async preorderBatchIsReadyToSell(ctx, next) {
     const params = ctx.request.body
 
-    const { id } = params
-    if (!id) {
+    const { goodsId, finalPrice } = params
+    if (!goodsId) {
       throw new Error('缺少必填字段：商品id')
+    }
+    if (!finalPrice) {
+      throw new Error('缺少必填字段：最终定价')
     }
     
     const result = await service.preorderBatchIsReadyToSell(params)

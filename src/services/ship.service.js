@@ -14,6 +14,11 @@ class CommentService {
       whereClause += ` AND LEVEL = ?`
       queryParams.push(params.level)
     }
+
+    if (params.code) {
+      whereClause += ` AND code LIKE ?`
+      queryParams.push(`${params.code}%`)
+    }
     const statement = `SELECT * FROM ship_areas` + whereClause;
     const result = await connection.execute(statement, queryParams);
 

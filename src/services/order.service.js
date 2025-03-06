@@ -12,15 +12,15 @@ class OrderService {
       await conn.beginTransaction();  // 开启事务
 
       const {
-        goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, total_price, remark_self=''
+        goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_province, receive_provinceCode, receive_city, receive_cityCode, receive_district, receive_districtCode, receive_address, remark_customer, discount_amount, postage, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, total_price, remark_self=''
       } = params
 
-      // 判断商品是否上架，没上架则无法创建订单
-      const isSellingResult = await conn.execute('SELECT goods_isSelling FROM goods WHERE id = ?', [goods_id]);
-      if (isSellingResult[0][0].goods_isSelling !== 1) {
-        const notSellingError = new Error('商品已下架');
-        notSellingError.code = 'NOT_SELLING';  // 可以自定义错误码
-        throw notSellingError;
+      const batchInfo = await conn.execute('SELECT * FROM goods WHERE id = ?', [goods_id]);
+      if (batchInfo[0][0].goods_isSelling !== 1) {
+        throw new Error('商品已下架');
+      }
+      if (!batchInfo[0][0].batch_shipProvinces.includes(receive_province)) {
+        throw new Error('所选省份不可邮寄')
       }
 
       let statement = null
@@ -29,11 +29,11 @@ class OrderService {
       if (batch_type === 'preorder') {
         statement = `
           INSERT orders 
-            (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, discount_amount, postage, order_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, status, order_no, remark_self) 
+            (user, goods_id, batch_no, batch_type, num, receive_method, receive_name, receive_phone, receive_province, receive_provinceCode, receive_city, receive_cityCode, receive_district, receive_districtCode, receive_address, remark_customer, discount_amount, postage, order_time, snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, generation_type, total_minPrice, total_maxPrice, status, order_no, remark_self) 
               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `
         result = await conn.execute(statement, [
-          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_minPrice, total_maxPrice, 'reserved', `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}`, remark_self
+          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method||'delivery', receive_name, receive_phone, receive_province, receive_provinceCode, receive_city, receive_cityCode, receive_district, receive_districtCode, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_minPrice, total_maxPrice, 'reserved', `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}`, remark_self
         ])
       } else {
         statement = `
@@ -42,7 +42,7 @@ class OrderService {
               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `
         result = await conn.execute(statement, [
-          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method, receive_name, receive_phone, receive_region, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_price, 'paid', `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}`, remark_self
+          params.thePhone, goods_id, batch_no, batch_type, Number(num), receive_method||'delivery', receive_name, receive_phone, receive_region, receive_address, remark_customer, Number(discount_amount), Number(postage), dayjs().format('YYYY-MM-DD HH:mm:ss'), snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), snapshot_discounts, generation_type, total_price, 'paid', `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}`, remark_self
         ])
       }
       
@@ -53,12 +53,7 @@ class OrderService {
     } catch (error) {
       console.log(error.code)
       await conn.rollback();
-
-      if (error.code === 'NOT_SELLING') {
-        throw new Error('商品已下架')
-      } else {
-        throw new Error('mysql事务失败，已回滚');
-      }
+      throw new Error('mysql事务失败，已回滚');
     } finally {
       conn.release();
     }
@@ -75,17 +70,30 @@ class OrderService {
       const orderDetailResult = await conn.execute(orderDetailStatement, [params.id]);
       let originalFields = orderDetailResult[0][0]
 
-
       // 允许修改的字段列表
       const allowedFields = [
         "remark_self",
         "receive_name",
         "receive_phone",
         "receive_method",
+        "receive_province", 
+        "receive_provinceCode", 
+        "receive_city", 
+        "receive_cityCode", 
+        "receive_district", 
+        "receive_districtCode",
         "receive_address",
         "status",
       ];
       const fieldsToUpdate = Object.keys(params).filter(field => allowedFields.includes(field))
+
+      const batchInfo = await conn.execute('SELECT * FROM goods WHERE id = ?', [goods_id]);
+      if (batchInfo[0][0].goods_isSelling !== 1) {
+        throw new Error('商品已下架');
+      }
+      if (!batchInfo[0][0].batch_shipProvinces.includes(receive_province)) {
+        throw new Error('所选省份不可邮寄')
+      }
       
       // 记录日志 SQL
       let changedFields = {}
