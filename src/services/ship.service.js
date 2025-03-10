@@ -37,11 +37,11 @@ class CommentService {
     }
   }
 
-  async getPostageOfLastBatch(params) {
-    const getPostageOfLastBatchStatement = `SELECT postage FROM batch_history WHERE goods_id = ? ORDER BY createTime DESC LIMIT 1`;
-    const getPostageOfLastBatchResult = await connection.execute(getPostageOfLastBatchStatement, [params.goodsId]);
-    const postageOfLastBatch = getPostageOfLastBatchResult[0][0].postage
-    if (!postageOfLastBatch) {
+  async getShipProvincesOfLastBatch(params) {
+    const getShipProvincesOfLastBatchStatement = `SELECT shipProvinces FROM batch_history WHERE goods_id = ? ORDER BY createTime DESC LIMIT 1`;
+    const getShipProvincesOfLastBatchResult = await connection.execute(getShipProvincesOfLastBatchStatement, [params.goodsId]);
+    const shipProvincesOfLastBatch = getShipProvincesOfLastBatchResult[0][0].shipProvinces
+    if (!shipProvincesOfLastBatch) {
       return '无数据'
     }
 
@@ -51,7 +51,7 @@ class CommentService {
 
     let unusableButChoosedProvince = []
     let finalResult = allProvinces.map(item => {
-      let itemOfRules = postageOfLastBatch.find(el => el.code === item.code);
+      let itemOfRules = shipProvincesOfLastBatch.find(el => el.code === item.code);
       if (itemOfRules) {
         if (!item.usable) {
           unusableButChoosedProvince.push(item.name)

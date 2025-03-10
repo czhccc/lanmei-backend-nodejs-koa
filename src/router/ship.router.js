@@ -10,6 +10,6 @@ const shipRouter = new Router({prefix: '/ship'})
 
 shipRouter.get('/getAll', verifyToken, ShipController.getAll)
 shipRouter.post('/changeUsable', verifyToken, ShipController.changeUsable)
-shipRouter.get('/getPostageOfLastBatch', verifyToken, ShipController.getPostageOfLastBatch)
+shipRouter.get('/getShipProvincesOfLastBatch', verifyToken, ShipController.getShipProvincesOfLastBatch)
 
 module.exports = shipRouter

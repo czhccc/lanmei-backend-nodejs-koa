@@ -114,14 +114,15 @@ class GoodsController {
   async cancelAllOrdersInCurrentBatch(ctx, next) {
     const params = ctx.request.body
 
-    const { id, canceledReason } = params
+    const { id, cancelReason } = params
     if (!id) {
       throw new Error('缺少必填字段：商品id')
     }
-    if (!canceledReason) {
+    if (!cancelReason) {
       throw new Error('缺少必填字段：取消预订原因')
     }
     
+    params.thePhone = ctx.theUser.phone
     const result = await service.cancelAllOrdersInCurrentBatch(params)
 
     ctx.body = result

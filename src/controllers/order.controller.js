@@ -4,6 +4,7 @@ class OrderController {
   async createOrder(ctx, next) {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone
+    
     const result = await service.createOrder(params)
     
     ctx.body = result
@@ -19,7 +20,7 @@ class OrderController {
 
   async getOrderDetailById(ctx, next) {
     const params = ctx.request.query
-
+    
     const result = await service.getOrderDetailById(params)
 
     ctx.body = result
@@ -37,6 +38,22 @@ class OrderController {
     const params = ctx.request.query
     params.thePhone = ctx.theUser.phone
     const result = await service.getOrderLogsList(params)
+
+    ctx.body = result
+  }
+
+  async cancelSingleReservedOrder(ctx, next) {
+    const params = ctx.request.body
+    params.thePhone = ctx.theUser.phone
+    const result = await service.cancelSingleReservedOrder(params)
+
+    ctx.body = result
+  }
+
+  async payOrder(ctx, next) {
+    const params = ctx.request.body
+    
+    const result = await service.payOrder(params)
 
     ctx.body = result
   }

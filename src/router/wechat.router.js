@@ -22,6 +22,6 @@ wechatRouter.get('/address/default', verifyToken, WechatController.getDefaultAdd
 // 用户首页通知
 wechatRouter.get('/notify', verifyToken, tableResponseHandler, WechatController.getNotificationList)
 wechatRouter.post('/notify', verifyToken, WechatController.notify)
-wechatRouter.get('/notify/getLatestNotification', verifyToken, WechatController.getLatestNotification)
+wechatRouter.get('/notify/getLatestNotification', WechatController.getLatestNotification)
 
 module.exports = wechatRouter

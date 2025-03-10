@@ -17,10 +17,10 @@ class ShipController {
     ctx.body = result
   }
 
-  async getPostageOfLastBatch(ctx, next) {
+  async getShipProvincesOfLastBatch(ctx, next) {
     const params = ctx.request.query
 
-    const result = await service.getPostageOfLastBatch(params)
+    const result = await service.getShipProvincesOfLastBatch(params)
 
     ctx.body = result
   }
