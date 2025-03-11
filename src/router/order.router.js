@@ -24,4 +24,6 @@ orderRouter.post('/cancelSingleReservedOrder', verifyToken, OrderController.canc
 
 orderRouter.post('/payOrder', verifyToken, OrderController.payOrder)
 
+orderRouter.post('/completeOrder', verifyToken, OrderController.completeOrder)
+
 module.exports = orderRouter

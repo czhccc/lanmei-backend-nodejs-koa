@@ -748,11 +748,12 @@ class GoodsService {
 
       // ====================== 批量更新订单状态 ======================
       const [updateResult] = await conn.execute(
-        `UPDATE orders 
-        SET status = 'unpaid', preorder_finalPrice
-        WHERE 
-          batch_no = ? 
-          AND status = 'reserved'`,  // 仅更新处于预订状态的订单
+        `
+          UPDATE orders 
+            SET status = 'unpaid', preorder_finalPrice = ?
+          WHERE 
+            batch_no = ? AND status = 'reserved'
+        `,
         [finalPrice, batchInfo.batch_no]
       );
 

@@ -57,6 +57,14 @@ class OrderController {
 
     ctx.body = result
   }
+
+  async completeOrder(ctx, next) {
+    const params = ctx.request.body
+    params.thePhone = ctx.theUser.phone
+    const result = await service.completeOrder(params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new OrderController()

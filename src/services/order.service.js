@@ -440,7 +440,7 @@ class OrderService {
         finalAmount = Number(orderInfo.stock_unitPrice)*Number(orderInfo.num) + Number(orderInfo.postage) - Number(orderInfo.discountAmount_promotion) - Number(orderInfo.discountAmount_custom)
       }
 
-      const updateOrderStatement = `
+      const payOrderStatement = `
         UPDATE orders 
         SET 
           status = 'paid',
@@ -450,7 +450,7 @@ class OrderService {
           id = ? 
           AND status = 'unpaid'
       `;
-      const updateOrderResult = await conn.execute(updateOrderStatement, [
+      const payOrderResult = await conn.execute(payOrderStatement, [
         finalAmount, dayjs().format('YYYY-MM-DD HH:mm:ss'), orderId
       ]);
 
@@ -460,6 +460,67 @@ class OrderService {
       console.log(error);
       await conn.rollback();
 
+      throw error
+    } finally {
+      conn.release();
+    }
+
+  }
+
+  async completeOrder(params) {
+    const { orderId, thePhone } = params
+
+    if (!orderId || !Number.isInteger(Number(orderId))) {
+      throw new Error('订单ID无效');
+    }
+
+    const conn = await connection.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const completeOrderStatement = `
+        UPDATE orders 
+        SET 
+          status = 'completed',
+          complete_time = ?,
+          complete_by = ?
+        WHERE 
+          id = ? 
+          AND status = 'paid'
+      `;
+      const [completeOrderResult] = await conn.execute(completeOrderStatement, [
+        dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
+      ]);
+
+      console.log(completeOrderResult);
+
+      if (completeOrderResult.affectedRows === 0) {
+        console.log('啊啊啊啊');
+        const [getOrderInfoResult] = await conn.execute(
+          'SELECT * FROM orders WHERE id = ? FOR UPDATE',
+          [orderId]
+        );
+  
+        if (getOrderInfoResult.length === 0) {
+          throw new Error('订单不存在');
+        }
+  
+        const orderInfo = getOrderInfoResult[0]
+
+        console.log(orderInfo);
+  
+        if (orderInfo.status !== 'paid') {
+          throw new Error('订单不是已付款状态');
+        }
+
+        throw new Error('操作失败，请联系管理员')
+      }
+
+      await conn.commit();
+      return 'success';
+    } catch (error) {
+      console.log(error);
+      await conn.rollback();
       throw error
     } finally {
       conn.release();
