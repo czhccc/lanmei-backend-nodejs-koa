@@ -48,7 +48,6 @@ class AboutUsService {
   async getCategory(params) {
     let whereClause = ``
     if (params.isSelling) {
-      console.log('AND g.goods_isSelling = 1');
       whereClause = ` AND g.goods_isSelling = 1`
     }
     const statement = `
