@@ -12,7 +12,7 @@ class OrderService {
       await conn.beginTransaction();
   
       const {
-        goods_id, batch_no, batch_type, num, receive_isHomeDelivery, receive_name, receive_phone, 
+        goods_id, batch_no, batch_type, quantity, receive_isHomeDelivery, receive_name, receive_phone, 
         receive_province, receive_provinceCode, receive_city, receive_cityCode, receive_district, receive_districtCode, receive_address, 
         remark_customer, discount_amount, snapshot_coverImage, snapshot_goodsName, 
         snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, 
@@ -21,7 +21,7 @@ class OrderService {
       } = params;
 
       // ====================== 基础校验 ======================
-      if (!(Number.isInteger(num) && num>0)) {
+      if (!(Number.isInteger(quantity) && quantity>0)) {
         throw new Error('商品数量必须为正整数')
       }
       if (!receive_province || !receive_provinceCode || !receive_city || !receive_cityCode || !receive_district || !receive_districtCode || !receive_address) {
@@ -59,23 +59,23 @@ class OrderService {
         const [updateResult] = await conn.execute(
           `UPDATE goods 
            SET 
-             batch_stock_remainingAmount = batch_stock_remainingAmount - ?, 
+             batch_stock_remainingQuantity = batch_stock_remainingQuantity - ?, 
              goods_isSelling = CASE 
-               WHEN (batch_stock_remainingAmount - ?) <= 0 THEN 0 
+               WHEN (batch_stock_remainingQuantity - ?) <= 0 THEN 0 
                ELSE goods_isSelling 
              END 
            WHERE 
              id = ? 
-             AND batch_stock_remainingAmount >= ? 
+             AND batch_stock_remainingQuantity >= ? 
              AND goods_isSelling = 1`,
-          [num, num, goods_id, num]
+          [quantity, quantity, goods_id, quantity]
         );
   
         if (updateResult.affectedRows === 0) {
-          if (Number(batchInfo.batch_stock_remainingAmount) === 0) {
+          if (Number(batchInfo.batch_stock_remainingQuantity) === 0) {
             throw new Error('商品余量为0')
           }
-          if (batchInfo.batch_stock_remainingAmount < num) {
+          if (batchInfo.batch_stock_remainingQuantity < quantity) {
             throw new Error('商品余量不足');
           }
         }
@@ -88,15 +88,15 @@ class OrderService {
       if (!postageRule) {
         throw new Error('当前省份无有效邮费规则');
       }
-      if (postageRule.freeShippingNum && num>=postageRule.freeShippingNum) { // 达到包邮条件
+      if (postageRule.freeShippingQuantity && Quantity>=postageRule.freeShippingQuantity) { // 达到包邮条件
         postage = 0
       } else {
-        if (num <= postageRule.baseNum) { // 首重之内
+        if (Quantity <= postageRule.baseQuantity) { // 首重之内
           postage = postageRule.basePostage
         }
-        if ((num>postageRule.baseNum) && (num<postageRule.freeShippingNum)) { // 大于首重
-          let excess = num - postageRule.baseNum; // 超出首重的数量
-          let extraChargeUnits = Math.ceil(excess / postageRule.extraNum); // 向上取整计算需要支付的超额邮费次数
+        if ((Quantity>postageRule.baseQuantity) && (Quantity<postageRule.freeShippingQuantity)) { // 大于首重
+          let excess = quantity - postageRule.baseQuantity; // 超出首重的数量
+          let extraChargeUnits = Math.ceil(excess / postageRule.extraQuantity); // 向上取整计算需要支付的超额邮费次数
           postage = postageRule.basePostage + extraChargeUnits * postageRule.extraPostage
         }
       }
@@ -107,7 +107,7 @@ class OrderService {
       // 计算满减优惠
       let discountAmountPromotion = 0;
       batchInfo.batch_discounts.forEach(item => {
-        if (num >= item.quantity) {
+        if (quantity >= item.quantity) {
           discountAmountPromotion = Math.max(discountAmountPromotion, item.discount);
         }
       })
@@ -123,7 +123,7 @@ class OrderService {
         order_no: orderNo,
         batch_no,
         batch_type,
-        num: Number(num),
+        quantity: Number(quantity),
         receive_isHomeDelivery: receive_isHomeDelivery || 0,
         receive_name,
         receive_phone,
@@ -142,14 +142,14 @@ class OrderService {
       if (batch_type === 'preorder') {
         orderFields = {
           ...orderBaseFields,
-          preorder_minPrice: Number(batchInfo.batch_minPrice || 0),
-          preorder_maxPrice: Number(batchInfo.batch_maxPrice || 0),
+          preorder_minPrice: Number(batchInfo.batch_preorder_minPrice || 0),
+          preorder_maxPrice: Number(batchInfo.batch_preorder_maxPrice || 0),
           preorder_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
           status: 'reserved',
         };
       } else if (batch_type === 'stock') {
         // 计算商品总价
-        let goodsTotalPrice = Number(batchInfo.batch_unitPrice) * Number(num)
+        let goodsTotalPrice = Number(batchInfo.batch_stock_unitPrice) * Number(quantity)
 
         if (discountAmountPromotion < 0 || discountAmountPromotion > goodsTotalPrice) {
           throw new Error('优惠金额异常');
@@ -158,7 +158,7 @@ class OrderService {
         const finalAmount = goodsTotalPrice + postage - discountAmountPromotion
         orderFields = {
           ...orderBaseFields,
-          stock_unitPrice: Number(batchInfo.batch_unitPrice),
+          stock_unitPrice: Number(batchInfo.batch_stock_unitPrice),
           pay_finalAmount: finalAmount,
           pay_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
           status: 'paid',
@@ -474,11 +474,54 @@ class OrderService {
         throw new Error('订单不是未付款状态');
       }
 
+      // ------------------------------------------------------
+      const batchInfoResult = await conn.execute(
+        'SELECT * FROM goods WHERE id = ? FOR UPDATE',
+        [orderInfo.goods_id]
+      );
+      const batchInfo = batchInfoResult[0][0];
+
+      // 计算邮费
+      let postage = null
+      let postageRule = batchInfo.batch_shipProvinces.find(item => item.code === receive_provinceCode)
+      if (!postageRule) {
+        throw new Error('当前省份无有效邮费规则');
+      }
+      if (postageRule.freeShippingQuantity && quantity>=postageRule.freeShippingQuantity) { // 达到包邮条件
+        postage = 0
+      } else {
+        if (quantity <= postageRule.baseQuantity) { // 首重之内
+          postage = postageRule.basePostage
+        }
+        if ((quantity>postageRule.baseQuantity) && (quantity<postageRule.freeShippingQuantity)) { // 大于首重
+          let excess = quantity - postageRule.baseQuantity; // 超出首重的数量
+          let extraChargeUnits = Math.ceil(excess / postageRule.extraQuantity); // 向上取整计算需要支付的超额邮费次数
+          postage = postageRule.basePostage + extraChargeUnits * postageRule.extraPostage
+        }
+      }
+      if (postage < 0 ) {
+        throw new Error('邮费计算异常');
+      }
+
+      // 计算满减优惠
+      let discountAmountPromotion = 0;
+      batchInfo.batch_discounts.forEach(item => {
+        if (quantity >= item.quantity) {
+          discountAmountPromotion = Math.max(discountAmountPromotion, item.discount);
+        }
+      })
+
+      // 计算商品总价
+      let goodsTotalPrice = null
       let finalAmount = null
       if (orderInfo.batch_type === 'preorder') {
-        finalAmount = Number(orderInfo.preorder_finalPrice)*Number(orderInfo.num) + Number(orderInfo.postage) - Number(orderInfo.discountAmount_promotion) - Number(orderInfo.discountAmount_custom)
+        goodsTotalPrice = Number(batchInfo.batch_preorder_finalPrice) * Number(quantity)
+
+        finalAmount = goodsTotalPrice + postage - discountAmountPromotion
       } else if (orderInfo.batch_type === 'stock') {
-        finalAmount = Number(orderInfo.stock_unitPrice)*Number(orderInfo.num) + Number(orderInfo.postage) - Number(orderInfo.discountAmount_promotion) - Number(orderInfo.discountAmount_custom)
+        goodsTotalPrice = Number(batchInfo.batch_stock_unitPrice) * Number(quantity)
+
+        finalAmount = goodsTotalPrice + postage - discountAmountPromotion
       }
 
       const payOrderStatement = `

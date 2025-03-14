@@ -28,6 +28,7 @@ class GoodsService {
 
   async updateGoods(params) {
     const { 
+      thePhone,
       goodsId,
       goodsName, 
       goodsUnit,
@@ -93,59 +94,58 @@ class GoodsService {
 
       // 处理批次
       if (params.batchType) {
-        console.log('处理批次');
         const {
           batchNo,
           batchType, 
           batchStartTime,
-          batchMinPrice, 
-          batchMaxPrice,
-          batchUnitPrice,
+          batchPreorderMinPrice, 
+          batchPreorderMaxPrice,
+          batchStockUnitPrice,
           batchMinQuantity, 
           batchDiscounts,
           batchShipProvinces,
           batchRemark,
-          batchStockTotalAmount
+          batchStockTotalQuantity
         } = params;
 
         if (batchShipProvinces.length === 0) {
           throw new Error('未填写邮费规则')
         }
         for (const item of batchShipProvinces) {
-          if (item.freeShippingNum === 1) { // 1个就包邮
+          if (item.freeShippingQuantity === 1) { // 1个就包邮
             // 其他就可以不填写
           } else {
-            if (item.baseNum > item.freeShippingNum) {
+            if (item.baseQuantity > item.freeShippingQuantity) {
               throw new Error(`包邮数量须大于等于首重最大数量`)
             } else {
-              if (!item.baseNum) {
+              if (!item.baseQuantity) {
                 throw new Error(`${item.name} 首重最大数量 未填写`)
               }
-              if (item.baseNum === 0) {
+              if (item.baseQuantity === 0) {
                 throw new Error(`${item.name} 首重最大数量 不能为0`)
               }
               if (!item.basePostage) {
                 throw new Error(`${item.name} 首重邮费 未填写`)
               }
-              if (item.baseNum === 0) {
+              if (item.baseQuantity === 0) {
                 throw new Error(`${item.name} 首重邮费 不能为0`)
               }
-              if (!item.extraNum) {
+              if (!item.extraQuantity) {
                 throw new Error(`${item.name} 每续重几件 未填写`)
               }
-              if (item.baseNum === 0) {
+              if (item.baseQuantity === 0) {
                 throw new Error(`${item.name} 每续重几件 不能为0`)
               }
               if (!item.extraPostage) {
                 throw new Error(`${item.name} 续重单位邮费 未填写`)
               }
-              if (item.baseNum === 0) {
+              if (item.baseQuantity === 0) {
                 throw new Error(`${item.name} 续重单位邮费 不能为0`)
               }
-              if (!item.freeShippingNum) {
+              if (!item.freeShippingQuantity) {
                 throw new Error(`${item.name} 包邮数量 未填写`)
               }
-              if (item.baseNum === 0) {
+              if (item.baseQuantity === 0) {
                 throw new Error(`${item.name} 包邮数量 不能为0`)
               }
             }
@@ -154,17 +154,18 @@ class GoodsService {
 
         let batchStatement = `
           UPDATE goods
-            SET batch_no=?, batch_type=?, batch_startTime=?, batch_unitPrice=?, batch_minPrice=?, batch_maxPrice=?, 
-                batch_minQuantity=?, batch_discounts=?, batch_shipProvinces=?, batch_remark=?, batch_stock_totalAmount=?, batch_stock_remainingAmount=?
+            SET batch_startBy=?, batch_no=?, batch_type=?, batch_startTime=?, batch_stock_unitPrice=?, batch_preorder_minPrice=?, batch_preorder_maxPrice=?, 
+                batch_minQuantity=?, batch_discounts=?, batch_shipProvinces=?, batch_remark=?, batch_stock_totalQuantity=?, batch_stock_remainingQuantity=?
           WHERE id=?
         `;
         
         const batchResult = await conn.execute(batchStatement, [
+          thePhone,
           batchNo || generateDatetimeId(),
           batchType, 
           batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'),
-          batchUnitPrice || null, batchMinPrice || null, batchMaxPrice || null,
-          batchMinQuantity, JSON.stringify(batchDiscounts), JSON.stringify(batchShipProvinces), batchRemark, batchStockTotalAmount, batchStockTotalAmount,
+          batchStockUnitPrice || null, batchPreorderMinPrice || null, batchPreorderMaxPrice || null,
+          batchMinQuantity, JSON.stringify(batchDiscounts), JSON.stringify(batchShipProvinces), batchRemark, batchStockTotalQuantity, batchStockTotalQuantity,
           goodsId
         ]);
         
@@ -300,7 +301,7 @@ class GoodsService {
   }
 
   async endCurrentBatch(params) {
-    const { goodsId } = params
+    const { thePhone, goodsId } = params
     
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
@@ -328,7 +329,7 @@ class GoodsService {
       const [ordersStatusResult] = await conn.execute(
         `SELECT 
           COUNT(*) AS totalOrdersCount,
-          SUM(num) AS totalAmount,
+          SUM(quantity) AS totalQuantity,
           SUM(CASE WHEN status IN ('reserved', 'paid') THEN 1 ELSE 0 END) AS unfinishedCount
         FROM orders 
         WHERE batch_no = ?`,
@@ -336,7 +337,7 @@ class GoodsService {
       );
       const {
         totalOrdersCount = 0,
-        totalAmount = 0,
+        totalQuantity = 0,
         unfinishedCount = 0
       } = ordersStatusResult[0] || {};
 
@@ -357,9 +358,9 @@ class GoodsService {
       for (const item of ordersRevenueResult) {
         let revenue = 0
         if (item.batch_type === 'preorder') {
-          revenue = Number(item.preorder_finalPrice)*Number(item.num) + Number(item.postage) - Number(item.discountAmount_promotion)
+          revenue = Number(item.preorder_finalPrice)*Number(item.quantity) + Number(item.postage) - Number(item.discountAmount_promotion)
         } else if (item.batch_type === 'stock') {
-          revenue = Number(item.stock_unitPrice)*Number(item.num) + Number(item.postage) - Number(item.discountAmount_promotion)
+          revenue = Number(item.stock_unitPrice)*Number(item.quantity) + Number(item.postage) - Number(item.discountAmount_promotion)
         }
         totalRevenue += revenue
       }
@@ -373,15 +374,15 @@ class GoodsService {
           batch_type = NULL,
           batch_preorder_finalPrice = NULL,
           batch_startTime = NULL,
-          batch_unitPrice = NULL,
-          batch_minPrice = NULL,
-          batch_maxPrice = NULL,
+          batch_stock_unitPrice = NULL,
+          batch_preorder_minPrice = NULL,
+          batch_preorder_maxPrice = NULL,
           batch_minQuantity = NULL,
           batch_discounts = NULL,
           batch_shipProvinces = NULL,
           batch_remark = NULL,
-          batch_stock_totalAmount = NULL,
-          batch_stock_remainingAmount = NULL
+          batch_stock_totalQuantity = NULL,
+          batch_stock_remainingQuantity = NULL
         WHERE id = ?`,
         [goodsId]
       );
@@ -393,11 +394,11 @@ class GoodsService {
         type: batchInfo.batch_type,
         startTime: batchInfo.batch_startTime,
         endTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-        preorder_minPrice: batchInfo.batch_minPrice,
-        preorder_maxPrice: batchInfo.batch_maxPrice,
+        preorder_minPrice: batchInfo.batch_preorder_minPrice,
+        preorder_maxPrice: batchInfo.batch_preorder_maxPrice,
         preorder_finalPrice: batchInfo.batch_preorder_finalPrice,
-        stock_unitPrice: batchInfo.batch_unitPrice,
-        stock_totalAmount: batchInfo.batch_stock_totalAmount,
+        stock_unitPrice: batchInfo.batch_stock_unitPrice,
+        stock_totalQuantity: batchInfo.batch_stock_totalQuantity,
         minQuantity: batchInfo.batch_minQuantity,
         discounts: JSON.stringify(batchInfo.batch_discounts || []),
         coverImage: batchInfo.goods_coverImage || '',
@@ -405,8 +406,10 @@ class GoodsService {
         remark: batchInfo.batch_remark || '',
         status: 'completed',
         totalOrdersCount,
-        totalAmount,
+        totalQuantity,
         totalRevenue,
+        start_by: batchInfo.batch_startBy,
+        complete_by: thePhone,
         snapshot_goodsName: batchInfo.goods_name,
         snapshot_goodsUnit: batchInfo.goods_unit,
         snapshot_goodsRemark: batchInfo.goods_remark,
@@ -556,7 +559,7 @@ class GoodsService {
     const batchInfoResult = await connection.execute(batchInfoStatement, [id])
     const batchInfo = batchInfoResult[0][0]
 
-    const totalOrdersStatement = `SELECT COUNT(*) AS totalOrdersCount, SUM(num) AS totalAmount FROM orders WHERE batch_no = ?`
+    const totalOrdersStatement = `SELECT COUNT(*) AS totalOrdersCount, SUM(quantity) AS totalQuantity FROM orders WHERE batch_no = ?`
     const totalOrdersResult = await connection.execute(totalOrdersStatement, [batchInfo.batch_no])
     const totalOrdersInfo = totalOrdersResult[0][0]
     
@@ -567,8 +570,8 @@ class GoodsService {
             COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
             COUNT(CASE WHEN status = 'reserved' THEN 1 END) AS reservedOrdersCount,   -- reserved 状态的订单数量
             COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
-            SUM(CASE WHEN status = 'reserved' THEN num ELSE 0 END) AS reservedAmount,   -- reserved 状态的 num 总和
-            SUM(CASE WHEN status = 'canceled' THEN num ELSE 0 END) AS canceledAmount   -- canceled 状态的 num 总和
+            SUM(CASE WHEN status = 'reserved' THEN quantity ELSE 0 END) AS reservedQuantity,   -- reserved 状态的 quantity 总和
+            SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity   -- canceled 状态的 quantity 总和
           FROM orders
           WHERE batch_no = ? AND status IN ('reserved', 'canceled')
         `
@@ -579,8 +582,8 @@ class GoodsService {
           totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
           reservedOrdersCount: +statisticsInfo.reservedOrdersCount, // 已预订订单
           canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
-          reservedAmount: +statisticsInfo.reservedAmount+statisticsInfo.canceledAmount, // 已预订量
-          canceledAmount: +statisticsInfo.canceledAmount, // 已取消量
+          reservedQuantity: +statisticsInfo.reservedQuantity+statisticsInfo.canceledQuantity, // 已预订量
+          canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消量
         }
       } else { // 售卖阶段
         const statisticsStatement = `
@@ -591,11 +594,11 @@ class GoodsService {
             COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
             COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
             COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
-            SUM(CASE WHEN status = 'unpaid' THEN num ELSE 0 END) AS unpaidAmount,   -- unpaid 状态的 num 总和
-            SUM(CASE WHEN status = 'paid' THEN num ELSE 0 END) AS paidAmount,   -- paid 状态的 num 总和
-            SUM(CASE WHEN status = 'completed' THEN num ELSE 0 END) AS completedAmount,   -- completed 状态的 num 总和
-            SUM(CASE WHEN status = 'canceled' THEN num ELSE 0 END) AS canceledAmount,   -- canceled 状态的 num 总和
-            SUM(CASE WHEN status = 'refunded' THEN num ELSE 0 END) AS refundedAmount   -- refunded 状态的 num 总和
+            SUM(CASE WHEN status = 'unpaid' THEN quantity ELSE 0 END) AS unpaidQuantity,   -- unpaid 状态的 quantity 总和
+            SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,   -- paid 状态的 quantity 总和
+            SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,   -- completed 状态的 quantity 总和
+            SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity,   -- canceled 状态的 quantity 总和
+            SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity   -- refunded 状态的 quantity 总和
           FROM orders
           WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
         `
@@ -606,18 +609,18 @@ class GoodsService {
           totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
           reservedOrdersCount: +statisticsInfo.unpaidOrdersCount+statisticsInfo.paidOrdersCount+statisticsInfo.completedOrdersCount+statisticsInfo.refundedOrdersCount, // 已预订订单
           canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
-          reservedAmount: +statisticsInfo.unpaidAmount+statisticsInfo.paidAmount+statisticsInfo.completedAmount+statisticsInfo.refundedAmount, // 已预订量
+          reservedQuantity: +statisticsInfo.unpaidQuantity+statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
   
           unpaidOrdersCount: +statisticsInfo.unpaidOrdersCount, // 未付款
-          unpaidAmount: +statisticsInfo.unpaidAmount, // 未付款
+          unpaidQuantity: +statisticsInfo.unpaidQuantity, // 未付款
           paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
-          paidAmount: +statisticsInfo.paidAmount, // 已付款
+          paidQuantity: +statisticsInfo.paidQuantity, // 已付款
           completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
-          completedAmount: +statisticsInfo.completedAmount, // 已完成
+          completedQuantity: +statisticsInfo.completedQuantity, // 已完成
           canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消
-          canceledAmount: +statisticsInfo.canceledAmount, // 已取消
+          canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消
           refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
-          refundedAmount: +statisticsInfo.refundedAmount, // 已退款
+          refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
         }
       }
     } else {
@@ -627,9 +630,9 @@ class GoodsService {
           COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
           COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
           COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
-          SUM(CASE WHEN status = 'paid' THEN num ELSE 0 END) AS paidAmount,   -- paid 状态的 num 总和
-          SUM(CASE WHEN status = 'completed' THEN num ELSE 0 END) AS completedAmount,   -- completed 状态的 num 总和
-          SUM(CASE WHEN status = 'refunded' THEN num ELSE 0 END) AS refundedAmount   -- refunded 状态的 num 总和
+          SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,   -- paid 状态的 quantity 总和
+          SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,   -- completed 状态的 quantity 总和
+          SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity   -- refunded 状态的 quantity 总和
         FROM orders
         WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
       `
@@ -638,21 +641,21 @@ class GoodsService {
 
       return {
         totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
-        reservedAmount: +statisticsInfo.paidAmount+statisticsInfo.completedAmount+statisticsInfo.refundedAmount, // 已预订量
+        reservedQuantity: +statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
 
         paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
-        paidAmount: +statisticsInfo.paidAmount, // 已付款
+        paidQuantity: +statisticsInfo.paidQuantity, // 已付款
         completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
-        completedAmount: +statisticsInfo.completedAmount, // 已完成
+        completedQuantity: +statisticsInfo.completedQuantity, // 已完成
         refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
-        refundedAmount: +statisticsInfo.refundedAmount, // 已退款
+        refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
       }
     }
 
   }
 
   async deleteCurrentBatch(params) {
-    const { id } = params
+    const { thePhone, id } = params
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
       await conn.beginTransaction();  // 开启事务
@@ -680,9 +683,9 @@ class GoodsService {
       // ====================== 3. 执行批次删除操作 ======================
       const deleteCurrentBatchStatement = `
         UPDATE goods
-          SET batch_no=NULL, batch_type=NULL, batch_preorder_finalPrice=NULL, batch_startTime=NULL, batch_unitPrice=NULL, 
-          batch_minPrice=NULL, batch_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
-          batch_shipProvinces=NULL, batch_remark=NULL, batch_stock_totalAmount=NULL, batch_stock_remainingAmount=NULL, goods_isSelling='0'
+          SET batch_no=NULL, batch_type=NULL, batch_preorder_finalPrice=NULL, batch_startTime=NULL, batch_stock_unitPrice=NULL, 
+          batch_preorder_minPrice=NULL, batch_preorder_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
+          batch_shipProvinces=NULL, batch_remark=NULL, batch_stock_totalQuantity=NULL, batch_stock_remainingQuantity=NULL, goods_isSelling='0'
           WHERE id = ?
       `
       const deleteCurrentBatchResult = await conn.execute(deleteCurrentBatchStatement, [id])
@@ -736,7 +739,7 @@ class GoodsService {
       const [ordersInfoResult] = await conn.execute(
         `SELECT 
            COUNT(*) AS totalOrdersCount, 
-           SUM(CASE WHEN status = 'canceled' THEN num ELSE 0 END) AS totalAmount 
+           SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS totalQuantity 
          FROM orders 
          WHERE batch_no = ?`,
         [batchInfo.batch_no]
@@ -757,8 +760,8 @@ class GoodsService {
            batch_type = NULL,
            batch_preorder_finalPrice = NULL,
            batch_startTime = NULL,
-           batch_minPrice = NULL,
-           batch_maxPrice = NULL,
+           batch_preorder_minPrice = NULL,
+           batch_preorder_maxPrice = NULL,
            batch_minQuantity = NULL,
            batch_discounts = NULL,
            batch_shipProvinces = NULL,
@@ -788,11 +791,11 @@ class GoodsService {
         type: batchInfo.batch_type,
         startTime: batchInfo.batch_startTime,
         endTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-        preorder_minPrice: batchInfo.batch_minPrice,
-        preorder_maxPrice: batchInfo.batch_maxPrice,
+        preorder_minPrice: batchInfo.batch_preorder_minPrice,
+        preorder_maxPrice: batchInfo.batch_preorder_maxPrice,
         preorder_finalPrice: batchInfo.batch_preorder_finalPrice,
-        stock_unitPrice: batchInfo.batch_unitPrice,
-        stock_totalAmount: batchInfo.batch_stock_totalAmount,
+        stock_unitPrice: batchInfo.batch_stock_unitPrice,
+        stock_totalQuantity: batchInfo.batch_stock_totalQuantity,
         minQuantity: batchInfo.batch_minQuantity,
         discounts: JSON.stringify(batchInfo.batch_discounts || []),
         coverImage: batchInfo.goods_coverImage || '',
@@ -800,8 +803,9 @@ class GoodsService {
         remark: batchInfo.batch_remark || '',
         status: 'canceled',
         cancel_reason: cancelReason,
+        cancel_by: thePhone,
         totalOrdersCount: ordersInfo.totalOrdersCount,
-        totalAmount: ordersInfo.totalAmount,
+        totalQuantity: ordersInfo.totalQuantity,
         snapshot_goodsName: batchInfo.goods_name,
         snapshot_goodsUnit: batchInfo.goods_unit,
         snapshot_goodsRemark: batchInfo.goods_remark,
@@ -855,7 +859,7 @@ class GoodsService {
       if (batchInfo.batch_type !== 'preorder') {
         throw new Error('当前非预订批次');  // 修正拼写错误：Errpr -> Error
       }
-      if (finalPrice<batchInfo.batch_minPrice || finalPrice>batchInfo.batch_maxPrice) {
+      if (finalPrice<batchInfo.batch_preorder_minPrice || finalPrice>batchInfo.batch_preorder_maxPrice) {
         throw new Error('定价不在价格区间内')
       }
 

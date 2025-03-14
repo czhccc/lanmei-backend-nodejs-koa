@@ -3,7 +3,7 @@ const service = require('../services/goods.service')
 class GoodsController {
   async createOrUpdateGoods(ctx, next) {
     const params = ctx.request.body
-    console.log('goods', params);
+    params.thePhone = ctx.theUser.phone
     
     const { goodsName, goodsUnit, goodsIsSelling } = params;
     if (!goodsName || !goodsUnit || goodsIsSelling===undefined) {
@@ -45,7 +45,7 @@ class GoodsController {
 
   async endCurrentBatch(ctx, next) {
     const params = ctx.request.body
-    
+    params.thePhone = ctx.theUser.phone
     const result = await service.endCurrentBatch(params)
 
     ctx.body = '操作成功'

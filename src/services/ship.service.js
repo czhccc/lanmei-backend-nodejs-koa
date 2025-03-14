@@ -64,11 +64,11 @@ class CommentService {
           code: item.code,
           name: item.name,
           isChoosed: false,
-          baseNum: null,
+          baseQuantity: null,
           basePostage: null,
-          extraNum: null,
+          extraQuantity: null,
           extraPostage: null,
-          freeShippingNum: null,
+          freeShippingQuantity: null,
         };
       }
       return null; // 显式返回 null 以避免 undefined
