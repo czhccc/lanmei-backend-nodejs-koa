@@ -20,10 +20,12 @@ orderRouter.post('/updateOrder', verifyToken, OrderController.updateOrder)
 
 orderRouter.get('/getOrderLogsList', verifyToken, tableResponseHandler, OrderController.getOrderLogsList)
 
-orderRouter.post('/cancelSingleReservedOrder', verifyToken, OrderController.cancelSingleReservedOrder)
+orderRouter.post('/cancelOrder', verifyToken, OrderController.cancelOrder)
 
 orderRouter.post('/payOrder', verifyToken, OrderController.payOrder)
 
 orderRouter.post('/completeOrder', verifyToken, OrderController.completeOrder)
+
+orderRouter.post('/generateOrderInfo', verifyToken, OrderController.generateOrderInfo)
 
 module.exports = orderRouter

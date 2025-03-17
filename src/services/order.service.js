@@ -12,11 +12,10 @@ class OrderService {
       await conn.beginTransaction();
   
       const {
-        goods_id, batch_no, batch_type, quantity, receive_isHomeDelivery, receive_name, receive_phone, 
-        receive_province, receive_provinceCode, receive_city, receive_cityCode, receive_district, receive_districtCode, receive_address, 
-        remark_customer, discount_amount, snapshot_coverImage, snapshot_goodsName, 
-        snapshot_goodsUnit, snapshot_goodsRemark, snapshot_goodsRichText, snapshot_discounts, 
-        generation_type, total_minPrice, total_maxPrice, total_price, 
+        goods_id, quantity, 
+        receive_isHomeDelivery, receive_name, receive_phone, 
+        receive_provinceCode, receive_cityCode, receive_districtCode, receive_address, 
+        remark_customer,
         remark_self = ''
       } = params;
 
@@ -24,7 +23,7 @@ class OrderService {
       if (!(Number.isInteger(quantity) && quantity>0)) {
         throw new Error('商品数量必须为正整数')
       }
-      if (!receive_province || !receive_provinceCode || !receive_city || !receive_cityCode || !receive_district || !receive_districtCode || !receive_address) {
+      if (!receive_provinceCode || !receive_cityCode || !receive_districtCode || !receive_address || !receive_name || !receive_phone) {
         throw new Error('收货地址信息不完整')
       }
   
@@ -40,22 +39,44 @@ class OrderService {
         throw new Error('商品已下架');
       }
 
-      const shipProvinces = batchInfo.batch_shipProvinces.map(item => item.name);
-      if (!shipProvinces) {
-        throw new Error('所选省份不在数据库中');
+      // 省市区信息
+      const [areasInfoResult] = await conn.execute(
+        'SELECT * FROM ship_areas WHERE code IN (?,?,?) FOR UPDATE',
+        [receive_provinceCode, receive_cityCode, receive_districtCode]
+      );
+      if (areasInfoResult.length !== 3) {
+        throw new Error('省市区信息存在错误')
       }
-      if (!shipProvinces.includes(receive_province)) {
-        throw new Error('所选省份不可邮寄');
+      const provinceInfo = areasInfoResult[0]
+      const cityInfo = areasInfoResult[1]
+      const districtInfo = areasInfoResult[2]
+
+      if (provinceInfo.level !== 'province') {
+        throw new Error('所选省份不存在数据库中')
+      }
+      if (cityInfo.parent_code !== provinceInfo.code) {
+        throw new Error('所选市不属于所选省')
+      }
+      if (districtInfo.parent_code !== cityInfo.code) {
+        throw new Error('所选市不属于所选省')
       }
 
-      if (receive_isHomeDelivery && receive_district !== '嵊州市') {
+      const shipProvincesCodes = batchInfo.batch_shipProvinces.map(item => item.code);
+      if (!shipProvincesCodes) {
+        throw new Error('所选省份不在数据库中');
+      }
+      if (!shipProvincesCodes.includes(receive_provinceCode)) {
+        throw new Error('所选省份暂不支持配送');
+      }
+
+      if (receive_isHomeDelivery && districtInfo.name !== '嵊州市') {
         throw new Error('只有嵊州市可以送货上门');
       }
 
       // ====================== 按批次类型处理 ======================
-      if (batch_type === 'preorder') {
+      if (batchInfo.batch_type === 'preorder') {
 
-      } else if (batch_type === 'stock') {
+      } else if (batchInfo.batch_type === 'stock') {
         const [updateResult] = await conn.execute(
           `UPDATE goods 
            SET 
@@ -88,13 +109,13 @@ class OrderService {
       if (!postageRule) {
         throw new Error('当前省份无有效邮费规则');
       }
-      if (postageRule.freeShippingQuantity && Quantity>=postageRule.freeShippingQuantity) { // 达到包邮条件
+      if (postageRule.freeShippingQuantity && quantity>=postageRule.freeShippingQuantity) { // 达到包邮条件
         postage = 0
       } else {
-        if (Quantity <= postageRule.baseQuantity) { // 首重之内
+        if (quantity <= postageRule.baseQuantity) { // 首重之内
           postage = postageRule.basePostage
         }
-        if ((Quantity>postageRule.baseQuantity) && (Quantity<postageRule.freeShippingQuantity)) { // 大于首重
+        if ((quantity>postageRule.baseQuantity) && (quantity<postageRule.freeShippingQuantity)) { // 大于首重
           let excess = quantity - postageRule.baseQuantity; // 超出首重的数量
           let extraChargeUnits = Math.ceil(excess / postageRule.extraQuantity); // 向上取整计算需要支付的超额邮费次数
           postage = postageRule.basePostage + extraChargeUnits * postageRule.extraPostage
@@ -113,33 +134,45 @@ class OrderService {
       })
 
       // 生成订单号
-      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const getRandomLetters = (length) => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      };
+      const randomSuffix = getRandomLetters(4); // 生成4位随机英文字母
       const orderNo = `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}${randomSuffix}`;
 
       const orderBaseFields = {
-        generation_type,
         goods_id,
-        user: params.thePhone,
+        create_by: params.thePhone,
         order_no: orderNo,
-        batch_no,
-        batch_type,
+        batch_no: batchInfo.batch_no,
+        batch_type: batchInfo.batch_type,
         quantity: Number(quantity),
         receive_isHomeDelivery: receive_isHomeDelivery || 0,
         receive_name,
         receive_phone,
-        receive_province, receive_provinceCode, receive_city, receive_cityCode, receive_district, receive_districtCode, receive_address,
+        receive_province: provinceInfo.name, 
+        receive_provinceCode, 
+        receive_city: cityInfo.name, 
+        receive_cityCode, 
+        receive_district: districtInfo.name, 
+        receive_districtCode, 
+        receive_address,
         remark_customer,
-        discountAmount_promotion: Number(discount_amount),
+        discountAmount_promotion: Number(discountAmountPromotion),
         postage: Number(postage),
-        snapshot_coverImage, snapshot_goodsName, snapshot_goodsUnit, snapshot_goodsRemark, 
-        snapshot_goodsRichText: (snapshot_goodsRichText || '').replaceAll(BASE_URL, 'BASE_URL'), 
-        snapshot_discounts,
+        snapshot_coverImage: batchInfo.goods_coverImage, 
+        snapshot_goodsName: batchInfo.goods_name, 
+        snapshot_goodsUnit: batchInfo.goods_unit, 
+        snapshot_goodsRemark: batchInfo.goods_remark, 
+        snapshot_goodsRichText: (batchInfo.goods_richText || '').replaceAll(BASE_URL, 'BASE_URL'), 
+        snapshot_discounts: batchInfo.batch_discounts,
         remark_self,
       };
       
       // 根据订单类型动态添加字段
       let orderFields;
-      if (batch_type === 'preorder') {
+      if (batchInfo.batch_type === 'preorder') {
         orderFields = {
           ...orderBaseFields,
           preorder_minPrice: Number(batchInfo.batch_preorder_minPrice || 0),
@@ -147,7 +180,7 @@ class OrderService {
           preorder_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
           status: 'reserved',
         };
-      } else if (batch_type === 'stock') {
+      } else if (batchInfo.batch_type === 'stock') {
         // 计算商品总价
         let goodsTotalPrice = Number(batchInfo.batch_stock_unitPrice) * Number(quantity)
 
@@ -270,17 +303,13 @@ class OrderService {
     let query = ' WHERE 1=1'
     let queryParams = []
 
-    if (params.user) {
-      query += ` AND user LIKE ?`
-      queryParams.push(`%${params.user}%`)
+    if (params.create_by) {
+      query += ` AND create_by LIKE ?`
+      queryParams.push(`%${params.create_by}%`)
     }
     if (params.batch_type) {
       query += ` AND batch_type = ?`
       queryParams.push(params.batch_type)
-    }
-    if (params.generation_type) {
-      query += ` AND generation_type = ?`
-      queryParams.push(params.generation_type)
     }
     if (params.order_no) {
       query += ` AND order_no LIKE ?`
@@ -323,7 +352,12 @@ class OrderService {
 
     return {
       total,  // 总记录数
-      records: result[0]
+      records: result[0].map(item => {
+        return {
+          ...item,
+          snapshot_coverImage: `${BASE_URL}/${item.snapshot_coverImage}`
+        }
+      })
     };
   }
 
@@ -344,8 +378,14 @@ class OrderService {
       const orderDetailResult = await conn.execute(orderDetailStatement, [id]);
 
       await conn.commit();
+
+      let orderDetail = orderDetailResult[0][0]
       
-      return orderDetailResult[0][0]
+      return {
+        ...orderDetail,
+        snapshot_coverImage: `${BASE_URL}/${orderDetail.snapshot_coverImage}`,
+        snapshot_goodsRichText: orderDetail.snapshot_goodsRichText.replaceAll('BASE_URL', BASE_URL),
+      }
     } catch (error) {
       console.log(error);
       await conn.rollback();
@@ -356,9 +396,9 @@ class OrderService {
     }
   }
 
-  async cancelSingleReservedOrder(params) {
+  async cancelOrder(params) {
     let { orderId, cancelOrderReason=null, thePhone } = params
-
+    
     if (!orderId || !Number.isInteger(Number(orderId))) {
       throw new Error('订单id为空')
     }
@@ -370,7 +410,7 @@ class OrderService {
       const cancelReservedOrderStatement = `
         UPDATE orders 
           SET status = 'canceled', cancel_reason = ?, cancel_time = ?, cancel_by = ?
-        WHERE id = ? AND status = 'reserved'
+        WHERE id = ?
       `
       const [cancelReservedOrderResult] = await conn.execute(cancelReservedOrderStatement, [
         cancelOrderReason, dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
@@ -483,18 +523,18 @@ class OrderService {
 
       // 计算邮费
       let postage = null
-      let postageRule = batchInfo.batch_shipProvinces.find(item => item.code === receive_provinceCode)
+      let postageRule = batchInfo.batch_shipProvinces.find(item => item.code === orderInfo.receive_provinceCode)
       if (!postageRule) {
         throw new Error('当前省份无有效邮费规则');
       }
-      if (postageRule.freeShippingQuantity && quantity>=postageRule.freeShippingQuantity) { // 达到包邮条件
+      if (postageRule.freeShippingQuantity && orderInfo.quantity>=postageRule.freeShippingQuantity) { // 达到包邮条件
         postage = 0
       } else {
-        if (quantity <= postageRule.baseQuantity) { // 首重之内
+        if (orderInfo.quantity <= postageRule.baseQuantity) { // 首重之内
           postage = postageRule.basePostage
         }
-        if ((quantity>postageRule.baseQuantity) && (quantity<postageRule.freeShippingQuantity)) { // 大于首重
-          let excess = quantity - postageRule.baseQuantity; // 超出首重的数量
+        if ((orderInfo.quantity>postageRule.baseQuantity) && (orderInfo.quantity<postageRule.freeShippingQuantity)) { // 大于首重
+          let excess = orderInfo.quantity - postageRule.baseQuantity; // 超出首重的数量
           let extraChargeUnits = Math.ceil(excess / postageRule.extraQuantity); // 向上取整计算需要支付的超额邮费次数
           postage = postageRule.basePostage + extraChargeUnits * postageRule.extraPostage
         }
@@ -506,7 +546,7 @@ class OrderService {
       // 计算满减优惠
       let discountAmountPromotion = 0;
       batchInfo.batch_discounts.forEach(item => {
-        if (quantity >= item.quantity) {
+        if (orderInfo.quantity >= item.quantity) {
           discountAmountPromotion = Math.max(discountAmountPromotion, item.discount);
         }
       })
@@ -515,11 +555,11 @@ class OrderService {
       let goodsTotalPrice = null
       let finalAmount = null
       if (orderInfo.batch_type === 'preorder') {
-        goodsTotalPrice = Number(batchInfo.batch_preorder_finalPrice) * Number(quantity)
+        goodsTotalPrice = Number(batchInfo.batch_preorder_finalPrice) * Number(orderInfo.quantity)
 
         finalAmount = goodsTotalPrice + postage - discountAmountPromotion
       } else if (orderInfo.batch_type === 'stock') {
-        goodsTotalPrice = Number(batchInfo.batch_stock_unitPrice) * Number(quantity)
+        goodsTotalPrice = Number(batchInfo.batch_stock_unitPrice) * Number(orderInfo.quantity)
 
         finalAmount = goodsTotalPrice + postage - discountAmountPromotion
       }
@@ -576,10 +616,7 @@ class OrderService {
         dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
       ]);
 
-      console.log(completeOrderResult);
-
       if (completeOrderResult.affectedRows === 0) {
-        console.log('啊啊啊啊');
         const [getOrderInfoResult] = await conn.execute(
           'SELECT * FROM orders WHERE id = ? FOR UPDATE',
           [orderId]
@@ -590,8 +627,6 @@ class OrderService {
         }
   
         const orderInfo = getOrderInfoResult[0]
-
-        console.log(orderInfo);
   
         if (orderInfo.status !== 'paid') {
           throw new Error('订单不是已付款状态');
@@ -610,6 +645,113 @@ class OrderService {
       conn.release();
     }
 
+  }
+
+  async generateOrderInfo(params) {
+    const { goodsId, quantity, provinceCode } = params
+
+    if (!goodsId) {
+      throw new Error('缺少goodsId')
+    }
+    if (!quantity) {
+      throw new Error('缺少')
+    }
+
+    const conn = await connection.getConnection();
+    try {
+      // ==================== 数据获取阶段 ====================
+      // 获取商品及批次信息
+      const [goodsResult] = await conn.execute(
+        `SELECT * FROM goods WHERE id = ?`,
+        [goodsId]
+      );
+      const goods = goodsResult[0];
+      
+      // 基础校验
+      if (!goods) {
+        throw new Error('商品不存在');
+      }
+      if (goods.goods_isSelling !== 1) {
+        throw new Error('商品已下架');
+      }
+      if (goods.batch_type === 'stock' && goods.batch_stock_remainingQuantity < quantity) {
+        throw new Error('库存不足');
+      }
+
+
+      // 计算商品总价
+      let goodsTotalPrice = {}
+      if (goods.batch_type === 'preorder') {
+        goodsTotalPrice.minPrice = goods.batch_preorder_minPrice * quantity,
+        goodsTotalPrice.maxPrice = goods.batch_preorder_maxPrice * quantity
+      } else if (goods.batch_type === 'stock') {
+        goodsTotalPrice = goods.batch_stock_unitPrice * quantity;
+      }
+
+      // 计算满减优惠
+      let discount = 0;
+      goods.batch_discounts.forEach(item => {
+        if (quantity >= item.quantity) {
+          discount = Math.max(discount, item.discount);
+        }
+      });
+      if (goods.batch_type === 'preorder') {
+        discount = Math.min(discount, goodsTotalPrice.minPrice); // 确保优惠不超过总价（避免负数）
+      } else if (goods.batch_type === 'stock') {
+        discount = Math.min(discount, goodsTotalPrice); // 确保优惠不超过总价（避免负数）
+      }
+
+
+      const result = {
+        quantity: quantity,
+        discount,
+      };
+
+      if (goods.batch_type === 'preorder') {
+        result.goodsTotalMinPrice = goodsTotalPrice.minPrice
+        result.goodsTotalMaxPrice = goodsTotalPrice.maxPrice
+      } else {
+        result.goodsTotalPrice = goodsTotalPrice
+      }
+
+      if (provinceCode) { // 有收获地址
+        const provinceRule = goods.batch_shipProvinces.find(item => item.code===provinceCode);
+        if (!provinceRule) {
+          throw new Error('所选省份暂不支持配送');
+        }
+
+        // 3. 计算邮费逻辑（复用订单创建逻辑）
+        let postage = 0;
+        if (provinceRule.freeShippingQuantity && quantity >= provinceRule.freeShippingQuantity) {
+          postage = 0;
+        } else {
+          postage = provinceRule.basePostage;
+          if (quantity > provinceRule.baseQuantity) {
+            const excess = quantity - provinceRule.baseQuantity;
+            const extraUnits = Math.ceil(excess / provinceRule.extraQuantity);
+            postage += extraUnits * provinceRule.extraPostage;
+          }
+        }
+        result.postage = postage
+        
+        if (goods.batch_type === 'preorder') {
+          result.finalAmountMin = goodsTotalPrice.minPrice + postage - discount
+          result.finalAmountMax = goodsTotalPrice.maxPrice + postage - discount
+        } else if (goods.batch_type === 'stock') {
+          result.finalAmount = goodsTotalPrice + postage - discount
+        }
+
+      }
+
+      return result;
+
+    } catch (error) {
+      await conn.rollback();
+      console.log(error);
+      throw error;
+    } finally {
+      conn.release();
+    }
   }
 }
 

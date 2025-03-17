@@ -6,25 +6,25 @@ class WechatService {
 
   // 用户收货地址
   async addAddress(params) {
-    const { name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault } = params
+    const { name, phone, create_by, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault } = params
 
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
       await conn.beginTransaction();  // 开启事务
 
       if (isDefault) {
-        const updateStatement = `UPDATE customer_address SET isDefault = 0 WHERE user = ?`
+        const updateStatement = `UPDATE customer_address SET isDefault = 0 WHERE create_by = ?`
         const updateResult = await conn.execute(updateStatement, [
-          user
+          create_by
         ])
       }
 
       const insertStatement = `
         INSERT 
-          customer_address (name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault) 
+          customer_address (name, phone, create_by, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault) 
             VALUES (?,?,?,?,?,?,?,?,?,?,?)`
       const insertResult = await conn.execute(insertStatement, [
-        name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault?1:0
+        name, phone, create_by, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault?1:0
       ])
 
       await conn.commit();
@@ -38,26 +38,26 @@ class WechatService {
     }
   }
   async editAddress(params) {
-    const { id, name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault } = params
+    const { id, name, phone, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault } = params
 
     const updateStatement = `
       UPDATE customer_address 
-      SET name=?, phone=?, user=?, province=?, provinceCode=?, city=?, cityCode=?, district=?, districtCode=?, detail=?, isDefault=?
+      SET name=?, phone=?, province=?, provinceCode=?, city=?, cityCode=?, district=?, districtCode=?, detail=?, isDefault=?
       WHERE id = ?
     `
 
     const updateResult = await connection.execute(updateStatement, [
-      name, phone, user, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault, id
+      name, phone, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault, id
     ])
 
     return '提交成功'
   }
   async getAddressList(params) {
-    const { user } = params
+    const { create_by } = params
 
-    const statement = `SELECT * from customer_address WHERE user=?`
+    const statement = `SELECT * from customer_address WHERE create_by=?`
 
-    const result = await connection.execute(statement, [ user ])
+    const result = await connection.execute(statement, [ create_by ])
 
     return result[0]
   }
@@ -69,11 +69,11 @@ class WechatService {
     return '删除成功'
   }
   async getDefaultAddress(params) {
-    const { user } = params
+    const { create_by } = params
 
-    const statement = `SELECT * from customer_address WHERE user=? AND isDefault=1`
+    const statement = `SELECT * from customer_address WHERE create_by=? AND isDefault=1`
 
-    const result = await connection.execute(statement, [ user ])
+    const result = await connection.execute(statement, [ create_by ])
 
     return result[0]
   }

@@ -40,10 +40,10 @@ class CommentService {
   async getShipProvincesOfLastBatch(params) {
     const getShipProvincesOfLastBatchStatement = `SELECT shipProvinces FROM batch_history WHERE goods_id = ? ORDER BY createTime DESC LIMIT 1`;
     const getShipProvincesOfLastBatchResult = await connection.execute(getShipProvincesOfLastBatchStatement, [params.goodsId]);
-    const shipProvincesOfLastBatch = getShipProvincesOfLastBatchResult[0][0].shipProvinces
-    if (!shipProvincesOfLastBatch) {
-      return '无数据'
+    if (getShipProvincesOfLastBatchResult[0].length === 0) {
+      throw new Error('无上一批次的配置')
     }
+    const shipProvincesOfLastBatch = getShipProvincesOfLastBatchResult[0][0].shipProvinces
 
     const getAllProvincesStatement = `SELECT * FROM ship_areas WHERE level='province'`;
     const getAllProvincesResult = await connection.execute(getAllProvincesStatement, []);
@@ -74,8 +74,6 @@ class CommentService {
       return null; // 显式返回 null 以避免 undefined
     }).filter(Boolean); // 过滤掉 null/undefined
     
-    console.log(unusableButChoosedProvince);
-    console.log(finalResult);
     return {
       unusableButChoosedProvince,
       finalResult

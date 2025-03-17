@@ -329,7 +329,7 @@ class GoodsService {
       const [ordersStatusResult] = await conn.execute(
         `SELECT 
           COUNT(*) AS totalOrdersCount,
-          SUM(quantity) AS totalQuantity,
+          SUM(quantity) AS totalSoldQuantity,
           SUM(CASE WHEN status IN ('reserved', 'paid') THEN 1 ELSE 0 END) AS unfinishedCount
         FROM orders 
         WHERE batch_no = ?`,
@@ -337,7 +337,7 @@ class GoodsService {
       );
       const {
         totalOrdersCount = 0,
-        totalQuantity = 0,
+        totalSoldQuantity = 0,
         unfinishedCount = 0
       } = ordersStatusResult[0] || {};
 
@@ -374,6 +374,7 @@ class GoodsService {
           batch_type = NULL,
           batch_preorder_finalPrice = NULL,
           batch_startTime = NULL,
+          batch_startBy = NULL,
           batch_stock_unitPrice = NULL,
           batch_preorder_minPrice = NULL,
           batch_preorder_maxPrice = NULL,
@@ -396,6 +397,8 @@ class GoodsService {
         endTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
         preorder_minPrice: batchInfo.batch_preorder_minPrice,
         preorder_maxPrice: batchInfo.batch_preorder_maxPrice,
+        preorder_startSelling_time: batchInfo.batch_preorder_startSelling_time,
+        preorder_startSelling_by: batchInfo.batch_preorder_startSelling_by,
         preorder_finalPrice: batchInfo.batch_preorder_finalPrice,
         stock_unitPrice: batchInfo.batch_stock_unitPrice,
         stock_totalQuantity: batchInfo.batch_stock_totalQuantity,
@@ -406,7 +409,7 @@ class GoodsService {
         remark: batchInfo.batch_remark || '',
         status: 'completed',
         totalOrdersCount,
-        totalQuantity,
+        totalSoldQuantity,
         totalRevenue,
         start_by: batchInfo.batch_startBy,
         complete_by: thePhone,
@@ -559,7 +562,7 @@ class GoodsService {
     const batchInfoResult = await connection.execute(batchInfoStatement, [id])
     const batchInfo = batchInfoResult[0][0]
 
-    const totalOrdersStatement = `SELECT COUNT(*) AS totalOrdersCount, SUM(quantity) AS totalQuantity FROM orders WHERE batch_no = ?`
+    const totalOrdersStatement = `SELECT COUNT(*) AS totalOrdersCount, SUM(quantity) AS totalSoldQuantity FROM orders WHERE batch_no = ?`
     const totalOrdersResult = await connection.execute(totalOrdersStatement, [batchInfo.batch_no])
     const totalOrdersInfo = totalOrdersResult[0][0]
     
@@ -683,7 +686,7 @@ class GoodsService {
       // ====================== 3. 执行批次删除操作 ======================
       const deleteCurrentBatchStatement = `
         UPDATE goods
-          SET batch_no=NULL, batch_type=NULL, batch_preorder_finalPrice=NULL, batch_startTime=NULL, batch_stock_unitPrice=NULL, 
+          SET batch_no=NULL, batch_type=NULL, batch_preorder_finalPrice=NULL, batch_startTime=NULL, batch_startBy=NULL, batch_stock_unitPrice=NULL, 
           batch_preorder_minPrice=NULL, batch_preorder_maxPrice=NULL, batch_minQuantity=NULL, batch_discounts=NULL,
           batch_shipProvinces=NULL, batch_remark=NULL, batch_stock_totalQuantity=NULL, batch_stock_remainingQuantity=NULL, goods_isSelling='0'
           WHERE id = ?
@@ -739,7 +742,7 @@ class GoodsService {
       const [ordersInfoResult] = await conn.execute(
         `SELECT 
            COUNT(*) AS totalOrdersCount, 
-           SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS totalQuantity 
+           SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS totalSoldQuantity 
          FROM orders 
          WHERE batch_no = ?`,
         [batchInfo.batch_no]
@@ -760,6 +763,7 @@ class GoodsService {
            batch_type = NULL,
            batch_preorder_finalPrice = NULL,
            batch_startTime = NULL,
+           batch_startBy = NULL,
            batch_preorder_minPrice = NULL,
            batch_preorder_maxPrice = NULL,
            batch_minQuantity = NULL,
@@ -790,6 +794,7 @@ class GoodsService {
         goods_id: id,
         type: batchInfo.batch_type,
         startTime: batchInfo.batch_startTime,
+        start_by: batchInfo.batch_startBy,
         endTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
         preorder_minPrice: batchInfo.batch_preorder_minPrice,
         preorder_maxPrice: batchInfo.batch_preorder_maxPrice,
@@ -805,7 +810,7 @@ class GoodsService {
         cancel_reason: cancelReason,
         cancel_by: thePhone,
         totalOrdersCount: ordersInfo.totalOrdersCount,
-        totalQuantity: ordersInfo.totalQuantity,
+        totalSoldQuantity: ordersInfo.totalSoldQuantity,
         snapshot_goodsName: batchInfo.goods_name,
         snapshot_goodsUnit: batchInfo.goods_unit,
         snapshot_goodsRemark: batchInfo.goods_remark,
@@ -832,7 +837,7 @@ class GoodsService {
   }
 
   async preorderBatchIsReadyToSell(params) {
-    const { goodsId, finalPrice } = params
+    const { thePhone, goodsId, finalPrice } = params
 
     // ====================== 参数校验 ======================
     if (typeof finalPrice !== 'number' || finalPrice <= 0) {
@@ -873,22 +878,25 @@ class GoodsService {
       }
 
       // ====================== 更新批次最终价格 ======================
+      let currentTime = dayjs().format('YYYY-MM-DD HH:mm:ss')
       await conn.execute(
-        `UPDATE goods 
-        SET batch_preorder_finalPrice = ?, goods_isSelling = 0
-        WHERE id = ?`,
-        [finalPrice, goodsId]
+        `
+          UPDATE goods 
+            SET batch_preorder_startSelling_time = ?, batch_preorder_startSelling_by = ?, batch_preorder_finalPrice = ?, goods_isSelling = 0 
+          WHERE id = ?
+        `,
+        [currentTime, thePhone, finalPrice, goodsId]
       );
 
       // ====================== 批量更新订单状态 ======================
       const [updateResult] = await conn.execute(
         `
           UPDATE orders 
-            SET status = 'unpaid', preorder_finalPrice = ?
+            SET status = 'unpaid', preorder_startSelling_time = ?, preorder_startSelling_by = ?, preorder_finalPrice = ? 
           WHERE 
             batch_no = ? AND status = 'reserved'
         `,
-        [finalPrice, batchInfo.batch_no]
+        [currentTime, thePhone, finalPrice, batchInfo.batch_no]
       );
 
       // 可选：校验实际更新的订单数

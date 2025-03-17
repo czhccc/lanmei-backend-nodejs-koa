@@ -42,10 +42,10 @@ class OrderController {
     ctx.body = result
   }
 
-  async cancelSingleReservedOrder(ctx, next) {
+  async cancelOrder(ctx, next) {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone
-    const result = await service.cancelSingleReservedOrder(params)
+    const result = await service.cancelOrder(params)
 
     ctx.body = result
   }
@@ -62,6 +62,14 @@ class OrderController {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone
     const result = await service.completeOrder(params)
+
+    ctx.body = result
+  }
+
+  async generateOrderInfo(ctx, next) {
+    const params = ctx.request.body
+    params.thePhone = ctx.theUser.phone
+    const result = await service.generateOrderInfo(params)
 
     ctx.body = result
   }

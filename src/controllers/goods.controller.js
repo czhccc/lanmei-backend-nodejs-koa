@@ -139,6 +139,7 @@ class GoodsController {
       throw new Error('缺少必填字段：最终定价')
     }
     
+    params.thePhone = ctx.theUser.phone
     const result = await service.preorderBatchIsReadyToSell(params)
 
     ctx.body = result
