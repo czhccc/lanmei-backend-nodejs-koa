@@ -18,7 +18,7 @@ orderRouter.get('/getOrderDetailById', verifyToken, OrderController.getOrderDeta
 
 orderRouter.post('/updateOrder', verifyToken, OrderController.updateOrder)
 
-orderRouter.get('/getOrderLogsList', verifyToken, tableResponseHandler, OrderController.getOrderLogsList)
+orderRouter.get('/getOrdersLogsList', verifyToken, tableResponseHandler, OrderController.getOrdersLogsList)
 
 orderRouter.post('/cancelOrder', verifyToken, OrderController.cancelOrder)
 

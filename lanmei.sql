@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 17/03/2025 22:04:06
+ Date: 18/03/2025 22:40:10
 */
 
 SET NAMES utf8mb4;
@@ -393,7 +393,7 @@ INSERT INTO `orders` VALUES (118, 55, '13989536936', '202503171853526936wNUe', '
 INSERT INTO `orders` VALUES (119, 58, '13989536936', '202503172051016936oPTc', '20250317205046_b9z0yg', 'stock', 1, 'linshi', '13989898989', '浙江省', '33', '杭州市', '3301', '上城区', '330102', '222', 0, '', NULL, NULL, NULL, NULL, NULL, NULL, 10.00, 0.00, 10.00, 'completed', NULL, NULL, NULL, '2025-03-17 20:51:01', 20.00, '2025-03-17 20:51:31', '19967303498', '', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '[]', '2025-03-17 20:51:01', '2025-03-17 20:51:31');
 INSERT INTO `orders` VALUES (120, 58, '13989536936', '202503172052236936xZsH', '20250317205046_b9z0yg', 'stock', 1, 'yjnyjn', '13989536936', '浙江省', '33', '绍兴市', '3306', '嵊州市', '330683', '甘霖镇', 1, '22222222', NULL, NULL, NULL, NULL, NULL, NULL, 10.00, 0.00, 10.00, 'completed', NULL, NULL, NULL, '2025-03-17 20:52:23', 20.00, '2025-03-17 21:01:53', '19967303498', '', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '[]', '2025-03-17 20:52:23', '2025-03-17 21:01:53');
 INSERT INTO `orders` VALUES (121, 58, '13989536936', '202503172104006936BhGO', '20250317210325_vpjd9g', 'stock', 1, 'linshi', '13989898989', '浙江省', '33', '杭州市', '3301', '上城区', '330102', '222', 0, '', NULL, NULL, NULL, NULL, NULL, NULL, 5.00, 0.00, 10.00, 'completed', NULL, NULL, NULL, '2025-03-17 21:04:00', 15.00, '2025-03-17 21:52:31', '13989536936', '', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', '[]', '2025-03-17 21:04:00', '2025-03-17 21:52:31');
-INSERT INTO `orders` VALUES (122, 55, '13989536936', '202503172152536936GtKS', '20250317185337_ynbmrg', 'preorder', 2, 'linshi', '13989898989', '浙江省', '33', '杭州市', '3301', '上城区', '330102', '222', 0, '', '2025-03-17 21:52:53', 1.00, 10.00, '2025-03-17 21:53:11', '19967303498', 5.00, NULL, 0.00, 20.00, 'canceled', '000000', '2025-03-17 21:57:36', '19967303498', NULL, NULL, NULL, NULL, '', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-03-17 21:52:53', '2025-03-17 21:57:36');
+INSERT INTO `orders` VALUES (122, 55, '13989536936', '202503172152536936GtKS', '20250317185337_ynbmrg', 'preorder', 2, 'linshi', '13989898989', '浙江省', '33', '绍兴市', '3306', '嵊州市', '330683', '11111111111111111111111111111111111111111111111111', 1, '', '2025-03-17 21:52:53', 1.00, 10.00, '2025-03-17 21:53:11', '19967303498', 5.00, NULL, 0.00, 20.00, 'canceled', '000000', '2025-03-17 21:57:36', '19967303498', NULL, NULL, NULL, NULL, '22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-03-17 21:52:53', '2025-03-18 22:00:53');
 
 -- ----------------------------
 -- Table structure for orders_logs
@@ -403,15 +403,17 @@ CREATE TABLE `orders_logs`  (
   `id` int NOT NULL AUTO_INCREMENT,
   `order_id` int NOT NULL COMMENT '订单id',
   `order_no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '订单号',
-  `operator` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '操作人',
   `changes` json NOT NULL COMMENT '细节的文本内容',
   `createTime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `create_by` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '操作人',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 8 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of orders_logs
 -- ----------------------------
+INSERT INTO `orders_logs` VALUES (6, 122, '202503172152536936GtKS', '{\"remark_self\": {\"new\": \"11111111\", \"old\": \"\"}}', '2025-03-18 21:44:53', '19967303498');
+INSERT INTO `orders_logs` VALUES (7, 122, '202503172152536936GtKS', '{\"remark_self\": {\"new\": \"22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222\", \"old\": \"11111111\"}, \"receive_city\": {\"new\": \"绍兴市\", \"old\": \"杭州市\"}, \"receive_address\": {\"new\": \"11111111111111111111111111111111111111111111111111\", \"old\": \"222\"}, \"receive_cityCode\": {\"new\": \"3306\", \"old\": \"3301\"}, \"receive_district\": {\"new\": \"嵊州市\", \"old\": \"上城区\"}, \"receive_districtCode\": {\"new\": \"330683\", \"old\": \"330102\"}, \"receive_isHomeDelivery\": {\"new\": 1, \"old\": 0}}', '2025-03-18 22:00:53', '19967303498');
 
 -- ----------------------------
 -- Table structure for ship_areas

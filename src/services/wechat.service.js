@@ -34,7 +34,7 @@ class WechatService {
       await conn.rollback();
       throw new Error('mysql事务失败，已回滚');
     } finally {
-      conn.release();
+      if (conn) conn.release();
     }
   }
   async editAddress(params) {

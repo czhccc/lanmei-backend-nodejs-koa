@@ -68,7 +68,7 @@ class AboutUsService {
       throw new Error('mysql事务失败，已回滚');
     } finally {
       // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
   }
 

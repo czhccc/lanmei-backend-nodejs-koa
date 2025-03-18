@@ -58,7 +58,7 @@ class OrderService {
         throw new Error('所选市不属于所选省')
       }
       if (districtInfo.parent_code !== cityInfo.code) {
-        throw new Error('所选市不属于所选省')
+        throw new Error('所选区不属于所选市')
       }
 
       const shipProvincesCodes = batchInfo.batch_shipProvinces.map(item => item.code);
@@ -214,90 +214,135 @@ class OrderService {
       await conn.rollback();
       throw error;
     } finally {
-      conn.release();
+      if (conn) conn.release();
     }
   }
 
   async updateOrder(params) {
-    const conn = await connection.getConnection(); // 从连接池获取连接
+    const conn = await connection.getConnection();
     try {
-      await conn.beginTransaction(); // 开启事务
+      await conn.beginTransaction();
 
-      const orderDetailStatement = `
-        SELECT * FROM orders WHERE id = ?
-      `
-      const orderDetailResult = await conn.execute(orderDetailStatement, [params.id]);
-      let originalFields = orderDetailResult[0][0]
+      // ------------ 阶段1：数据准备 ------------
+      const [orderResult] = await conn.execute(
+        `SELECT * FROM orders WHERE id = ? FOR UPDATE`,
+        [params.id]
+      );
+      if (orderResult.length === 0) throw new Error('订单不存在');
+      const originalOrder = orderResult[0];
 
-      // 允许修改的字段列表
-      const allowedFields = [
-        "remark_self",
-        "receive_name",
-        "receive_phone",
-        "receive_province", 
-        "receive_provinceCode", 
-        "receive_city", 
-        "receive_cityCode", 
-        "receive_district", 
-        "receive_districtCode",
-        "receive_address",
-        "receive_isHomeDelivery",
-        "status",
-      ];
-      const fieldsToUpdate = Object.keys(params).filter(field => allowedFields.includes(field))
+      // 允许修改的字段白名单
+      const allowedFields = {
+        remark_self: true,
+        receive_name: true,
+        receive_phone: true,
+        receive_provinceCode: true,
+        receive_cityCode: true,
+        receive_districtCode: true,
+        receive_address: true,
+        receive_isHomeDelivery: true
+      };
 
-      const batchInfoResult = await conn.execute('SELECT * FROM goods WHERE id = ?', [goods_id]);
-      const batchInfo = batchInfoResult[0][0]
-      if (batchInfo.goods_isSelling !== 1) {
-        throw new Error('商品已下架');
-      }
-      if (!batchInfo.batch_shipProvinces.includes(receive_province)) {
-        throw new Error('所选省份不可邮寄')
-      }
-      
-      // 记录日志 SQL
-      let changedFields = {}
-      for (const field of fieldsToUpdate) {
-        if (originalFields[field] !== params[field]) {
-          console.log(field, originalFields[field], params[field]);
-          changedFields[field] = {
-            before: originalFields[field],
-            after: params[field],
-          }
+      // ------------ 阶段2：构建更新数据 ------------
+      const updateData = {};
+      let hasChanges = false;
+      for (const key of Object.keys(params)) {
+        if (allowedFields[key] && originalOrder[key] !== params[key]) {
+          updateData[key] = params[key];
+          hasChanges = true;
         }
       }
-      
-      if (Object.keys(changedFields).length > 0) {
-        const logStatement = `INSERT INTO order_logs (order_id, order_no, operator, changes) VALUES (?, ?, ?, ?)`;
-        await conn.execute(logStatement, [params.id, originalFields.order_no, params.thePhone, JSON.stringify(changedFields)]);
-
-        // 更新订单
-        const setFields = fieldsToUpdate.map(field => `\`${field}\` = ?`);
-        const updateValues = fieldsToUpdate.map(field => params[field]);
-        const updateStatement = `
-          UPDATE orders
-          SET ${setFields.join(", ")}
-          WHERE id = ?
-        `;
-        updateValues.push(params.id); // 添加订单 ID
-        const [updateResult] = await conn.execute(updateStatement, updateValues);
-
-        await conn.commit(); // 提交事务
-
-        return '订单修改成功'
-      } else {
-        return '订单无改动'
+      if (!hasChanges) {
+        await conn.rollback();
+        return '未检测到有效修改'
       }
+
+      // ------------ 阶段3：地址验证逻辑 ------------
+      // 获取最新地址参数（优先使用新值）
+      const addressParams = {
+        provinceCode: updateData.receive_provinceCode || originalOrder.receive_provinceCode,
+        cityCode: updateData.receive_cityCode || originalOrder.receive_cityCode,
+        districtCode: updateData.receive_districtCode || originalOrder.receive_districtCode,
+        isHomeDelivery: updateData.receive_isHomeDelivery ?? originalOrder.receive_isHomeDelivery
+      };
+
+      // 查询地址信息
+      const [areas] = await conn.execute(
+        `SELECT *
+          FROM ship_areas 
+          WHERE code IN (?, ?, ?) 
+          ORDER BY FIELD(code, ?, ?, ?)`, // 确保顺序：省→市→区
+        [
+          addressParams.provinceCode, addressParams.cityCode, addressParams.districtCode,
+          addressParams.provinceCode, addressParams.cityCode, addressParams.districtCode
+        ]
+      );
+      if (areas.length !== 3) throw new Error('地址信息不完整');
+      const [province, city, district] = areas;
+
+      // 层级验证
+      if (province.level !== 'province') throw new Error('所选省份不存在数据库中');
+      if (city.parent_code !== province.code) throw new Error('所选市不属于所选省');
+      if (district.parent_code !== city.code) throw new Error('所选区不属于所选市');
+
+      // 检查配送范围
+      const [goodsResult] = await conn.execute(
+        `SELECT batch_shipProvinces FROM goods WHERE id = ?`,
+        [originalOrder.goods_id]
+      );
+      const shipProvinces = goodsResult[0].batch_shipProvinces || '[]';
+      if (!shipProvinces.some(item => item.code === province.code)) {
+        throw new Error('当前省份不支持配送');
+      }
+
+      // 送货上门校验
+      if (addressParams.isHomeDelivery && district.name !== '嵊州市') {
+        throw new Error('仅嵊州市支持送货上门');
+      }
+
+
+      if (updateData.receive_provinceCode) {
+        updateData.receive_province = province.name
+      }
+      if (updateData.receive_cityCode) {
+        updateData.receive_city = city.name
+      }
+      if (updateData.receive_districtCode) {
+        updateData.receive_district = district.name
+      }
+      
+      // ------------ 阶段4：记录变更日志 ------------
+      const changes = {};
+      for (const key in updateData) {
+        changes[key] = {
+          old: originalOrder[key],
+          new: updateData[key]
+        };
+      }
+      await conn.execute(
+        `INSERT INTO orders_logs (order_id, order_no, changes, create_by) VALUES (?, ?, ?, ?)`,
+        [originalOrder.id, originalOrder.order_no, JSON.stringify(changes), params.thePhone]
+      );
+      
+      // ------------ 阶段5：执行更新 ------------
+      const setClause = Object.keys(updateData).map(key => `\`${key}\` = ?`).join(', ');
+      const updateValues = [...Object.values(updateData), originalOrder.id];
+      
+      await conn.execute(
+        `UPDATE orders SET ${setClause} WHERE id = ?`,
+        updateValues
+      );
+
+      await conn.commit();
+      return changes;
     } catch (error) {
-      // 出现错误时回滚事务
-      console.error("更新订单失败：", error);
       await conn.rollback();
-      throw new Error("更新订单失败，已回滚");
+      console.log(error);
+      throw error;
     } finally {
-      // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
-  }  
+  }
 
   async getOrderList(params) {
     let query = ' WHERE 1=1'
@@ -392,7 +437,7 @@ class OrderService {
       throw error;
     } finally {
       // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
   }
 
@@ -439,11 +484,11 @@ class OrderService {
       await conn.rollback();
       throw error
     } finally {
-      conn.release();
+      if (conn) conn.release();
     }
   }
 
-  async getOrderLogsList(params) {
+  async getOrdersLogsList(params) {
     let query = ' WHERE 1=1'
     let queryParams = []
 
@@ -455,9 +500,9 @@ class OrderService {
       query += ` AND order_no LIKE ?`
       queryParams.push(`%${params.order_no}%`)
     }
-    if (params.operator) {
-      query += ` AND operator LIKE ?`
-      queryParams.push(`%${params.operator}%`)
+    if (params.create_by) {
+      query += ` AND create_by LIKE ?`
+      queryParams.push(`%${params.create_by}%`)
     }
     if (params.startTime || params.endTime) {
       query += ` AND (createTime >= ? OR ? IS NULL) AND (createTime <= ? OR ? IS NULL)`
@@ -466,13 +511,13 @@ class OrderService {
 
     // 查询总记录数
     const countStatement = `
-      SELECT COUNT(*) as total FROM order_logs ${query}
+      SELECT COUNT(*) as total FROM orders_logs ${query}
     `
     const totalResult = await connection.execute(countStatement, queryParams);
     const total = totalResult[0][0].total;  // 获取总记录数
 
     const statement = `
-      SELECT * from order_logs ${query} 
+      SELECT * from orders_logs ${query} 
         ORDER BY createTime DESC 
           LIMIT ? OFFSET ?
     `
@@ -586,7 +631,7 @@ class OrderService {
 
       throw error
     } finally {
-      conn.release();
+      if (conn) conn.release();
     }
 
   }
@@ -642,7 +687,7 @@ class OrderService {
       await conn.rollback();
       throw error
     } finally {
-      conn.release();
+      if (conn) conn.release();
     }
 
   }
@@ -750,7 +795,7 @@ class OrderService {
       console.log(error);
       throw error;
     } finally {
-      conn.release();
+      if (conn) conn.release();
     }
   }
 }

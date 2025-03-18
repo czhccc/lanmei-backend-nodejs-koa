@@ -34,10 +34,10 @@ class OrderController {
     ctx.body = result
   }
 
-  async getOrderLogsList(ctx, next) {
+  async getOrdersLogsList(ctx, next) {
     const params = ctx.request.query
     params.thePhone = ctx.theUser.phone
-    const result = await service.getOrderLogsList(params)
+    const result = await service.getOrdersLogsList(params)
 
     ctx.body = result
   }

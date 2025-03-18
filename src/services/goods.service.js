@@ -182,7 +182,7 @@ class GoodsService {
       throw new Error('mysql事务失败，已回滚');
     } finally {
       // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
 
   }
@@ -229,7 +229,7 @@ class GoodsService {
       throw new Error('mysql事务失败，已回滚');
     } finally {
       // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
 
   }
@@ -436,7 +436,7 @@ class GoodsService {
       throw error;
     } finally {
       // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
 
   }
@@ -702,7 +702,7 @@ class GoodsService {
       throw error;
     } finally {
       // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
 
   }
@@ -832,7 +832,7 @@ class GoodsService {
       // ====================== 错误处理优化 ======================
       throw error
     } finally {
-      conn.release();
+      if (conn) conn.release();
     }
   }
 
@@ -914,7 +914,7 @@ class GoodsService {
       throw error;
     } finally {
       // 释放连接
-      conn.release();
+      if (conn) conn.release();
     }
   }
 }
