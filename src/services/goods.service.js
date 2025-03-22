@@ -16,10 +16,10 @@ class GoodsService {
   async createGoods(params) {
     const { goodsName, goodsUnit, goodsCategoryId, goodsRemark='', goodsRichText='<p>暂无更多介绍</p>' } = params;
 
-    if (!goodsName) {
+    if (!goodsName?.trim()) {
       throw new Error('缺少参数：goodsName')
     }
-    if (!goodsUnit) {
+    if (!goodsUnit?.trim()) {
       throw new Error('缺少参数：goodsUnit')
     }
     if (!goodsCategoryId) {
@@ -53,9 +53,28 @@ class GoodsService {
       goodsRichText = '<p>暂无更多介绍</p>',
     } = params;
 
+    if (!goodsId) {
+      throw new Error('缺少参数：goodsId')
+    }
+    if (!goodsName?.trim()) {
+      throw new Error('缺少参数：goodsName')
+    }
+    if (!goodsUnit?.trim()) {
+      throw new Error('缺少参数：goodsUnit')
+    }
+    if (!goodsCategoryId) {
+      throw new Error('缺少参数：goodsCategoryId')
+    }
+
     const conn = await connection.getConnection();
     try {
       await conn.beginTransaction();
+
+      const [currentGoodsInfoResult] = await conn.execute(`SELECT batch_type FROM goods WHERE goods_id = ? FOR UPDATE`, [goodsId]);
+      const currentGoodsInfo = currentGoodsInfoResult[0]
+      if (currentGoodsInfo.batch_type) {
+        throw new Error('存在当前批次，无法更改商品信息')
+      }
 
       // 删除封面图、轮播图和富文本的图片记录
       await conn.execute(`DELETE FROM goods_media WHERE goods_id = ?`, [goodsId]);
@@ -159,7 +178,7 @@ class GoodsService {
       return 'success'
     } catch (error) {
       await conn.rollback();
-      throw new Error('mysql事务失败，已回滚');
+      throw error
     } finally {
       if (conn) conn.release();
     }
@@ -173,11 +192,10 @@ class GoodsService {
       throw new Error('缺少参数：id')
     }
 
-    const conn = await connection.getConnection();
     try {
       const [goodsInfo, swiperInfo] = await Promise.all([
-        conn.execute(`SELECT * FROM goods WHERE id = ?`, [id]),
-        conn.execute(`SELECT * FROM goods_media WHERE goods_id = ? AND useType = 'swiper'`, [id])
+        connection.execute(`SELECT * FROM goods WHERE id = ?`, [id]),
+        connection.execute(`SELECT * FROM goods_media WHERE goods_id = ? AND useType = 'swiper'`, [id])
       ]);
 
       if (goodsInfo[0].length === 0) {
@@ -201,8 +219,6 @@ class GoodsService {
       return goods
     } catch (error) {
       throw error
-    } finally {
-      if (conn) conn.release();
     }
   }
 
@@ -446,7 +462,10 @@ class GoodsService {
         throw new Error('商品余量为0')
       }
 
-      const updateResult = await connection.execute(`UPDATE goods SET goods_isSelling = ? WHERE id = ?`, [value, id])
+      const updateResult = await connection.execute(
+        `UPDATE goods SET goods_isSelling = ? WHERE id = ?`, 
+        [value, id]
+      )
 
       await conn.commit();
 
@@ -826,9 +845,9 @@ class GoodsService {
       throw new Error('商品ID格式错误');
     }
 
-    const conn = await connection.getConnection();  // 从连接池获取连接
+    const conn = await connection.getConnection();
     try {
-      await conn.beginTransaction();  // 开启事务
+      await conn.beginTransaction();
       
       // ====================== 查询商品信息并加锁 ======================
       const [batchInfoResult] = await conn.execute(

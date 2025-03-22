@@ -413,10 +413,10 @@ class OrderService {
       throw new Error('缺少参数：id')
     }
 
-    const conn = await connection.getConnection();  // 从连接池获取连接
+    const conn = await connection.getConnection();
     try {
       const [orderDetailResult] = await conn.execute(`
-        SELECT * FROM orders WHERE id = ?
+        SELECT * FROM orders WHERE id = ? FOR UPDATE
       `, [id]);
 
       if (orderDetailResult.length === 0) {
@@ -445,11 +445,10 @@ class OrderService {
       throw new Error('缺少参数：orderId')
     }
 
-    const conn = await connection.getConnection();  // 从连接池获取连接
     try {
-      await conn.beginTransaction();  // 开启事务
+      await connection.beginTransaction();
 
-      const [cancelReservedOrderResult] = await conn.execute(`
+      const [cancelReservedOrderResult] = await connection.execute(`
         UPDATE orders 
           SET status = 'canceled', cancel_reason = ?, cancel_time = ?, cancel_by = ?
         WHERE id = ?
@@ -457,7 +456,7 @@ class OrderService {
         cancelOrderReason, dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
       ]);
       if (cancelReservedOrderResult.affectedRows === 0) {
-        const [orderDetailResult] = await conn.execute(`
+        const [orderDetailResult] = await connection.execute(`
           SELECT status FROM orders WHERE id = ? LIMIT 1
         `, [orderId]);
         if (orderDetailResult.length === 0) {
@@ -469,15 +468,11 @@ class OrderService {
         }
       }
 
-      await conn.commit();
+      await connection.commit();
       
       return 'success'
     } catch (error) {
-      console.log(error)
-      await conn.rollback();
       throw error
-    } finally {
-      if (conn) conn.release();
     }
   }
 
@@ -507,7 +502,6 @@ class OrderService {
     const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
     const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    const conn = await connection.getConnection();  // 从连接池获取连接
     try {
       const [totalResult, dataResult] = await Promise.all([
         connection.execute(`
@@ -526,8 +520,6 @@ class OrderService {
       };
     } catch (error) {
       throw error
-    } finally {
-      if (conn) conn.release();
     }
   }
 
@@ -641,11 +633,10 @@ class OrderService {
       throw new Error('缺少参数：orderId');
     }
 
-    const conn = await connection.getConnection();
     try {
-      await conn.beginTransaction();
+      await connection.beginTransaction();
 
-      const [completeOrderResult] = await conn.execute(`
+      const [completeOrderResult] = await connection.execute(`
         UPDATE orders 
         SET 
           status = 'completed',
@@ -659,8 +650,8 @@ class OrderService {
       ]);
 
       if (completeOrderResult.affectedRows === 0) {
-        const [getOrderInfoResult] = await conn.execute(
-          'SELECT status FROM orders WHERE id = ? FOR UPDATE',
+        const [getOrderInfoResult] = await connection.execute(
+          'SELECT status FROM orders WHERE id = ?',
           [orderId]
         );
   
@@ -677,13 +668,9 @@ class OrderService {
         throw new Error('操作失败，请联系管理员')
       }
 
-      await conn.commit();
       return 'success';
     } catch (error) {
-      await conn.rollback();
       throw error
-    } finally {
-      if (conn) conn.release();
     }
   }
 
@@ -700,10 +687,8 @@ class OrderService {
       throw new Error('缺少参数：provinceCode')
     }
 
-    const conn = await connection.getConnection();
     try {
-      // 获取商品及批次信息
-      const [goodsResult] = await conn.execute(
+      const [goodsResult] = await connection.execute(
         `SELECT 
           batch_type,
           goods_isSelling,
@@ -794,11 +779,7 @@ class OrderService {
       return result;
 
     } catch (error) {
-      await conn.rollback();
-      console.log(error);
       throw error;
-    } finally {
-      if (conn) conn.release();
     }
   }
 }

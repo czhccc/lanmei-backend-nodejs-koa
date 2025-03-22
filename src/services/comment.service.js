@@ -13,7 +13,6 @@ class CommentService {
       throw new Error('缺少参数：comment')
     }
 
-    const conn = await connection.getConnection();
     try {
       // 查询今天已留言次数
       const queryTodayCommentTimesStatement = `
@@ -23,7 +22,7 @@ class CommentService {
           AND createTime >= CURDATE() 
           AND createTime < CURDATE() + INTERVAL 1 DAY
       `;
-      const [queryResult] = await conn.execute(queryTodayCommentTimesStatement, [author]);
+      const [queryResult] = await connection.execute(queryTodayCommentTimesStatement, [author]);
       const todayCommentCount = queryResult[0].count;
 
       // 限制每天最多 10 条留言
@@ -32,15 +31,14 @@ class CommentService {
       }
 
       // 插入留言记录
-      const insertResult = await conn.execute(`INSERT comment (comment, author) VALUES (?, ?)`, 
+      const insertResult = await connection.execute(
+        `INSERT comment (comment, author) VALUES (?, ?)`, 
         [comment, author]
       )
 
       return 'success'
     } catch (error) {
       throw error
-    } finally {
-      if (conn) conn.release();
     }
   }
 
