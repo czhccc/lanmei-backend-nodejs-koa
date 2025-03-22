@@ -19,6 +19,6 @@ commentRouter.get('/getCommentDetailById', verifyToken, CommentController.getCom
 
 commentRouter.get('/getCommentListByWechat', verifyToken, CommentController.getCommentListByWechat)
 
-commentRouter.get('/getUserAllComments', verifyToken, CommentController.getUserAllComments)
+commentRouter.get('/getUserComments', verifyToken, CommentController.getUserComments)
 
 module.exports = commentRouter

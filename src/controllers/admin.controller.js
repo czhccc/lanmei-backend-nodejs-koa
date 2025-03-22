@@ -3,7 +3,8 @@ const service = require('../services/admin.service')
 class AdminController {
   async createOrUpdateAdmin(ctx, next) {
     const params = ctx.request.body
-
+    params.thePhone = ctx.theUser.phone
+    
     if (params.id) {
       const result = await service.updateAdmin(params)
       ctx.body = '修改成功'

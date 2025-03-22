@@ -42,10 +42,10 @@ class CommentController {
     ctx.body = result
   }
 
-  async getUserAllComments(ctx, next) {
+  async getUserComments(ctx, next) {
     const params = ctx.request.query
     
-    const result = await service.getUserAllComments(params)
+    const result = await service.getUserComments(params)
 
     ctx.body = result
   }

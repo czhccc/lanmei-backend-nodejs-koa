@@ -1,9 +1,17 @@
-const crypto = require('crypto')
+const bcrypt = require('bcrypt');
 
-const encryptPasswordUtil = password => {
-  const md5 = crypto.createHash('md5')
-  const md5Password = md5.update(password).digest('hex') // 'hex'表示转为十六进制，否则是buffer
-  return md5Password
+const encryptPasswordUtil = (password) => {
+  const saltRounds = 10;
+  const hashedPassword = bcrypt.hashSync(password, saltRounds);
+  return hashedPassword;
+};
+
+// 比较用户输入的密码和数据库存储的哈希密码
+const comparePasswordUtil = (inputPassword, storedHashedPassword) => {
+  return bcrypt.compareSync(inputPassword, storedHashedPassword);
+};
+
+module.exports = {
+  encryptPasswordUtil,
+  comparePasswordUtil
 }
-
-module.exports = encryptPasswordUtil

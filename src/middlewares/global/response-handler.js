@@ -1,5 +1,4 @@
 // response-handler.js
-const errorTypes = require('../../constants/error-types');
 
 module.exports = async (ctx, next) => {
   try {
@@ -32,18 +31,10 @@ module.exports = async (ctx, next) => {
     let message = err.message || '未知错误！！！'
 
     switch (err.message) {
-      case errorTypes.NECESSARY_PARAM_IS_NULL:
-        break;
-      case errorTypes.UNIQUE_FIELD_DUPLICATE:
-        break;
-      case errorTypes.ADMIN_NOT_EXIST:
-        break;
-      case errorTypes.ADMIN_PASSWORD_WRONG:
-        break;
-      case errorTypes.UNAUTHORIZED:
+      case '未授权':
         status = 401
         break;
-      case errorTypes.CUREENT_ADMIN_NO_PERMISSION:
+      case '无权限':
         status = 403
         break;
       default:

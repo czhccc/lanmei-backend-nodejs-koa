@@ -1,6 +1,3 @@
-const fs = require('fs');
-const path = require('path');
-
 const connection = require('../app/database')
 
 const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
@@ -11,77 +8,72 @@ const {
 
 class AboutUsService {
   async updateAboutUs(params) {
-    let aboutUs = params.aboutUs
+    let { aboutUs } = params
 
     let savedAboutUs = aboutUs.replaceAll(BASE_URL, 'BASE_URL')
 
-    const imgSrcList = richTextExtractImageSrc(aboutUs).map(url => {
-      return url.replace(`${BASE_URL}/`, '')
-    })
-    console.log('imgSrcList', imgSrcList)
+    const imgSrcList = richTextExtractImageSrc(aboutUs).map(url => url.replace(`${BASE_URL}/`, ''));
 
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
       await conn.beginTransaction();  // 开启事务
 
-      const deleteStatement = `DELETE FROM about_us_images`
-      const imgUrlResult = await conn.execute(deleteStatement, [])
-
-      for (const item of imgSrcList) {
-        const insertStatement = `INSERT about_us_images (url) VALUES (?)`
-        const queryResult = await conn.execute(insertStatement, [item])
+      // 仅当 imgSrcList 非空时才执行删除操作，减少数据库 IO
+      if (imgSrcList.length > 0) {
+        await conn.execute(`DELETE FROM about_us_images`);
       }
 
-      const queryStatement = `SELECT COUNT(*) as total FROM aboutUs`
-      const queryResult = await conn.execute(queryStatement, [])
+      // 批量插入图片链接，提高效率
+      if (imgSrcList.length > 0) {
+        const values = imgSrcList.map(() => '(?)').join(',');
+        const insertStatement = `INSERT INTO about_us_images (url) VALUES ${values}`;
+        await conn.execute(insertStatement, imgSrcList);
+      }
 
-      if (queryResult[0][0].total !== 0) { // 有值，更新
-        const statement = `
+      // 使用 EXISTS 替代 COUNT(*)，提高查询效率
+      const queryStatement = `SELECT EXISTS(SELECT 1 FROM aboutUs LIMIT 1) AS hasData`;
+      const [queryResult] = await conn.execute(queryStatement);
+      const hasData = queryResult[0].hasData === 1;
+
+      if (hasData) { // 更新数据
+        const updateStatement = `
           UPDATE aboutUs
           SET address = ?, contact = ?, aboutUs = ?
-          WHERE id = ?
-        `
-
-        const result = await conn.execute(statement, [
+          WHERE id = 1
+        `;
+        await conn.execute(updateStatement, [
           JSON.stringify(params.address),
           JSON.stringify(params.contact),
-          savedAboutUs,
-          1
-        ])
-      } else { // 没值，插入
-        const statement = `INSERT aboutUs (address, contact, aboutUs, id) VALUES (?,?,?,?)`
-
-        const result = await conn.execute(statement, [
+          savedAboutUs
+        ]);
+      } else { // 插入数据
+        const insertStatement = `INSERT INTO aboutUs (address, contact, aboutUs, id) VALUES (?,?,?,1)`;
+        await conn.execute(insertStatement, [
           JSON.stringify(params.address),
           JSON.stringify(params.contact),
-          savedAboutUs,
-          1
-        ])
+          savedAboutUs
+        ]);
       }
 
       await conn.commit();
 
       return 'success'
     } catch (error) {
-      // 出现错误时回滚事务
       await conn.rollback();
+      console.log(error);
       throw new Error('mysql事务失败，已回滚');
     } finally {
-      // 释放连接
       if (conn) conn.release();
     }
   }
 
   async getAboutUs() {
-    const statement = `SELECT * from aboutUs WHERE id=1`
+    const [result] = await connection.execute(`SELECT * FROM aboutUs WHERE id=1`);
+    if (result.length === 0) 
+      return null;
 
-    const result = await connection.execute(statement, [])
-
-    // 数据库存的是json格式，mysql2查询后自动解析
-
-    result[0][0].aboutUs = result[0][0].aboutUs.replaceAll('BASE_URL', BASE_URL)
-
-    return result[0][0]
+    result[0].aboutUs = result[0].aboutUs.replaceAll('BASE_URL', BASE_URL);
+    return result[0];
   }
 }
 

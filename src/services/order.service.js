@@ -1,4 +1,7 @@
 const connection = require('../app/database')
+
+const escapeLike = require('../utils/escapeLike')
+
 const dayjs = require('dayjs');
 
 const {
@@ -19,56 +22,56 @@ class OrderService {
         remark_self = ''
       } = params;
 
-      // ====================== 基础校验 ======================
+      if (!goods_id) {
+        throw new Error('缺少参数：id')
+      }
       if (!(Number.isInteger(quantity) && quantity>0)) {
         throw new Error('商品数量必须为正整数')
       }
-      if (!receive_provinceCode || !receive_cityCode || !receive_districtCode || !receive_address || !receive_name || !receive_phone) {
+      if (!receive_provinceCode || !receive_cityCode || !receive_districtCode || !receive_address.trim() || !receive_name || !receive_phone) {
         throw new Error('收货地址信息不完整')
       }
   
       // ====================== 获取商品信息 ======================
-      const batchInfoResult = await conn.execute(
-        'SELECT * FROM goods WHERE id = ? FOR UPDATE',
+      const [batchInfoResult] = await conn.execute(`
+        SELECT  
+          id, batch_no, batch_type, goods_isSelling,
+          batch_shipProvinces, batch_preorder_minPrice, batch_preorder_maxPrice,
+          batch_stock_remainingQuantity, batch_stock_unitPrice,
+          goods_coverImage, goods_name, goods_unit, goods_remark, goods_richText
+        FROM goods WHERE id = ? FOR UPDATE`,
         [goods_id]
       );
-      const batchInfo = batchInfoResult[0][0];
-
-      // ====================== 通用校验（无论预订还是现货） ======================
+      if (batchInfoResult.length === 0) {
+        throw new Error('商品不存在')
+      }
+      const batchInfo = batchInfoResult[0];
       if (batchInfo.goods_isSelling !== 1) {
         throw new Error('商品已下架');
       }
 
       // 省市区信息
-      const [areasInfoResult] = await conn.execute(
-        'SELECT * FROM ship_areas WHERE code IN (?,?,?) FOR UPDATE',
-        [receive_provinceCode, receive_cityCode, receive_districtCode]
+      const [areas] = await conn.execute(
+        `SELECT *
+          FROM ship_areas 
+          WHERE code IN (?, ?, ?) 
+          ORDER BY FIELD(code, ?, ?, ?)`, // 确保顺序：省→市→区
+        [
+          addressParams.provinceCode, addressParams.cityCode, addressParams.districtCode,
+          addressParams.provinceCode, addressParams.cityCode, addressParams.districtCode
+        ]
       );
-      if (areasInfoResult.length !== 3) {
-        throw new Error('省市区信息存在错误')
-      }
-      const provinceInfo = areasInfoResult[0]
-      const cityInfo = areasInfoResult[1]
-      const districtInfo = areasInfoResult[2]
+      if (areas.length !== 3) throw new Error('地址信息不完整');
+      const [province, city, district] = areas;
 
-      if (provinceInfo.level !== 'province') {
-        throw new Error('所选省份不存在数据库中')
-      }
-      if (cityInfo.parent_code !== provinceInfo.code) {
-        throw new Error('所选市不属于所选省')
-      }
-      if (districtInfo.parent_code !== cityInfo.code) {
-        throw new Error('所选区不属于所选市')
-      }
+      if (province.level !== 'province') throw new Error('所选省份不存在数据库中');
+      if (city.parent_code !== province.code) throw new Error('所选市不属于所选省');
+      if (district.parent_code !== city.code) throw new Error('所选区不属于所选市');
 
       const shipProvincesCodes = batchInfo.batch_shipProvinces.map(item => item.code);
-      if (!shipProvincesCodes) {
-        throw new Error('所选省份不在数据库中');
-      }
       if (!shipProvincesCodes.includes(receive_provinceCode)) {
         throw new Error('所选省份暂不支持配送');
       }
-
       if (receive_isHomeDelivery && districtInfo.name !== '嵊州市') {
         throw new Error('只有嵊州市可以送货上门');
       }
@@ -87,8 +90,8 @@ class OrderService {
              END 
            WHERE 
              id = ? 
-             AND batch_stock_remainingQuantity >= ? 
-             AND goods_isSelling = 1`,
+              AND batch_stock_remainingQuantity >= ? 
+              AND goods_isSelling = 1`,
           [quantity, quantity, goods_id, quantity]
         );
   
@@ -96,7 +99,7 @@ class OrderService {
           if (Number(batchInfo.batch_stock_remainingQuantity) === 0) {
             throw new Error('商品余量为0')
           }
-          if (batchInfo.batch_stock_remainingQuantity < quantity) {
+          if (Number(batchInfo.batch_stock_remainingQuantity) < quantity) {
             throw new Error('商品余量不足');
           }
         }
@@ -126,20 +129,16 @@ class OrderService {
       }
       
       // 计算满减优惠
-      let discountAmountPromotion = 0;
-      batchInfo.batch_discounts.forEach(item => {
-        if (quantity >= item.quantity) {
-          discountAmountPromotion = Math.max(discountAmountPromotion, item.discount);
-        }
-      })
+      const discountAmountPromotion = batchInfo.batch_discounts
+                                        .filter(d => quantity >= d.quantity)
+                                        .reduce((max, d) => Math.max(max, d.discount), 0);
 
       // 生成订单号
       const getRandomLetters = (length) => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
         return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
       };
-      const randomSuffix = getRandomLetters(4); // 生成4位随机英文字母
-      const orderNo = `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}${randomSuffix}`;
+      const orderNo = `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}${getRandomLetters(2)}`;
 
       const orderBaseFields = {
         goods_id,
@@ -208,7 +207,10 @@ class OrderService {
       const [insertResult] = await conn.execute(insertStatement, Object.values(orderFields));
   
       await conn.commit();
-      return { id: insertResult.insertId };
+
+      return { 
+        id: insertResult.insertId 
+      };
     } catch (error) {
       console.log(error);
       await conn.rollback();
@@ -219,41 +221,44 @@ class OrderService {
   }
 
   async updateOrder(params) {
+    if (!params.id) {
+      throw new Error('缺少参数：id')
+    }
+
     const conn = await connection.getConnection();
     try {
       await conn.beginTransaction();
 
+      // 允许修改的字段白名单
+      const allowedFields = new Set([
+        'remark_self', 
+        'receive_name', 
+        'receive_phone',
+        'receive_provinceCode', 
+        'receive_cityCode', 
+        'receive_districtCode',
+        'receive_address', 
+        'receive_isHomeDelivery'
+      ]);
+
       // ------------ 阶段1：数据准备 ------------
       const [orderResult] = await conn.execute(
-        `SELECT * FROM orders WHERE id = ? FOR UPDATE`,
+        `SELECT ${Array.from(allowedFields).join(', ')} FROM orders WHERE id = ? FOR UPDATE`,
         [params.id]
       );
       if (orderResult.length === 0) throw new Error('订单不存在');
       const originalOrder = orderResult[0];
 
-      // 允许修改的字段白名单
-      const allowedFields = {
-        remark_self: true,
-        receive_name: true,
-        receive_phone: true,
-        receive_provinceCode: true,
-        receive_cityCode: true,
-        receive_districtCode: true,
-        receive_address: true,
-        receive_isHomeDelivery: true
-      };
-
       // ------------ 阶段2：构建更新数据 ------------
       const updateData = {};
       let hasChanges = false;
-      for (const key of Object.keys(params)) {
-        if (allowedFields[key] && originalOrder[key] !== params[key]) {
+      for (const key in params) {
+        if (allowedFields.has(key) && originalOrder[key] !== params[key]) {
           updateData[key] = params[key];
           hasChanges = true;
         }
       }
       if (!hasChanges) {
-        await conn.rollback();
         return '未检测到有效修改'
       }
 
@@ -294,12 +299,9 @@ class OrderService {
       if (!shipProvinces.some(item => item.code === province.code)) {
         throw new Error('当前省份不支持配送');
       }
-
-      // 送货上门校验
       if (addressParams.isHomeDelivery && district.name !== '嵊州市') {
         throw new Error('仅嵊州市支持送货上门');
       }
-
 
       if (updateData.receive_provinceCode) {
         updateData.receive_province = province.name
@@ -345,12 +347,14 @@ class OrderService {
   }
 
   async getOrderList(params) {
+    const { pageNo, pageSize } = params;
+
     let query = ' WHERE 1=1'
     let queryParams = []
 
     if (params.create_by) {
       query += ` AND create_by LIKE ?`
-      queryParams.push(`%${params.create_by}%`)
+      queryParams.push(`%${escapeLike(params.create_by)}%`)
     }
     if (params.batch_type) {
       query += ` AND batch_type = ?`
@@ -358,15 +362,15 @@ class OrderService {
     }
     if (params.order_no) {
       query += ` AND order_no LIKE ?`
-      queryParams.push(`%${params.order_no}%`)
+      queryParams.push(`%${escapeLike(params.order_no)}%`)
     }
     if (params.batch_no) {
       query += ` AND batch_no LIKE ?`
-      queryParams.push(`%${params.batch_no}%`)
+      queryParams.push(`%${escapeLike(params.batch_no)}%`)
     }
     if (params.snapshot_goodsName) {
       query += ` AND snapshot_goodsName LIKE ?`
-      queryParams.push(`%${params.snapshot_goodsName}%`)
+      queryParams.push(`%${escapeLike(params.snapshot_goodsName)}%`)
     }
     if (params.status) {
       query += ` AND status = ?`
@@ -377,27 +381,23 @@ class OrderService {
       queryParams.push(params.startTime || null, params.startTime || null, params.endTime || null, params.endTime || null)
     }
 
-    // 查询总记录数
-    const countStatement = `
-      SELECT COUNT(*) as total FROM orders ${query}
-    `
-    const totalResult = await connection.execute(countStatement, queryParams);
-    const total = totalResult[0][0].total;  // 获取总记录数
+    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    const statement = `
-      SELECT * from orders ${query} 
-        ORDER BY createTime DESC 
-          LIMIT ? OFFSET ?
-    `
-    const pageNo = params.pageNo;
-    const pageSize = params.pageSize;
-    const offset = (pageNo - 1) * pageSize;
-    queryParams.push(String(pageSize), String(offset))
-    const result = await connection.execute(statement, queryParams)
+    const [totalResult, dataResult] = await Promise.all([
+      connection.execute(`
+        SELECT COUNT(*) as total FROM orders ${query}
+      `, queryParams),
+      connection.execute(`
+        SELECT * from orders ${query} 
+          ORDER BY createTime DESC 
+            LIMIT ? OFFSET ?
+      `, [...queryParams, String(pageSizeInt), String(offset)])
+    ]);
 
     return {
-      total,  // 总记录数
-      records: result[0].map(item => {
+      total: totalResult[0][0].total,  // 总记录数
+      records: dataResult[0].map(item => {
         return {
           ...item,
           snapshot_coverImage: `${BASE_URL}/${item.snapshot_coverImage}`
@@ -410,21 +410,20 @@ class OrderService {
     const { id } = params
 
     if (!id) {
-      throw new Error('订单id为空')
+      throw new Error('缺少参数：id')
     }
 
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
-      await conn.beginTransaction();  // 开启事务
-
-      const orderDetailStatement = `
+      const [orderDetailResult] = await conn.execute(`
         SELECT * FROM orders WHERE id = ?
-      `
-      const orderDetailResult = await conn.execute(orderDetailStatement, [id]);
+      `, [id]);
 
-      await conn.commit();
+      if (orderDetailResult.length === 0) {
+        throw new Error('订单不存在')
+      }
 
-      let orderDetail = orderDetailResult[0][0]
+      const orderDetail = orderDetailResult[0]
       
       return {
         ...orderDetail,
@@ -432,11 +431,9 @@ class OrderService {
         snapshot_goodsRichText: orderDetail.snapshot_goodsRichText.replaceAll('BASE_URL', BASE_URL),
       }
     } catch (error) {
-      console.log(error);
       await conn.rollback();
       throw error;
     } finally {
-      // 释放连接
       if (conn) conn.release();
     }
   }
@@ -444,33 +441,29 @@ class OrderService {
   async cancelOrder(params) {
     let { orderId, cancelOrderReason=null, thePhone } = params
     
-    if (!orderId || !Number.isInteger(Number(orderId))) {
-      throw new Error('订单id为空')
+    if (!orderId) {
+      throw new Error('缺少参数：orderId')
     }
 
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
       await conn.beginTransaction();  // 开启事务
 
-      const cancelReservedOrderStatement = `
+      const [cancelReservedOrderResult] = await conn.execute(`
         UPDATE orders 
           SET status = 'canceled', cancel_reason = ?, cancel_time = ?, cancel_by = ?
         WHERE id = ?
-      `
-      const [cancelReservedOrderResult] = await conn.execute(cancelReservedOrderStatement, [
+      `, [
         cancelOrderReason, dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
       ]);
       if (cancelReservedOrderResult.affectedRows === 0) {
-        const orderDetailStatement = `
-          SELECT * FROM orders WHERE id = ?
-        `
-        const orderDetailResult = await conn.execute(orderDetailStatement, [id]);
-        const orderDetail = orderDetailResult[0]
-        if (orderDetail.length === 0) {
+        const [orderDetailResult] = await conn.execute(`
+          SELECT status FROM orders WHERE id = ? LIMIT 1
+        `, [orderId]);
+        if (orderDetailResult.length === 0) {
           throw new Error('订单不存在')
         }
-        const orderInfo = orderDetail[0]
-
+        const orderInfo = orderDetailResult[0]
         if (orderInfo.status !== 'reserved') {
           throw new Error('此订单非预订状态，无法取消预订')
         }
@@ -489,55 +482,60 @@ class OrderService {
   }
 
   async getOrdersLogsList(params) {
+    const { pageNo, pageSize } = params;
+
     let query = ' WHERE 1=1'
     let queryParams = []
 
     if (params.order_id) {
       query += ` AND order_id LIKE ?`
-      queryParams.push(`%${params.order_id}%`)
+      queryParams.push(`%${escapeLike(params.order_id)}%`)
     }
     if (params.order_no) {
       query += ` AND order_no LIKE ?`
-      queryParams.push(`%${params.order_no}%`)
+      queryParams.push(`%${escapeLike(params.order_no)}%`)
     }
     if (params.create_by) {
       query += ` AND create_by LIKE ?`
-      queryParams.push(`%${params.create_by}%`)
+      queryParams.push(`%${escapeLike(params.create_by)}%`)
     }
     if (params.startTime || params.endTime) {
       query += ` AND (createTime >= ? OR ? IS NULL) AND (createTime <= ? OR ? IS NULL)`
       queryParams.push(params.startTime || null, params.startTime || null, params.endTime || null, params.endTime || null)
     }
 
-    // 查询总记录数
-    const countStatement = `
-      SELECT COUNT(*) as total FROM orders_logs ${query}
-    `
-    const totalResult = await connection.execute(countStatement, queryParams);
-    const total = totalResult[0][0].total;  // 获取总记录数
+    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    const statement = `
-      SELECT * from orders_logs ${query} 
-        ORDER BY createTime DESC 
-          LIMIT ? OFFSET ?
-    `
-    const pageNo = params.pageNo;
-    const pageSize = params.pageSize;
-    const offset = (pageNo - 1) * pageSize;
-    queryParams.push(String(pageSize), String(offset))
-    const result = await connection.execute(statement, queryParams)
+    const conn = await connection.getConnection();  // 从连接池获取连接
+    try {
+      const [totalResult, dataResult] = await Promise.all([
+        connection.execute(`
+          SELECT COUNT(*) as total FROM orders_logs ${query}
+        `, queryParams),
+        connection.execute(`
+          SELECT * from orders_logs ${query} 
+            ORDER BY createTime DESC 
+              LIMIT ? OFFSET ?
+        `, [...queryParams, String(pageSizeInt), String(offset)])
+      ]);
 
-    return {
-      total,  // 总记录数
-      records: result[0]
-    };
+      return {
+        total: totalResult[0][0].total,
+        records: dataResult[0]
+      };
+    } catch (error) {
+      throw error
+    } finally {
+      if (conn) conn.release();
+    }
   }
 
   async payOrder(params) {
     const { orderId } = params
 
-    if (!orderId || !Number.isInteger(Number(orderId))) {
-      throw new Error('订单ID无效');
+    if (!orderId) {
+      throw new Error('缺少参数：orderId');
     }
 
     const conn = await connection.getConnection();
@@ -561,7 +559,7 @@ class OrderService {
 
       // ------------------------------------------------------
       const batchInfoResult = await conn.execute(
-        'SELECT * FROM goods WHERE id = ? FOR UPDATE',
+        `SELECT * FROM goods WHERE id = ? FOR UPDATE`,
         [orderInfo.goods_id]
       );
       const batchInfo = batchInfoResult[0][0];
@@ -639,15 +637,15 @@ class OrderService {
   async completeOrder(params) {
     const { orderId, thePhone } = params
 
-    if (!orderId || !Number.isInteger(Number(orderId))) {
-      throw new Error('订单ID无效');
+    if (!orderId) {
+      throw new Error('缺少参数：orderId');
     }
 
     const conn = await connection.getConnection();
     try {
       await conn.beginTransaction();
 
-      const completeOrderStatement = `
+      const [completeOrderResult] = await conn.execute(`
         UPDATE orders 
         SET 
           status = 'completed',
@@ -656,14 +654,13 @@ class OrderService {
         WHERE 
           id = ? 
           AND status = 'paid'
-      `;
-      const [completeOrderResult] = await conn.execute(completeOrderStatement, [
+      `, [
         dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
       ]);
 
       if (completeOrderResult.affectedRows === 0) {
         const [getOrderInfoResult] = await conn.execute(
-          'SELECT * FROM orders WHERE id = ? FOR UPDATE',
+          'SELECT status FROM orders WHERE id = ? FOR UPDATE',
           [orderId]
         );
   
@@ -683,46 +680,53 @@ class OrderService {
       await conn.commit();
       return 'success';
     } catch (error) {
-      console.log(error);
       await conn.rollback();
       throw error
     } finally {
       if (conn) conn.release();
     }
-
   }
 
   async generateOrderInfo(params) {
     const { goodsId, quantity, provinceCode } = params
 
     if (!goodsId) {
-      throw new Error('缺少goodsId')
+      throw new Error('缺少参数：goodsId')
     }
     if (!quantity) {
-      throw new Error('缺少')
+      throw new Error('缺少参数：quantity')
+    }
+    if (!provinceCode) {
+      throw new Error('缺少参数：provinceCode')
     }
 
     const conn = await connection.getConnection();
     try {
-      // ==================== 数据获取阶段 ====================
       // 获取商品及批次信息
       const [goodsResult] = await conn.execute(
-        `SELECT * FROM goods WHERE id = ?`,
+        `SELECT 
+          batch_type,
+          goods_isSelling,
+          batch_stock_remainingQuantity,
+          batch_preorder_minPrice,
+          batch_preorder_maxPrice,
+          batch_stock_unitPrice,
+          batch_discounts,
+          batch_shipProvinces
+        FROM goods WHERE id = ?`,
         [goodsId]
       );
       const goods = goodsResult[0];
       
-      // 基础校验
-      if (!goods) {
+      if (goodsResult.length === 0) {
         throw new Error('商品不存在');
       }
-      if (goods.goods_isSelling !== 1) {
+      if (goods.goods_isSelling === 0) {
         throw new Error('商品已下架');
       }
       if (goods.batch_type === 'stock' && goods.batch_stock_remainingQuantity < quantity) {
         throw new Error('库存不足');
       }
-
 
       // 计算商品总价
       let goodsTotalPrice = {}
@@ -746,7 +750,6 @@ class OrderService {
         discount = Math.min(discount, goodsTotalPrice); // 确保优惠不超过总价（避免负数）
       }
 
-
       const result = {
         quantity: quantity,
         discount,
@@ -765,7 +768,7 @@ class OrderService {
           throw new Error('所选省份暂不支持配送');
         }
 
-        // 3. 计算邮费逻辑（复用订单创建逻辑）
+        // 计算邮费逻辑（复用订单创建逻辑）
         let postage = 0;
         if (provinceRule.freeShippingQuantity && quantity >= provinceRule.freeShippingQuantity) {
           postage = 0;

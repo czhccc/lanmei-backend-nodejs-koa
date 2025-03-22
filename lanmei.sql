@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 18/03/2025 22:40:10
+ Date: 22/03/2025 21:43:52
 */
 
 SET NAMES utf8mb4;
@@ -55,25 +55,22 @@ INSERT INTO `aboutus` VALUES (1, '[{\"lat\": \"29.505098\", \"lon\": \"120.68684
 -- ----------------------------
 DROP TABLE IF EXISTS `admin`;
 CREATE TABLE `admin`  (
-  `id` int NOT NULL AUTO_INCREMENT,
   `phone` varchar(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `password` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '159357',
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '159357',
   `name` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `role` int NOT NULL DEFAULT 1 COMMENT '1-管理员；2-超管',
+  `role` enum('admin','superadmin') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT 'admin',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
+  `create_by` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  PRIMARY KEY (`phone`) USING BTREE,
   UNIQUE INDEX `phone`(`phone` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of admin
 -- ----------------------------
-INSERT INTO `admin` VALUES (1, '13989536936', 'e10adc3949ba59abbe56e057f20f883e', 'czh', 2, '2024-09-09 17:32:43', '2024-09-12 15:29:00');
-INSERT INTO `admin` VALUES (2, '13333333334', 'e10adc3949ba59abbe56e057f20f883e', 'yjn4', 1, '2024-09-12 13:38:18', '2024-09-12 16:09:11');
-INSERT INTO `admin` VALUES (10, '13333333333', 'e10adc3949ba59abbe56e057f20f883e', 'yjn', 1, '2024-09-09 17:32:10', '2024-09-12 15:28:53');
-INSERT INTO `admin` VALUES (11, '13222222222', '96e79218965eb72c92a549dd5a330112', 'czh2', 1, '2024-09-12 16:07:30', '2024-09-12 16:11:13');
-INSERT INTO `admin` VALUES (12, '19967303498', 'e10adc3949ba59abbe56e057f20f883e', '主用账号', 2, '2025-03-10 12:58:26', '2025-03-10 12:58:26');
+INSERT INTO `admin` VALUES ('13999999999', '$2b$10$XnFwhxBcYabaulpBosYJ3uIhYfjUwhDr35Yd1Dt3UF7ItaLUNg812', '99910', 'admin', '2025-03-20 21:51:27', '2025-03-20 22:03:41', '19967303498');
+INSERT INTO `admin` VALUES ('19967303498', '$2b$10$Z2AZumv3u3QsssOvbXwUQ.mKFBtsBViGsU8irrLfWo3aHKHulAu0K', 'czh', 'superadmin', '2025-03-20 21:38:42', '2025-03-20 21:38:42', '19967303498');
 
 -- ----------------------------
 -- Table structure for batch_history
@@ -147,7 +144,7 @@ INSERT INTO `category` VALUES (7, '海鲜', NULL);
 INSERT INTO `category` VALUES (8, '鳖', 7);
 INSERT INTO `category` VALUES (9, '鱼', 7);
 INSERT INTO `category` VALUES (10, '虾', 7);
-INSERT INTO `category` VALUES (11, '111', NULL);
+INSERT INTO `category` VALUES (11, '啦啦啦', NULL);
 INSERT INTO `category` VALUES (12, '222', 11);
 INSERT INTO `category` VALUES (13, '333', NULL);
 INSERT INTO `category` VALUES (14, '33', 13);
@@ -157,7 +154,7 @@ INSERT INTO `category` VALUES (17, '123', NULL);
 INSERT INTO `category` VALUES (18, '234', 17);
 INSERT INTO `category` VALUES (19, '999', NULL);
 INSERT INTO `category` VALUES (20, '888', 19);
-INSERT INTO `category` VALUES (21, '333', NULL);
+INSERT INTO `category` VALUES (21, '啦啦啦1', NULL);
 
 -- ----------------------------
 -- Table structure for comment
@@ -169,7 +166,7 @@ CREATE TABLE `comment`  (
   `author` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 20 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 24 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of comment
@@ -193,6 +190,10 @@ INSERT INTO `comment` VALUES (16, '微信留言测试', '13989536936', '2024-09-
 INSERT INTO `comment` VALUES (17, '123', '13989536936', '2024-09-27 17:53:32');
 INSERT INTO `comment` VALUES (18, '789', '13989536936', '2024-09-27 17:53:36');
 INSERT INTO `comment` VALUES (19, '111', '13989536936', '2024-10-02 16:55:10');
+INSERT INTO `comment` VALUES (20, '999', '13989536936', '2025-03-20 11:45:18');
+INSERT INTO `comment` VALUES (21, '111', '13989536936', '2025-03-20 11:46:26');
+INSERT INTO `comment` VALUES (22, '111', '13989536936', '2025-03-20 11:47:19');
+INSERT INTO `comment` VALUES (23, '4444444', '13989536936', '2025-03-20 11:47:29');
 
 -- ----------------------------
 -- Table structure for comment_response
@@ -207,7 +208,7 @@ CREATE TABLE `comment_response`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `comment_id`(`comment_id` ASC) USING BTREE,
   CONSTRAINT `comment_id` FOREIGN KEY (`comment_id`) REFERENCES `comment` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 18 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of comment_response
@@ -224,6 +225,11 @@ INSERT INTO `comment_response` VALUES (9, 15, '11的内容回复', 'czh', '2024-
 INSERT INTO `comment_response` VALUES (10, 14, '10的内容回复', 'czh', '2024-09-27 16:19:12');
 INSERT INTO `comment_response` VALUES (11, 13, '???', 'czh', '2024-09-27 17:43:06');
 INSERT INTO `comment_response` VALUES (12, 19, '222', 'czh', '2024-10-02 16:55:22');
+INSERT INTO `comment_response` VALUES (13, 23, '111111', '19967303498', '2025-03-21 13:47:41');
+INSERT INTO `comment_response` VALUES (14, 22, '1111111111', '19967303498', '2025-03-21 13:48:44');
+INSERT INTO `comment_response` VALUES (15, 21, '222222', '19967303498', '2025-03-21 13:51:31');
+INSERT INTO `comment_response` VALUES (16, 20, '999', '19967303498', '2025-03-21 13:52:39');
+INSERT INTO `comment_response` VALUES (17, 20, '999', '19967303498', '2025-03-21 13:53:01');
 
 -- ----------------------------
 -- Table structure for customer_address
@@ -296,7 +302,7 @@ CREATE TABLE `goods`  (
 -- ----------------------------
 INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 0, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '2025-03-17 18:53:37', '19967303498', '20250317185337_ynbmrg', 'preorder', 0.00, 0.00, 1.00, 10.00, '2025-03-17 21:53:11', '19967303498', 5.00, NULL, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-15 09:14:14', '2025-03-17 21:53:11');
 INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-57_20250311220333_ekir9a.jpg', '2025-03-11 22:03:55', NULL, '20250311220355_01iz2v', 'preorder', 0.00, 0.00, 1.00, 10.00, NULL, NULL, 5.00, NULL, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"baseNum\": 1, \"extraNum\": 1, \"basePostage\": 10, \"extraPostage\": 10, \"freeShippingNum\": 10}]', '', '2024-10-15 11:49:45', '2025-03-11 22:17:31');
-INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 1, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '2025-03-17 21:03:25', '19967303498', '20250317210325_vpjd9g', 'stock', 100.00, 99.00, NULL, NULL, NULL, NULL, NULL, 5.00, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-17 09:20:31', '2025-03-17 21:04:00');
+INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 1, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '2025-03-17 21:03:25', '19967303498', '20250317210325_vpjd9g', 'stock', 100.00, 99997.00, NULL, NULL, NULL, NULL, NULL, 5.00, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-17 09:20:31', '2025-03-22 11:49:25');
 INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 0, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-25 10:16:32', '2025-03-13 10:29:11');
 INSERT INTO `goods` VALUES (60, '鸭子商品', '只', 5, 0, '鸭子商品备注', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-11-08 16:17:53', '2025-03-14 22:24:09');
 
@@ -375,8 +381,11 @@ CREATE TABLE `orders`  (
   `snapshot_discounts` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '优惠策略，JSON格式的数组对象',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`, `batch_no`, `order_no`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 123 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_batch_status`(`batch_no` ASC, `status` ASC) USING BTREE,
+  INDEX `batch_no`(`batch_no` ASC) USING BTREE,
+  INDEX `order_no`(`order_no` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 124 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of orders
@@ -394,6 +403,7 @@ INSERT INTO `orders` VALUES (119, 58, '13989536936', '202503172051016936oPTc', '
 INSERT INTO `orders` VALUES (120, 58, '13989536936', '202503172052236936xZsH', '20250317205046_b9z0yg', 'stock', 1, 'yjnyjn', '13989536936', '浙江省', '33', '绍兴市', '3306', '嵊州市', '330683', '甘霖镇', 1, '22222222', NULL, NULL, NULL, NULL, NULL, NULL, 10.00, 0.00, 10.00, 'completed', NULL, NULL, NULL, '2025-03-17 20:52:23', 20.00, '2025-03-17 21:01:53', '19967303498', '', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', '[]', '2025-03-17 20:52:23', '2025-03-17 21:01:53');
 INSERT INTO `orders` VALUES (121, 58, '13989536936', '202503172104006936BhGO', '20250317210325_vpjd9g', 'stock', 1, 'linshi', '13989898989', '浙江省', '33', '杭州市', '3301', '上城区', '330102', '222', 0, '', NULL, NULL, NULL, NULL, NULL, NULL, 5.00, 0.00, 10.00, 'completed', NULL, NULL, NULL, '2025-03-17 21:04:00', 15.00, '2025-03-17 21:52:31', '13989536936', '', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', '[]', '2025-03-17 21:04:00', '2025-03-17 21:52:31');
 INSERT INTO `orders` VALUES (122, 55, '13989536936', '202503172152536936GtKS', '20250317185337_ynbmrg', 'preorder', 2, 'linshi', '13989898989', '浙江省', '33', '绍兴市', '3306', '嵊州市', '330683', '11111111111111111111111111111111111111111111111111', 1, '', '2025-03-17 21:52:53', 1.00, 10.00, '2025-03-17 21:53:11', '19967303498', 5.00, NULL, 0.00, 20.00, 'canceled', '000000', '2025-03-17 21:57:36', '19967303498', NULL, NULL, NULL, NULL, '22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', '[]', '2025-03-17 21:52:53', '2025-03-18 22:00:53');
+INSERT INTO `orders` VALUES (123, 58, '13989536936', '202503221149256936dxsH', '20250317210325_vpjd9g', 'stock', 2, 'linshi', '13989898989', '浙江省', '33', '杭州市', '3301', '上城区', '330102', '222', 0, '', NULL, NULL, NULL, NULL, NULL, NULL, 5.00, 0.00, 20.00, 'paid', NULL, NULL, NULL, '2025-03-22 11:49:25', 30.00, NULL, NULL, '', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', '[]', '2025-03-22 11:49:25', NULL);
 
 -- ----------------------------
 -- Table structure for orders_logs
@@ -3871,7 +3881,7 @@ CREATE TABLE `wechat_home_notify`  (
   `createBy` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of wechat_home_notify
@@ -3884,5 +3894,6 @@ INSERT INTO `wechat_home_notify` VALUES (5, '我是通知测试。我是通知�
 INSERT INTO `wechat_home_notify` VALUES (6, '新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新新', '13989536936', '2024-10-12 14:34:17');
 INSERT INTO `wechat_home_notify` VALUES (7, '', '13989536936', '2024-10-12 14:45:25');
 INSERT INTO `wechat_home_notify` VALUES (8, '我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你', '13989536936', '2024-10-12 14:48:06');
+INSERT INTO `wechat_home_notify` VALUES (9, '1111111111111111111111111111', '19967303498', '2025-03-22 21:21:54');
 
 SET FOREIGN_KEY_CHECKS = 1;

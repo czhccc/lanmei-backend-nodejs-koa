@@ -4,31 +4,42 @@ const dayjs = require('dayjs')
 
 class CommentService {
   async getAll(params) {
+    const { level, code } = params
+
     let whereClause = ` WHERE 1=1`;
     const queryParams = [];
 
-    if (params.level) {
-      if (params.level!=='province' && params.level!=='city' && params.level!=='district') {
+    if (level) {
+      if (level!=='province' && level!=='city' && level!=='district') {
         throw new Error('level值错误')
       }
       whereClause += ` AND LEVEL = ?`
-      queryParams.push(params.level)
+      queryParams.push(level)
+    }
+    if (code) {
+      whereClause += ` AND code LIKE ?`
+      queryParams.push(`${escapeLike(code)}%`)
     }
 
-    if (params.code) {
-      whereClause += ` AND code LIKE ?`
-      queryParams.push(`${params.code}%`)
-    }
-    const statement = `SELECT * FROM ship_areas` + whereClause;
-    const result = await connection.execute(statement, queryParams);
+    const result = await connection.execute(`SELECT * FROM ship_areas`, queryParams);
 
     return result[0];
   }
 
   async changeUsable(params) {
+    const { value, code } = params
+
+    if (!value) {
+      throw new Error('缺少参数：value')
+    }
+    if (!code) {
+      throw new Error('缺少参数：code')
+    }
+
     try {
-      const statement = `UPDATE ship_areas SET usable = ? WHERE code LIKE ?`;
-      const result = await connection.execute(statement, [params.value, `${params.code}%`]);
+      const result = await connection.execute(`
+        UPDATE ship_areas SET usable = ? WHERE code LIKE ?
+      `, [value, `${escapeLike(code)}%`]);
 
       return 'success';   
     } catch (error) {
@@ -38,19 +49,27 @@ class CommentService {
   }
 
   async getShipProvincesOfLastBatch(params) {
-    const getShipProvincesOfLastBatchStatement = `SELECT shipProvinces FROM batch_history WHERE goods_id = ? ORDER BY createTime DESC LIMIT 1`;
-    const getShipProvincesOfLastBatchResult = await connection.execute(getShipProvincesOfLastBatchStatement, [params.goodsId]);
-    if (getShipProvincesOfLastBatchResult[0].length === 0) {
+    const { goodsId } = params
+
+    if (!goodsId) {
+      throw new Error('缺少参数：goodsId')
+    }
+
+    const [getShipProvincesOfLastBatchResult] = await connection.execute(`
+      SELECT shipProvinces FROM batch_history WHERE goods_id = ? ORDER BY createTime DESC LIMIT 1
+    `, [goodsId]);
+
+    if (getShipProvincesOfLastBatchResult.length === 0) {
       throw new Error('无上一批次的配置')
     }
-    const shipProvincesOfLastBatch = getShipProvincesOfLastBatchResult[0][0].shipProvinces
+    const shipProvincesOfLastBatch = getShipProvincesOfLastBatchResult[0].shipProvinces
 
-    const getAllProvincesStatement = `SELECT * FROM ship_areas WHERE level='province'`;
-    const getAllProvincesResult = await connection.execute(getAllProvincesStatement, []);
-    const allProvinces = getAllProvincesResult[0]
+    const [getAllProvincesResult] = await connection.execute(`
+      SELECT * FROM ship_areas WHERE level='province'
+    `, []);
 
     let unusableButChoosedProvince = []
-    let finalResult = allProvinces.map(item => {
+    let finalResult = getAllProvincesResult.map(item => {
       let itemOfRules = shipProvincesOfLastBatch.find(el => el.code === item.code);
       if (itemOfRules) {
         if (!item.usable) {
