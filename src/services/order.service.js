@@ -46,6 +46,9 @@ class OrderService {
         throw new Error('商品不存在')
       }
       const batchInfo = batchInfoResult[0];
+      if (!batch_type.batch_type) {
+        throw new Error('商品已下架');
+      }
       if (batchInfo.goods_isSelling !== 1) {
         throw new Error('商品已下架');
       }
@@ -535,7 +538,9 @@ class OrderService {
       await conn.beginTransaction();
 
       const [getOrderInfoResult] = await conn.execute(
-        'SELECT * FROM orders WHERE id = ? FOR UPDATE',
+        `SELECT 
+          status, goods_id, receive_provinceCode, quantity, batch_type,
+         FROM orders WHERE id = ? FOR UPDATE`,
         [orderId]
       );
 
@@ -551,7 +556,9 @@ class OrderService {
 
       // ------------------------------------------------------
       const batchInfoResult = await conn.execute(
-        `SELECT * FROM goods WHERE id = ? FOR UPDATE`,
+        `SELECT 
+          batch_shipProvinces, batch_discounts, batch_preorder_finalPrice, batch_stock_unitPrice
+          FROM goods WHERE id = ? FOR UPDATE`,
         [orderInfo.goods_id]
       );
       const batchInfo = batchInfoResult[0][0];

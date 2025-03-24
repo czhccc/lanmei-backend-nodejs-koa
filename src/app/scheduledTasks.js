@@ -32,17 +32,17 @@ const clearUselessFiles = async () => {
   console.log('执行定时任务');
 
   // 清理 aboutUs 文件夹
-  const aboutUsFiles = await getFilesFromDatabase(`SELECT * FROM about_us_images`);
+  const aboutUsFiles = await getFilesFromDatabase(`SELECT url FROM about_us_images`);
   const aboutUsFolderPath = path.join(__dirname, '..', '..', 'files', 'aboutUs');
   await clearFolder(aboutUsFolderPath, aboutUsFiles);
 
   // 清理 goods_richText 文件夹
-  const goodsRichTextFiles = await getFilesFromDatabase(`SELECT * FROM goods_media WHERE useType='richText'`);
+  const goodsRichTextFiles = await getFilesFromDatabase(`SELECT url FROM goods_media WHERE useType='richText'`);
   const goodsRichTextFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_richText');
   await clearFolder(goodsRichTextFolderPath, goodsRichTextFiles);
 
   // 清理 goods_swiper 文件夹
-  const goodsSwiperFiles = await getFilesFromDatabase(`SELECT * FROM goods_media WHERE useType='swiper'`);
+  const goodsSwiperFiles = await getFilesFromDatabase(`SELECT url FROM goods_media WHERE useType='swiper'`);
   const goodsSwiperFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_swiper');
   await clearFolder(goodsSwiperFolderPath, goodsSwiperFiles);
 

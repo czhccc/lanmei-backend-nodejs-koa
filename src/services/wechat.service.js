@@ -193,7 +193,7 @@ class WechatService {
 
     try {
       const result = await connection.execute(
-        `SELECT * from customer_address WHERE create_by=? AND isDefault=1`, 
+        `SELECT * from customer_address WHERE create_by=? AND isDefault=1 LIMIT 1`, 
         [create_by]
       )
   

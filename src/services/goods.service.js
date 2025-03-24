@@ -336,7 +336,9 @@ class GoodsService {
 
       // ====================== 计算总收入 ======================
       const [ordersRevenueResult] = await conn.execute(
-        `SELECT * FROM orders WHERE batch_no = ? AND status='completed'`,
+        `SELECT 
+           batch_type, preorder_finalPrice, quantity, postage, discountAmount_promotion, stock_unitPrice, 
+        FROM orders WHERE batch_no = ? AND status='completed'`,
         [batchInfo.batch_no]
       );
 
@@ -855,7 +857,7 @@ class GoodsService {
           batch_no, batch_type, 
           batch_preorder_minPrice, batch_preorder_maxPrice 
             FROM goods WHERE id = ? 
-            FOR UPDATE`,  // 关键：加排他锁
+            FOR UPDATE`,
         [goodsId]
       );
       if (batchInfoResult.length === 0) {

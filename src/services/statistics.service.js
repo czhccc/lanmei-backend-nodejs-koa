@@ -10,16 +10,16 @@ const {
 } = require('../app/config')
 
 class GoodsService {
-  async getSingleBatchStatistics(params) {
+  // async getSingleBatchStatistics(params) {
     
-    const statement1 = `
-      SELECT * FROM orders
-    `
+  //   const statement1 = `
+  //     SELECT * FROM orders
+  //   `
 
-    const result1 = await connection.execute(statement1, []);
+  //   const result1 = await connection.execute(statement1, []);
 
-    return result1[0]
-  }
+  //   return result1[0]
+  // }
 }
 
 module.exports = new GoodsService()

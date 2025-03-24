@@ -65,7 +65,7 @@ class CommentService {
     const shipProvincesOfLastBatch = getShipProvincesOfLastBatchResult[0].shipProvinces
 
     const [getAllProvincesResult] = await connection.execute(`
-      SELECT * FROM ship_areas WHERE level='province'
+      SELECT code, name, usable FROM ship_areas WHERE level='province'
     `, []);
 
     let unusableButChoosedProvince = []
