@@ -10,7 +10,8 @@ const dayjs = require('dayjs');
 
 const {
   BASE_URL
-} = require('../app/config')
+} = require('../app/config');
+const wechatService = require('./wechat.service');
 
 class GoodsService {
   async createGoods(params) {
@@ -70,7 +71,7 @@ class GoodsService {
     try {
       await conn.beginTransaction();
 
-      const [currentGoodsInfoResult] = await conn.execute(`SELECT batch_type FROM goods WHERE goods_id = ? FOR UPDATE`, [goodsId]);
+      const [currentGoodsInfoResult] = await conn.execute(`SELECT batch_type FROM goods WHERE id = ? FOR UPDATE`, [goodsId]);
       const currentGoodsInfo = currentGoodsInfoResult[0]
       if (currentGoodsInfo.batch_type) {
         throw new Error('存在当前批次，无法更改商品信息')
@@ -84,9 +85,11 @@ class GoodsService {
         const swiperValues = swiperList.map((item, index) => [
           goodsId, item.url.replace(`${BASE_URL}/`, ''), item.type, 'swiper', index
         ]);
+        const placeholders = swiperValues.map(() => '(?, ?, ?, ?, ?)').join(',');
+        
         await conn.execute(
-          `INSERT INTO goods_media (goods_id, url, fileType, useType, position) VALUES ?`,
-          [swiperValues]
+          `INSERT INTO goods_media (goods_id, url, fileType, useType, position) VALUES ${placeholders}`,
+          swiperValues.flat()
         );
       }
 
@@ -94,9 +97,11 @@ class GoodsService {
       const imgSrcList = richTextExtractImageSrc(goodsRichText).map(url => url.replace(`${BASE_URL}/`, ''))
       if (imgSrcList.length > 0) {
         const richTextValues = imgSrcList.map(url => [goodsId, url, 'image', 'richText']);
+        const placeholders = richTextValues.map(() => '(?, ?, ?, ?)').join(',');
+
         await conn.execute(
-          `INSERT INTO goods_media (goods_id, url, fileType, useType) VALUES ?`,
-          [richTextValues]
+          `INSERT INTO goods_media (goods_id, url, fileType, useType) VALUES ${placeholders}`,
+          richTextValues.flat()
         );
       }
 
@@ -106,7 +111,16 @@ class GoodsService {
           SET goods_name=?, goods_unit=?, goods_categoryId=?, goods_isSelling=?, goods_remark=?, goods_richText=?, goods_coverImage=?
           WHERE id = ?
         `, 
-        [goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), coverImageUrl.replace(`${BASE_URL}/`, ''), goodsId]
+        [
+          goodsName, 
+          goodsUnit, 
+          goodsCategoryId, 
+          goodsIsSelling, 
+          goodsRemark, 
+          goodsRichText.replaceAll(BASE_URL, 'BASE_URL'), 
+          coverImageUrl.replace(`${BASE_URL}/`, ''),
+          goodsId
+        ]
       );
 
       // 处理批次信息
@@ -159,15 +173,14 @@ class GoodsService {
             SET batch_startBy=?, batch_no=?, batch_type=?, batch_startTime=?, batch_minQuantity=?, 
                 batch_discounts=?, batch_shipProvinces=?, batch_remark=?, 
                 batch_preorder_minPrice=?, batch_preorder_maxPrice=?, 
-                batch_stock_unitPrice=?, batch_stock_totalQuantity=?, 
+                batch_stock_unitPrice=?, batch_stock_totalQuantity=?, batch_stock_remainingQuantity=?
           WHERE id=?
         `;
-        
         const batchResult = await conn.execute(batchStatement, [
           thePhone, batchNo || generateDatetimeId(), batchType, batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'), batchMinQuantity,
           JSON.stringify(batchDiscounts), JSON.stringify(batchShipProvinces), batchRemark,
           batchPreorderMinPrice || null, batchPreorderMaxPrice || null,
-          batchStockUnitPrice || null, batchStockTotalQuantity, 
+          batchStockUnitPrice || null, batchStockTotalQuantity || null, batchStockTotalQuantity || null,
           goodsId
         ]);
         
@@ -337,7 +350,7 @@ class GoodsService {
       // ====================== 计算总收入 ======================
       const [ordersRevenueResult] = await conn.execute(
         `SELECT 
-           batch_type, preorder_finalPrice, quantity, postage, discountAmount_promotion, stock_unitPrice, 
+           batch_type, preorder_finalPrice, quantity, postage, discountAmount_promotion, stock_unitPrice 
         FROM orders WHERE batch_no = ? AND status='completed'`,
         [batchInfo.batch_no]
       );
@@ -444,7 +457,7 @@ class GoodsService {
         SELECT 
           batch_type, 
           batch_preorder_finalPrice, 
-          batch_stock_remaining 
+          batch_stock_remainingQuantity 
         FROM goods 
         WHERE id = ? 
         FOR UPDATE
@@ -460,7 +473,7 @@ class GoodsService {
       if (batchInfo.batch_type==='preorder' && batchInfo.batch_preorder_finalPrice) {
         throw new Error('售卖阶段的预订批次无法上架')
       }
-      if (batchInfo.batch_type==='stock' && batchInfo.batch_stock_remaining <= 0) {
+      if (batchInfo.batch_type==='stock' && batchInfo.batch_stock_remainingQuantity <= 0) {
         throw new Error('商品余量为0')
       }
 
@@ -470,6 +483,10 @@ class GoodsService {
       )
 
       await conn.commit();
+
+      if (value === 0) {
+        wechatService.filterUnusableRecommend()
+      }
 
       return 'success'
     } catch (error) {
@@ -916,6 +933,10 @@ class GoodsService {
       if (conn) conn.release();
     }
   }
+}
+
+class utilClass {
+
 }
 
 module.exports = new GoodsService()

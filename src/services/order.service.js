@@ -690,9 +690,6 @@ class OrderService {
     if (!quantity) {
       throw new Error('缺少参数：quantity')
     }
-    if (!provinceCode) {
-      throw new Error('缺少参数：provinceCode')
-    }
 
     try {
       const [goodsResult] = await connection.execute(

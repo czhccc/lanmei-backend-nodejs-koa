@@ -24,4 +24,17 @@ wechatRouter.get('/notify', verifyToken, tableResponseHandler, WechatController.
 wechatRouter.post('/notify', verifyToken, WechatController.notify)
 wechatRouter.get('/notify/getLatestNotification', WechatController.getLatestNotification)
 
+// 首页推荐轮播图
+wechatRouter.get('/recommend', verifyToken, WechatController.getRecommendList)
+wechatRouter.post('/recommend', verifyToken, WechatController.editRecommendList)
+
+// 资讯
+wechatRouter.get('/news/list', verifyToken, tableResponseHandler, WechatController.getNewsList)
+wechatRouter.get('/news/detail', verifyToken, WechatController.getNewsDetail)
+wechatRouter.post('/news/add', verifyToken, WechatController.addNews)
+wechatRouter.post('/news/edit', verifyToken, WechatController.editNews)
+wechatRouter.post('/news/delete', verifyToken, WechatController.deleteNews)
+wechatRouter.post('/news/show', verifyToken, WechatController.showNews)
+wechatRouter.post('/news/pin', verifyToken, WechatController.pinNews)
+
 module.exports = wechatRouter

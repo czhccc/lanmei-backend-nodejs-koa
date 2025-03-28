@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 24/03/2025 16:49:19
+ Date: 28/03/2025 20:58:13
 */
 
 SET NAMES utf8mb4;
@@ -115,6 +115,7 @@ CREATE TABLE `batch_history`  (
 -- Records of batch_history
 -- ----------------------------
 INSERT INTO `batch_history` VALUES ('20250317205046_b9z0yg', 58, 'stock', '2025-03-17 20:50:46', '2025-03-17 21:02:52', NULL, NULL, NULL, NULL, NULL, 10.00, 10.00, 1.0, '[]', 2, 2.00, 40.00, 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', 'completed', '19967303498', '19967303498', NULL, NULL, '2025-03-17 21:02:52', NULL);
+INSERT INTO `batch_history` VALUES ('20250317185337_ynbmrg', 55, 'preorder', '2025-03-17 18:53:37', '2025-03-26 12:21:53', 1.00, 10.00, '19967303498', '2025-03-17 21:53:11', 5.00, NULL, 0.00, 1.0, '[]', 2, 3.00, 0.00, 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'completed', '19967303498', '19967303498', NULL, NULL, '2025-03-26 12:21:53', NULL);
 INSERT INTO `batch_history` VALUES ('20250317133848_k67vld', 55, 'preorder', '2025-03-17 13:38:48', '2025-03-17 18:53:28', 1.00, 10.00, '19967303498', '2025-03-17 13:39:17', 5.00, NULL, 0.00, 1.0, '[]', 1, 1.00, 15.00, 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'completed', '19967303498', '19967303498', NULL, NULL, '2025-03-17 18:53:28', NULL);
 INSERT INTO `batch_history` VALUES ('20250316185159_fw829i', 55, 'preorder', '2025-03-16 18:51:59', '2025-03-17 13:38:36', 1.00, 10.00, '19967303498', '2025-03-17 13:34:21', 5.00, NULL, 0.00, 1.0, '[]', 3, 3.00, 0.00, 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'completed', '19967303498', '19967303498', NULL, NULL, '2025-03-17 13:38:36', NULL);
 INSERT INTO `batch_history` VALUES ('20250316174912_nr24p1', 58, 'stock', '2025-03-16 17:49:12', '2025-03-16 17:52:23', NULL, NULL, NULL, NULL, NULL, 5.00, 100.00, 2.0, '[{\"discount\": 10, \"quantity\": 4}]', 2, 6.00, 80.00, 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '用于基础信息测试', '只', '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20241022175523_ltkrka.jpg\" alt=\"\" data-href=\"\" style=\"width: 50%;\"/></p>', 'completed', '19967303498', '19967303498', NULL, NULL, '2025-03-16 17:52:23', NULL);
@@ -300,10 +301,10 @@ CREATE TABLE `goods`  (
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
-INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 0, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '2025-03-17 18:53:37', '19967303498', '20250317185337_ynbmrg', 'preorder', 0.00, 0.00, 1.00, 10.00, '2025-03-17 21:53:11', '19967303498', 5.00, NULL, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-15 09:14:14', '2025-03-17 21:53:11');
-INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-57_20250311220333_ekir9a.jpg', '2025-03-11 22:03:55', NULL, '20250311220355_01iz2v', 'preorder', 0.00, 0.00, 1.00, 10.00, NULL, NULL, 5.00, NULL, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"baseNum\": 1, \"extraNum\": 1, \"basePostage\": 10, \"extraPostage\": 10, \"freeShippingNum\": 10}]', '', '2024-10-15 11:49:45', '2025-03-11 22:17:31');
-INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 1, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '2025-03-17 21:03:25', '19967303498', '20250317210325_vpjd9g', 'stock', 100.00, 99997.00, NULL, NULL, NULL, NULL, NULL, 5.00, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-17 09:20:31', '2025-03-22 11:49:25');
-INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 0, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-25 10:16:32', '2025-03-13 10:29:11');
+INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 1, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '2025-03-26 12:53:22', '19967303498', '20250326125322_52czbe', 'preorder', 0.00, NULL, 1.00, 10.00, '2025-03-17 21:53:11', '19967303498', NULL, NULL, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-15 09:14:14', '2025-03-26 12:59:26');
+INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-57_20250311220333_ekir9a.jpg', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-10-15 11:49:45', '2025-03-26 20:40:31');
+INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 0, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '2025-03-17 21:03:25', '19967303498', '20250317210325_vpjd9g', 'stock', 100.00, 99997.00, NULL, NULL, NULL, NULL, NULL, 5.00, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-17 09:20:31', '2025-03-28 20:57:14');
+INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 1, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20250326195737_wkmeb0.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '2025-03-26 20:02:49', '19967303498', '20250326200249_flzdd6', 'stock', 100.00, 100.00, NULL, NULL, NULL, NULL, NULL, 2.00, 1.0, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-25 10:16:32', '2025-03-26 20:06:56');
 INSERT INTO `goods` VALUES (60, '鸭子商品', '只', 5, 0, '鸭子商品备注', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2024-11-08 16:17:53', '2025-03-14 22:24:09');
 
 -- ----------------------------
@@ -319,18 +320,19 @@ CREATE TABLE `goods_media`  (
   `position` int NULL DEFAULT NULL COMMENT 'swiper中显示顺序的权重',
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 225 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 251 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of goods_media
 -- ----------------------------
-INSERT INTO `goods_media` VALUES (188, 59, 'goods_swiper/goods_swiper-59_20241025101643_34zc25.mp4', 'video', 'swiper', 0, '2025-03-12 21:22:28');
-INSERT INTO `goods_media` VALUES (189, 59, 'goods_swiper/goods_swiper-59_20241025101645_n58cvh.png', 'image', 'swiper', 1, '2025-03-12 21:22:28');
-INSERT INTO `goods_media` VALUES (190, 59, 'goods_richText/goods_richText-59_20241025101847_9lvi3j.png', 'image', 'richText', NULL, '2025-03-12 21:22:28');
 INSERT INTO `goods_media` VALUES (202, 60, 'goods_richText/goods_richText-59_20241025101847_9lvi3j.png', 'image', 'richText', NULL, '2025-03-13 21:48:55');
-INSERT INTO `goods_media` VALUES (220, 55, 'goods_swiper/goods_swiper-55_20241108154621_lvxq15.png', 'image', 'swiper', 0, '2025-03-17 18:53:37');
-INSERT INTO `goods_media` VALUES (221, 55, 'goods_swiper/goods_swiper-55_20241108154626_n72lkq.png', 'image', 'swiper', 1, '2025-03-17 18:53:37');
 INSERT INTO `goods_media` VALUES (224, 58, 'goods_richText/goods_richText-58_20250317210306_zll5qi.jpg', 'image', 'richText', NULL, '2025-03-17 21:03:25');
+INSERT INTO `goods_media` VALUES (237, 55, 'goods_swiper/goods_swiper-55_20241108154621_lvxq15.png', 'image', 'swiper', 0, '2025-03-26 12:53:22');
+INSERT INTO `goods_media` VALUES (238, 55, 'goods_swiper/goods_swiper-55_20241108154626_n72lkq.png', 'image', 'swiper', 1, '2025-03-26 12:53:22');
+INSERT INTO `goods_media` VALUES (247, 59, 'goods_swiper/goods_swiper-59_20241025101643_34zc25.mp4', 'video', 'swiper', 0, '2025-03-26 20:02:49');
+INSERT INTO `goods_media` VALUES (248, 59, 'goods_swiper/goods_swiper-59_20241025101645_n58cvh.png', 'image', 'swiper', 1, '2025-03-26 20:02:49');
+INSERT INTO `goods_media` VALUES (249, 59, 'goods_richText/goods_richText-59_20241025101847_9lvi3j.png', 'image', 'richText', NULL, '2025-03-26 20:02:49');
+INSERT INTO `goods_media` VALUES (250, 59, 'goods_richText/goods_richText-59_20250326195737_wkmeb0.jpg', 'image', 'richText', NULL, '2025-03-26 20:02:49');
 
 -- ----------------------------
 -- Table structure for orders
@@ -3872,6 +3874,37 @@ INSERT INTO `ship_areas` VALUES ('659011', '新星市', 'district', '6590', 0);
 INSERT INTO `ship_areas` VALUES ('659012', '白杨市', 'district', '6590', 0);
 
 -- ----------------------------
+-- Table structure for wechat_home_news
+-- ----------------------------
+DROP TABLE IF EXISTS `wechat_home_news`;
+CREATE TABLE `wechat_home_news`  (
+  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `isShow` int NULL DEFAULT 0 COMMENT '是否展示',
+  `isPin` int NULL DEFAULT 0 COMMENT '是否置顶',
+  `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updateTime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 16 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of wechat_home_news
+-- ----------------------------
+INSERT INTO `wechat_home_news` VALUES (1, '测试50字标题测试50字标题测试50字标题测试50字标题测试50字标题测试50字标题测试50字标题测', '<p>11122</p>', 1, 1, '2025-03-27 20:53:35', '2025-03-28 16:58:49');
+INSERT INTO `wechat_home_news` VALUES (2, '22', '<p>22</p><p><br></p><p><img src=\"BASE_URL/news/news_20250328094415_pifx97.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 1, 0, '2025-03-27 21:18:01', '2025-03-28 12:52:53');
+INSERT INTO `wechat_home_news` VALUES (6, '5', '<p>5</p>', 0, 0, '2025-03-28 11:57:01', NULL);
+INSERT INTO `wechat_home_news` VALUES (7, '5', '<p>5</p>', 0, 0, '2025-03-28 11:57:21', NULL);
+INSERT INTO `wechat_home_news` VALUES (8, '7', '<p>7</p>', 0, 0, '2025-03-28 11:57:38', NULL);
+INSERT INTO `wechat_home_news` VALUES (9, '9', '<p>9</p>', 0, 0, '2025-03-28 11:57:56', NULL);
+INSERT INTO `wechat_home_news` VALUES (10, '1122', '<p>112</p>', 0, 0, '2025-03-28 11:58:15', NULL);
+INSERT INTO `wechat_home_news` VALUES (11, '13', '<p>13</p>', 0, 0, '2025-03-28 11:58:34', NULL);
+INSERT INTO `wechat_home_news` VALUES (12, '11', '<p>2</p>', 1, 1, '2025-03-28 11:58:52', '2025-03-28 12:50:16');
+INSERT INTO `wechat_home_news` VALUES (13, '14', '<p>14</p>', 0, 0, '2025-03-28 11:59:17', NULL);
+INSERT INTO `wechat_home_news` VALUES (14, '88', '<p>88</p>', 0, 0, '2025-03-28 11:59:45', NULL);
+INSERT INTO `wechat_home_news` VALUES (15, '325', '<p>235</p>', 0, 0, '2025-03-28 12:08:22', NULL);
+
+-- ----------------------------
 -- Table structure for wechat_home_notify
 -- ----------------------------
 DROP TABLE IF EXISTS `wechat_home_notify`;
@@ -3895,5 +3928,24 @@ INSERT INTO `wechat_home_notify` VALUES (6, '新新新新新新新新新新新�
 INSERT INTO `wechat_home_notify` VALUES (7, '', '13989536936', '2024-10-12 14:45:25');
 INSERT INTO `wechat_home_notify` VALUES (8, '我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你我爱你', '13989536936', '2024-10-12 14:48:06');
 INSERT INTO `wechat_home_notify` VALUES (9, '1111111111111111111111111111', '19967303498', '2025-03-22 21:21:54');
+
+-- ----------------------------
+-- Table structure for wechat_home_recommend
+-- ----------------------------
+DROP TABLE IF EXISTS `wechat_home_recommend`;
+CREATE TABLE `wechat_home_recommend`  (
+  `goods_id` int NOT NULL,
+  `goodsCoverImageUrl` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `customImageUrl` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `sort` int NOT NULL,
+  `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`goods_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of wechat_home_recommend
+-- ----------------------------
+INSERT INTO `wechat_home_recommend` VALUES (55, NULL, 'recommend/recommend-55_20250327173138_nplrg8.jpg', 1, NULL);
+INSERT INTO `wechat_home_recommend` VALUES (59, NULL, 'recommend/recommend-59_20250327173124_u118er.jpg', 3, NULL);
 
 SET FOREIGN_KEY_CHECKS = 1;

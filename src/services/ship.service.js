@@ -21,7 +21,7 @@ class CommentService {
       queryParams.push(`${escapeLike(code)}%`)
     }
 
-    const result = await connection.execute(`SELECT * FROM ship_areas`, queryParams);
+    const result = await connection.execute(`SELECT * FROM ship_areas ${whereClause}`, queryParams);
 
     return result[0];
   }
