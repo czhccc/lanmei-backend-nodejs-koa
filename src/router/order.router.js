@@ -24,6 +24,8 @@ orderRouter.post('/cancelOrder', verifyToken, OrderController.cancelOrder)
 
 orderRouter.post('/payOrder', verifyToken, OrderController.payOrder)
 
+orderRouter.post('/shipOrder', verifyToken, OrderController.shipOrder)
+
 orderRouter.post('/completeOrder', verifyToken, OrderController.completeOrder)
 
 orderRouter.post('/generateOrderInfo', verifyToken, OrderController.generateOrderInfo)

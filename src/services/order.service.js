@@ -633,6 +633,56 @@ class OrderService {
 
   }
 
+  async shipOrder(params) {
+    const { orderId, trackingNumber, thePhone } = params
+
+    if (!orderId) {
+      throw new Error('缺少参数：orderId');
+    }
+    if (!trackingNumber) {
+      throw new Error('缺少参数：trackingNumber');
+    }
+
+    try {
+      const [shipOrderResult] = await connection.execute(`
+        UPDATE orders 
+        SET 
+          status = 'shipped',
+          ship_trackingNumber = ?,
+          ship_time = ?,
+          ship_by = ?
+        WHERE 
+          id = ? 
+          AND status = 'paid'
+      `, [
+        trackingNumber, dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
+      ]);
+
+      if (shipOrderResult.affectedRows === 0) {
+        const [getOrderInfoResult] = await connection.execute(
+          'SELECT status FROM orders WHERE id = ?',
+          [orderId]
+        );
+  
+        if (getOrderInfoResult.length === 0) {
+          throw new Error('订单不存在');
+        }
+  
+        const orderInfo = getOrderInfoResult[0]
+  
+        if (orderInfo.status !== 'paid') {
+          throw new Error('订单不是已付款状态');
+        }
+
+        throw new Error('存在未知错误，操作失败')
+      }
+
+      return 'success';
+    } catch (error) {
+      throw error
+    }
+  }
+
   async completeOrder(params) {
     const { orderId, thePhone } = params
 
@@ -641,8 +691,6 @@ class OrderService {
     }
 
     try {
-      await connection.beginTransaction();
-
       const [completeOrderResult] = await connection.execute(`
         UPDATE orders 
         SET 

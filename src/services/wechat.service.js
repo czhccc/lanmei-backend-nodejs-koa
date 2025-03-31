@@ -4,7 +4,9 @@ const escapeLike = require('../utils/escapeLike')
 
 const dayjs = require('dayjs')
 
-const wechatService = require('./wechat.service')
+const determineMediaFileType = require('../utils/determineMediaFileType')
+
+const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
 
 const {
   BASE_URL
@@ -300,23 +302,46 @@ class WechatService {
     try {
       await conn.beginTransaction();
 
-      await conn.execute(
-        `DELETE FROM wechat_home_recommend`, 
-        []
-      )
+      await conn.execute(`DELETE FROM wechat_home_recommend`, [])
 
-      const placeholders = list.map(() => '(?, ?, ?, ?)').join(',');
-      const insertValues = list.map(item => [
-        item.goodsId, 
-        !item.customImageUrl&&item.coverImageUrl?.replace(`${BASE_URL}/`, '') || null, 
-        item.customImageUrl?.replace(`${BASE_URL}/`, '') || null, 
-        item.sort
-      ])
+      let insertValues = []
       
-      if (list.length > 0) {
+      let mediaValues = []
+
+      list.forEach(item => {
+        let handledCustomImageUrl = item.customImageUrl?.replace(`${BASE_URL}/`, '') || null
+
+        if (item.customImageUrl) {
+          mediaValues.push([
+            handledCustomImageUrl,
+            'recommend',
+            determineMediaFileType(handledCustomImageUrl),
+            'wechat_home_recommend',
+            'goods_id',
+            item.goodsId
+          ])
+        }
+
+        insertValues.push([
+          item.goodsId, 
+          !item.customImageUrl&&item.coverImageUrl?.replace(`${BASE_URL}/`, '') || null, 
+          handledCustomImageUrl, 
+          item.sort
+        ])
+      })
+      
+      if (insertValues.length > 0) {
         await conn.execute(
-          `INSERT wechat_home_recommend (goods_id, goodsCoverImageUrl, customImageUrl, sort) VALUES ${placeholders}`, 
+          `INSERT wechat_home_recommend (goods_id, goodsCoverImageUrl, customImageUrl, sort) VALUES ${list.map(() => '(?,?,?,?)').join(',')}`, 
           insertValues.flat()
+        )
+      }
+
+      // ====================== 处理media ========================
+      if (mediaValues.length > 0) {
+        await conn.execute(
+          `INSERT others_media (url, useType, fileType, relation_table, relation_field, relation_value) VALUES ${mediaValues.map(() => '(?,?,?,?,?,?)').join(',')}`, 
+          mediaValues.flat()
         )
       }
 
@@ -335,32 +360,32 @@ class WechatService {
 
     try {
       await conn.beginTransaction();
-
+      
       const [recommendResults] = await connection.execute(
         `SELECT goods_id FROM wechat_home_recommend`, 
         []
       )
-
+      
       if (recommendResults.length === 0) {
         await conn.commit();
         return 'No records to process';
       }
 
-      const goodsIds = recommendResults.map(item => item.goods_id);
-      const goodsPla = recommendResults.map(item => '?').join(',')
       const [goodsResults] = await conn.execute(
-        `SELECT id, goods_isSelling FROM goods WHERE id IN (${goodsPla})`,
-        goodsIds
+        `SELECT id, goods_isSelling FROM goods WHERE id IN (${recommendResults.map(() => '?').join(',')})`,
+        recommendResults.map(item => item.goods_id)
       );
+
+      const idsToDelete = goodsResults.filter(item => item.goods_isSelling === 0).map(item => item.id);
       
-      const idsToDelete = goodsResults
-                            .filter(item => item.goods_isSelling === 0)
-                            .map(item => item.id);
-                            
-      const deletePla = idsToDelete.map(item => '?').join(',')
       if (idsToDelete.length > 0) {
         await conn.execute(
-          `DELETE FROM wechat_home_recommend WHERE goods_id IN (${deletePla})`,
+          `DELETE FROM others_media WHERE relation_value IN (${idsToDelete.map(() => '?').join(',')})`,
+          idsToDelete
+        );
+
+        await conn.execute(
+          `DELETE FROM wechat_home_recommend WHERE goods_id IN (${idsToDelete.map(() => '?').join(',')})`,
           idsToDelete
         );
       }
@@ -439,6 +464,10 @@ class WechatService {
         SELECT * FROM wechat_home_news WHERE id = ?
       `, [id])
       
+      if (dataResult.length === 0) {
+        throw new Error('当前id的数据不存在')
+      }
+      
       return {
         ...dataResult[0],
         content: dataResult[0].content.replaceAll('BASE_URL', BASE_URL)
@@ -457,14 +486,39 @@ class WechatService {
       throw new Error('缺少参数：content')
     }
 
+    const conn = await connection.getConnection();
     try {
-      const [insertResult] = await connection.execute(`
+      await conn.beginTransaction();
+
+      const [insertResult] = await conn.execute(`
         INSERT wechat_home_news (title, content) VALUES (?,?)
       `, [title, content.replaceAll(BASE_URL, 'BASE_URL')])
-      
+
+      // ====================== 处理media ========================
+      const mediaValues = richTextExtractImageSrc(content).map(url => [
+        url.replace(`${BASE_URL}/`, ''),
+        'news',
+        determineMediaFileType(url),
+        'wechat_home_news',
+        'id',
+        insertResult.insertId
+      ])
+
+      if (mediaValues.length > 0) {
+        await conn.execute(
+          `INSERT others_media (url, useType, fileType, relation_table, relation_field, relation_value) VALUES ${mediaUrls.map(() => '(?,?,?,?,?,?)').join(',')}`, 
+          mediaValues.flat()
+        )
+      }
+
+      await conn.commit(); 
+
       return insertResult
     } catch (error) {
+      await conn.rollback();
       throw error
+    } finally {
+      if (conn) conn.release();
     }
   }
   async editNews(params) {
@@ -480,25 +534,57 @@ class WechatService {
       throw new Error('缺少参数：content')
     }
 
+    const conn = await connection.getConnection();
     try {
-      const [updateResult] = await connection.execute(
+      await conn.beginTransaction();
+
+      const [updateResult] = await conn.execute(
         `UPDATE wechat_home_news 
           SET title = ?, content = ?  
             WHERE id = ? `
         , [title, content.replaceAll(BASE_URL, 'BASE_URL'), id]
       );
       if (updateResult.affectedRows === 0) {
-        const [selectResult] = await connection.execute(`
+        const [selectResult] = await conn.execute(`
           SELECT id FROM wechat_home_news WHERE id = ? LIMIT 1
         `, [id]);
         if (selectResult.length === 0) {
           throw new Error('该id的数据不存在')
         }
       }
+
+      // ====================== 处理media ========================
+      // 删除原有的
+      await conn.execute(
+        `DELETE FROM others_media WHERE relation_value = ?`,
+        [id]
+      );
+
+      // 重新插入
+      const mediaValues = richTextExtractImageSrc(content).map(url => [
+        url.replace(`${BASE_URL}/`, ''),
+        'news',
+        determineMediaFileType(url),
+        'wechat_home_news',
+        'id',
+        id
+      ])
+
+      if (mediaValues.length > 0) {
+        await conn.execute(
+          `INSERT others_media (url, useType, fileType, relation_table, relation_field, relation_value) VALUES ${mediaValues.map(() => '(?,?,?,?,?,?)').join(',')}`, 
+          mediaValues.flat()
+        )
+      }
+
+      await conn.commit(); 
   
       return 'success'
     } catch (error) {
+      await conn.rollback();
       throw error
+    } finally {
+      if (conn) conn.release();
     }
   }
   async deleteNews(params) {
@@ -508,13 +594,16 @@ class WechatService {
       throw new Error('缺少参数：id')
     }
 
+    const conn = await connection.getConnection();
     try {
-      const [result] = await connection.execute(
+      await conn.beginTransaction();
+
+      const [result] = await conn.execute(
         `DELETE FROM wechat_home_news WHERE id = ?`, 
         [id]
       );
       if (result.affectedRows === 0) {
-        const [infoResult] = await connection.execute(
+        const [infoResult] = await conn.execute(
           `SELECT * FROM wechat_home_news WHERE id = ?`, 
           [id]
         );
@@ -524,10 +613,21 @@ class WechatService {
   
         throw new Error('删除失败');
       }
+
+      // ====================== 处理media ========================
+      await conn.execute(
+        `DELETE FROM others_media WHERE relation_value = ?`,
+        [id]
+      );
+
+      await conn.commit(); 
   
       return 'success'
     } catch (error) {
+      await conn.rollback();
       throw error
+    } finally {
+      if (conn) conn.release();
     }
   }
   async showNews(params) {
@@ -542,7 +642,7 @@ class WechatService {
 
     try {
       const [result] = await connection.execute(
-        `UPDATE wechat_home_news SET isShow=? WHERE id=? LIMIT 1`, 
+        `UPDATE wechat_home_news SET isShow=? WHERE id=?`, 
         [value, id]
       )
       if (result.affectedRows === 0) {

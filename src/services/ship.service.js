@@ -1,5 +1,7 @@
 const connection = require('../app/database')
 
+const escapeLike = require('../utils/escapeLike')
+
 const dayjs = require('dayjs')
 
 class CommentService {

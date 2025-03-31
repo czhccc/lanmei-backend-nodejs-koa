@@ -20,13 +20,13 @@ class AboutUsService {
 
       // 仅当 imgSrcList 非空时才执行删除操作，减少数据库 IO
       if (imgSrcList.length > 0) {
-        await conn.execute(`DELETE FROM about_us_images`);
+        await conn.execute(`DELETE FROM aboutus_images`);
       }
 
       // 批量插入图片链接，提高效率
       if (imgSrcList.length > 0) {
         const values = imgSrcList.map(() => '(?)').join(',');
-        const insertStatement = `INSERT INTO about_us_images (url) VALUES ${values}`;
+        const insertStatement = `INSERT INTO aboutus_images (url) VALUES ${values}`;
         await conn.execute(insertStatement, imgSrcList);
       }
 

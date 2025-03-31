@@ -5,12 +5,12 @@ const path = require('path');
 const cron = require('node-cron');
 const connection = require('./database')
 
-const getFilesFromDatabase = async (query) => {
+const getUsableFilesNamesFromDatabase = async (query) => {
   const [rows] = await connection.execute(query, []);
   return rows.map(item => item.url.split('/')[1]);
 };
 
-const clearFolder = async (folderPath, dbFiles) => {
+const clearUnusableFilesByFileName = async (folderPath, dbFiles) => {
   try {
     const files = await fs.promises.readdir(folderPath);
     const filesToDelete = files.filter(file => !dbFiles.includes(file));
@@ -31,24 +31,34 @@ const clearFolder = async (folderPath, dbFiles) => {
 const clearUselessFiles = async () => {
   console.log('执行定时任务');
 
-  // 清理 aboutUs 文件夹
-  const aboutUsFiles = await getFilesFromDatabase(`SELECT url FROM about_us_images`);
-  const aboutUsFolderPath = path.join(__dirname, '..', '..', 'files', 'aboutUs');
-  await clearFolder(aboutUsFolderPath, aboutUsFiles);
-
-  // 清理 goods_richText 文件夹
-  const goodsRichTextFiles = await getFilesFromDatabase(`SELECT url FROM goods_media WHERE useType='richText'`);
-  const goodsRichTextFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_richText');
-  await clearFolder(goodsRichTextFolderPath, goodsRichTextFiles);
-
-  // 清理 goods_swiper 文件夹
-  const goodsSwiperFiles = await getFilesFromDatabase(`SELECT url FROM goods_media WHERE useType='swiper'`);
-  const goodsSwiperFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_swiper');
-  await clearFolder(goodsSwiperFolderPath, goodsSwiperFiles);
-
   // 清理 tempFiles 文件夹
   const tempFilesFolderPath = path.join(__dirname, '..', '..', 'files', 'tempFiles');
-  await clearFolder(tempFilesFolderPath, []);
+  await clearUnusableFilesByFileName(tempFilesFolderPath, []);
+
+  // 清理 aboutUs 文件夹
+  const aboutUsFiles = await getUsableFilesNamesFromDatabase(`SELECT url FROM aboutus_images`);
+  const aboutUsFolderPath = path.join(__dirname, '..', '..', 'files', 'aboutUs');
+  await clearUnusableFilesByFileName(aboutUsFolderPath, aboutUsFiles);
+
+  // 清理 goods_richText 文件夹
+  const goodsRichTextFiles = await getUsableFilesNamesFromDatabase(`SELECT url FROM goods_media WHERE useType='richText'`);
+  const goodsRichTextFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_richText');
+  await clearUnusableFilesByFileName(goodsRichTextFolderPath, goodsRichTextFiles);
+
+  // 清理 goods_swiper 文件夹
+  const goodsSwiperFiles = await getUsableFilesNamesFromDatabase(`SELECT url FROM goods_media WHERE useType='swiper'`);
+  const goodsSwiperFolderPath = path.join(__dirname, '..', '..', 'files', 'goods_swiper');
+  await clearUnusableFilesByFileName(goodsSwiperFolderPath, goodsSwiperFiles);
+
+  // 清理 news 文件夹
+  const newsFiles = await getUsableFilesNamesFromDatabase(`SELECT url FROM others_media WHERE useType='news'`);
+  const newsFolderPath = path.join(__dirname, '..', '..', 'files', 'news');
+  await clearUnusableFilesByFileName(newsFolderPath, newsFiles);
+
+  // 清理 news_richText 文件夹
+  const recommendFiles = await getUsableFilesNamesFromDatabase(`SELECT url FROM others_media WHERE useType='recommend'`);
+  const recommendFolderPath = path.join(__dirname, '..', '..', 'files', 'news_richText');
+  await clearUnusableFilesByFileName(recommendFolderPath, recommendFiles);
 };
 
 // 执行定时任务

@@ -11,6 +11,7 @@ const dayjs = require('dayjs');
 const {
   BASE_URL
 } = require('../app/config');
+
 const wechatService = require('./wechat.service');
 
 class GoodsService {
@@ -83,7 +84,7 @@ class GoodsService {
       // 重新插入轮播图的图片
       if (swiperList.length > 0) {
         const swiperValues = swiperList.map((item, index) => [
-          goodsId, item.url.replace(`${BASE_URL}/`, ''), item.type, 'swiper', index
+          goodsId, item.url.replace(`${BASE_URL}/`, ''), determineMediaFileType(item.url), 'swiper', index
         ]);
         const placeholders = swiperValues.map(() => '(?, ?, ?, ?, ?)').join(',');
         
@@ -96,7 +97,7 @@ class GoodsService {
       // 重新插入富文本的图片
       const imgSrcList = richTextExtractImageSrc(goodsRichText).map(url => url.replace(`${BASE_URL}/`, ''))
       if (imgSrcList.length > 0) {
-        const richTextValues = imgSrcList.map(url => [goodsId, url, 'image', 'richText']);
+        const richTextValues = imgSrcList.map(url => [goodsId, url, , determineMediaFileType(item.url), 'richText']);
         const placeholders = richTextValues.map(() => '(?, ?, ?, ?)').join(',');
 
         await conn.execute(
@@ -429,6 +430,8 @@ class GoodsService {
 
       await conn.commit();
 
+      wechatService.filterUnusableRecommend()
+
       return 'success'
     } catch (error) {
       console.log(error)
@@ -714,6 +717,8 @@ class GoodsService {
 
       await conn.commit();
 
+      wechatService.filterUnusableRecommend()
+
       return 'success'
     } catch (error) {
       console.log(error);
@@ -845,6 +850,9 @@ class GoodsService {
       );
   
       await conn.commit();
+
+      wechatService.filterUnusableRecommend()
+
       return 'success';
     } catch (error) {
       await conn.rollback();
@@ -924,6 +932,8 @@ class GoodsService {
       );
 
       await conn.commit();
+
+      wechatService.filterUnusableRecommend()
 
       return 'success'
     } catch (error) {

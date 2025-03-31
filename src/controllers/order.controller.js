@@ -65,6 +65,14 @@ class OrderController {
 
     ctx.body = result
   }
+  
+  async shipOrder(ctx, next) {
+    const params = ctx.request.body
+    params.thePhone = ctx.theUser.phone
+    const result = await service.shipOrder(params)
+
+    ctx.body = result
+  }
 
   async generateOrderInfo(ctx, next) {
     const params = ctx.request.body
