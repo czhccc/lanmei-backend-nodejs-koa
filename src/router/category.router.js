@@ -10,6 +10,6 @@ const categoryRouter = new Router({prefix: '/category'})
 
 categoryRouter.post('/', verifyToken, CategoryController.updateCategory)
 
-categoryRouter.get('/', verifyToken, CategoryController.getCategory)
+categoryRouter.get('/', CategoryController.getCategory)
 
 module.exports = categoryRouter

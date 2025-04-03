@@ -15,9 +15,9 @@ const tableResponseHandler = require('../middlewares/global/table-response-handl
 const goodsRouter = new Router({prefix: '/goods'})
 goodsRouter.post('/', verifyToken, GoodsController.createOrUpdateGoods)
 
-goodsRouter.get('/getGoodsDetailById', verifyToken, GoodsController.getGoodsDetailById)
+goodsRouter.get('/getGoodsDetailById', GoodsController.getGoodsDetailById)
 
-goodsRouter.get('/getGoodsList', verifyToken, tableResponseHandler, GoodsController.getGoodsList)
+goodsRouter.get('/getGoodsList', tableResponseHandler, GoodsController.getGoodsList)
 
 goodsRouter.post('/endCurrentBatch', verifyToken, GoodsController.endCurrentBatch)
 

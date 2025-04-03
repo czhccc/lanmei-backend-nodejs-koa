@@ -6,6 +6,8 @@ const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
 
 const escapeLike = require('../utils/escapeLike')
 
+const determineMediaFileType = require('../utils/determineMediaFileType')
+
 const dayjs = require('dayjs');
 
 const {
@@ -54,7 +56,7 @@ class GoodsService {
       swiperList = [],
       goodsRichText = '<p>暂无更多介绍</p>',
     } = params;
-
+    
     if (!goodsId) {
       throw new Error('缺少参数：goodsId')
     }
@@ -93,11 +95,11 @@ class GoodsService {
           swiperValues.flat()
         );
       }
-
+      
       // 重新插入富文本的图片
       const imgSrcList = richTextExtractImageSrc(goodsRichText).map(url => url.replace(`${BASE_URL}/`, ''))
       if (imgSrcList.length > 0) {
-        const richTextValues = imgSrcList.map(url => [goodsId, url, , determineMediaFileType(item.url), 'richText']);
+        const richTextValues = imgSrcList.map(url => [goodsId, url, determineMediaFileType(url), 'richText']);
         const placeholders = richTextValues.map(() => '(?, ?, ?, ?)').join(',');
 
         await conn.execute(
@@ -105,7 +107,7 @@ class GoodsService {
           richTextValues.flat()
         );
       }
-
+      
       // 处理商品基本信息
       await conn.execute(`
           UPDATE goods
@@ -133,13 +135,72 @@ class GoodsService {
           batchPreorderMinPrice, 
           batchPreorderMaxPrice,
           batchStockUnitPrice,
+          batchStockTotalQuantity,
           batchMinQuantity, 
-          batchDiscounts,
+          batchDiscountsPromotion,
+          batchExtraOptions,
           batchShipProvinces,
           batchRemark,
-          batchStockTotalQuantity
         } = params;
+        
+        // 校验满减优惠
+        if (batchDiscountsPromotion?.length > 0) {
+          const quantitySet = new Set();
+        
+          for (const item of batchDiscountsPromotion) {
+            if (item.quantity===null || item.quantity===undefined) {
+              throw new Error('优惠策略 数量 未填写完整')
+            }
+            if (item.quantity < 0) {
+              throw new Error('优惠策略 优惠金额 须大于等于 0')
+            }
+            if (item.discount===null || item.discount===undefined) {
+              throw new Error('优惠策略 优惠金额 未填写完整')
+            }
+            if (item.discount <= 0) {
+              throw new Error('优惠策略 优惠金额 须大于 0')
+            }
+        
+            if (quantitySet.has(item.quantity)) {
+              throw new Error(`优惠策略中数量 "${item.quantity}" 重复`)
+            }
+        
+            quantitySet.add(item.quantity);
+          }
+        }
 
+        // 校验额外选项
+        let handledBatchExtraOptions = batchExtraOptions || []
+        if (batchExtraOptions?.length > 0) { 
+          const contentSet = new Set();
+
+          for (const item of batchExtraOptions) {
+            if (item.content===null || item.content===undefined || item.content.trim()==='') {
+              throw new Error('额外选项 内容 未填写完整')
+            }
+            if (item.amount===null || item.amount===undefined) {
+              throw new Error('额外选项 金额 未填写完整')
+            }
+            if (item.amount < 0) {
+              throw new Error('额外选项 金额 须大于等于 0')
+            }
+
+            if (contentSet.has(item.content)) {
+              throw new Error(`额外选项 选项内容 "${item.content}" 重复`)
+            }
+        
+            contentSet.add(item.content);
+          }
+
+          handledBatchExtraOptions = batchExtraOptions.map((item, index) => {
+            return {
+              id: index,
+              ...item,
+            }
+          })
+        }
+
+        // 校验邮费规则
         if (batchShipProvinces.length === 0) {
           throw new Error('未填写邮费规则')
         }
@@ -147,24 +208,24 @@ class GoodsService {
           if (province.freeShippingQuantity === 1) continue; // 1个就包邮
 
           const validations = [
-            { field: 'baseQuantity', name: '首重最大数量' },
-            { field: 'basePostage', name: '首重邮费' },
-            { field: 'extraQuantity', name: '每续重几件' },
-            { field: 'extraPostage', name: '续重单位邮费' },
-            { field: 'freeShippingQuantity', name: '包邮数量' }
+            { field: 'baseQuantity', content: '首重最大数量' },
+            { field: 'basePostage', content: '首重邮费' },
+            { field: 'extraQuantity', content: '每续重几件' },
+            { field: 'extraPostage', content: '续重单位邮费' },
+            { field: 'freeShippingQuantity', content: '包邮数量' }
           ];
 
           if (province.baseQuantity > province.freeShippingQuantity) {
             throw new Error('包邮数量须大于等于首重最大数量');
           }
 
-          for (const { field, name } of validations) {
+          for (const { field, content } of validations) {
             const value = province[field];
             if (value===undefined || value===null) {
-              throw new Error(`${province.name} ${name} 未填写`);
+              throw new Error(`${province.name} ${content} 未填写`);
             }
             if (value === 0) {
-              throw new Error(`${province.name} ${name} 不能为0`);
+              throw new Error(`${province.name} ${content} 不能为0`);
             }
           }
         }
@@ -172,14 +233,14 @@ class GoodsService {
         let batchStatement = `
           UPDATE goods
             SET batch_startBy=?, batch_no=?, batch_type=?, batch_startTime=?, batch_minQuantity=?, 
-                batch_discounts=?, batch_shipProvinces=?, batch_remark=?, 
+                batch_discounts_promotion=?, batch_extraOptions=?, batch_shipProvinces=?, batch_remark=?, 
                 batch_preorder_minPrice=?, batch_preorder_maxPrice=?, 
                 batch_stock_unitPrice=?, batch_stock_totalQuantity=?, batch_stock_remainingQuantity=?
           WHERE id=?
         `;
         const batchResult = await conn.execute(batchStatement, [
           thePhone, batchNo || generateDatetimeId(), batchType, batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'), batchMinQuantity,
-          JSON.stringify(batchDiscounts), JSON.stringify(batchShipProvinces), batchRemark,
+          JSON.stringify(batchDiscountsPromotion||[]), JSON.stringify(handledBatchExtraOptions||[]), JSON.stringify(batchShipProvinces), batchRemark,
           batchPreorderMinPrice || null, batchPreorderMaxPrice || null,
           batchStockUnitPrice || null, batchStockTotalQuantity || null, batchStockTotalQuantity || null,
           goodsId
@@ -381,7 +442,7 @@ class GoodsService {
           batch_preorder_minPrice = NULL,
           batch_preorder_maxPrice = NULL,
           batch_minQuantity = NULL,
-          batch_discounts = NULL,
+          batch_discounts_promotion = NULL,
           batch_shipProvinces = NULL,
           batch_remark = NULL,
           batch_stock_totalQuantity = NULL,
@@ -405,7 +466,7 @@ class GoodsService {
         stock_unitPrice: batchInfo.batch_stock_unitPrice,
         stock_totalQuantity: batchInfo.batch_stock_totalQuantity,
         minQuantity: batchInfo.batch_minQuantity,
-        discounts: JSON.stringify(batchInfo.batch_discounts || []),
+        discounts_promotion: JSON.stringify(batchInfo.batch_discounts_promotion || []),
         coverImage: batchInfo.goods_coverImage || '',
         shipProvinces: JSON.stringify(batchInfo.batch_shipProvinces || []),
         remark: batchInfo.batch_remark || '',
@@ -701,7 +762,7 @@ class GoodsService {
         batch_preorder_minPrice: null,
         batch_preorder_maxPrice: null,
         batch_minQuantity: null,
-        batch_discounts: null,
+        batch_discounts_promotion: null,
         batch_shipProvinces: null,
         batch_remark: null,
         batch_stock_totalQuantity: null,
@@ -746,7 +807,7 @@ class GoodsService {
         SELECT 
           batch_no, batch_type, batch_startTime, batch_startBy,
           batch_preorder_minPrice, batch_preorder_maxPrice, batch_preorder_finalPrice,
-          batch_stock_unitPrice, batch_minQuantity, batch_discounts, batch_shipProvinces,
+          batch_stock_unitPrice, batch_minQuantity, batch_discounts_promotion, batch_shipProvinces,
           batch_remark, goods_name, goods_unit, goods_remark, goods_richText, goods_coverImage
             FROM goods WHERE id = ? 
             FOR UPDATE
@@ -792,7 +853,7 @@ class GoodsService {
            batch_preorder_minPrice = NULL,
            batch_preorder_maxPrice = NULL,
            batch_minQuantity = NULL,
-           batch_discounts = NULL,
+           batch_discounts_promotion = NULL,
            batch_shipProvinces = NULL,
            batch_remark = NULL,
            goods_isSelling = 0
@@ -827,7 +888,7 @@ class GoodsService {
         stock_unitPrice: batchInfo.batch_stock_unitPrice,
         stock_totalQuantity: batchInfo.batch_stock_totalQuantity,
         minQuantity: batchInfo.batch_minQuantity,
-        discounts: JSON.stringify(batchInfo.batch_discounts || []),
+        discounts_promotion: JSON.stringify(batchInfo.batch_discounts_promotion || []),
         coverImage: batchInfo.goods_coverImage || '',
         shipProvinces: JSON.stringify(batchInfo.batch_shipProvinces || []),
         remark: batchInfo.batch_remark || '',
