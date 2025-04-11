@@ -8,6 +8,8 @@ const determineMediaFileType = require('../utils/determineMediaFileType')
 
 const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
 
+const redisUtils = require('../utils/redisUtils')
+
 const {
   BASE_URL
 } = require('../app/config')
@@ -227,6 +229,9 @@ class WechatService {
         `INSERT wechat_home_notify (content, createBy) VALUES (?,?)`, 
         [content, thePhone]
       )
+
+      await redisUtils.del('notification:latest')
+
       return insertResult
     } catch (error) {
       throw error
@@ -259,14 +264,27 @@ class WechatService {
     }
   }
   async getLatestNotification() {
-    const [result] = await connection.execute(`SELECT * FROM wechat_home_notify ORDER BY createTime DESC LIMIT 1`);
+    try {
+      const redisData = await redisUtils.get('notification:latest');
+      if (redisData) {
+        return redisData;
+      }
+
+      const [result] = await connection.execute(`SELECT * FROM wechat_home_notify ORDER BY createTime DESC LIMIT 1`);
     
-    if (result.length === 0) {
-      return '无最近通知'
-    } else {
-      let record = result[0]
-      record.createTime = dayjs(record.createTime).format('YYYY-MM-DD HH:mm')
-      return record;
+      if (result.length === 0) {
+        return '无最近通知'
+      } else {
+        let record = result[0]
+        record.createTime = dayjs(record.createTime).format('YYYY-MM-DD HH:mm')
+
+        await redisUtils.set('notification:latest', record);
+
+        return record;
+      }
+
+    } catch (error) {
+      console.log(error)
     }
   }
   
@@ -274,19 +292,26 @@ class WechatService {
   // 首页推荐轮播图
   async getRecommendList(params) {
     try {
+      let redisData = await redisUtils.get('recommendList:forWechat')
+      if (redisData) {
+        return redisData
+      }
+
       const [result] = await connection.execute(`
         SELECT * FROM wechat_home_recommend
       `, []);
+
+      let records = result.map(item => {
+        return {
+          ...item,
+          goodsCoverImageUrl: item.goodsCoverImageUrl ? `${BASE_URL}/${item.goodsCoverImageUrl}` : null,
+          customImageUrl: item.customImageUrl ? `${BASE_URL}/${item.customImageUrl}` : null,
+        }
+      })
+
+      await redisUtils.set('recommendList:forWechat', records)
     
-      return {
-        records: result.map(item => {
-          return {
-            ...item,
-            goodsCoverImageUrl: item.goodsCoverImageUrl ? `${BASE_URL}/${item.goodsCoverImageUrl}` : null,
-            customImageUrl: item.customImageUrl ? `${BASE_URL}/${item.customImageUrl}` : null,
-          }
-        }),
-      };
+      return records
     } catch (error) {
       throw error
     }
@@ -345,6 +370,8 @@ class WechatService {
         )
       }
 
+      await redisUtils.del('recommendList:forWechat')
+
       await conn.commit(); 
 
       return 'success'
@@ -355,7 +382,7 @@ class WechatService {
       if (conn) conn.release();
     }
   }
-  async filterUnusableRecommend(params) {
+  async cleanRecommendList(params) { // 商品状态变化后清理已下架的推荐商品
     const conn = await connection.getConnection();
 
     try {
@@ -390,6 +417,8 @@ class WechatService {
         );
       }
 
+      await redisUtils.del('recommendList:forWechat')
+
       await conn.commit();
       return 'success';
     } catch (error) {
@@ -400,7 +429,35 @@ class WechatService {
     }
   }
 
+
   // 资讯
+  async getNewsListForWechat(params) {
+    try {
+      const redisData = await redisUtils.get('newsList:forWechat')
+      if (redisData) {
+        return redisData
+      }
+      
+      const [result] = await connection.execute(`
+        SELECT * from wechat_home_news WHERE isShow = 1
+          ORDER BY createTime DESC 
+            LIMIT 6
+      `, [])
+
+      let records = result.map(item => {
+        return {
+          ...item,
+          content: item.content.replaceAll('BASE_URL', BASE_URL)
+        }
+      })
+
+      await redisUtils.set('newsList:forWechat', records)
+  
+      return records
+    } catch (error) {
+      throw error
+    }
+  }
   async getNewsList(params) {
     const { pageNo, pageSize, title, startTime, endTime, showed, pinned } = params;
 
@@ -453,25 +510,35 @@ class WechatService {
     };
   }
   async getNewsDetail(params) {
-    const { id } = params
+    const { id, flag } = params
 
     if (!id) {
       throw new Error('缺少参数：id')
     }
 
     try {
+      const redisData = await redisUtils.get(`newsDetail:${id}`)
+      if (redisData) {
+        return redisData
+      }
+      
       const [dataResult] = await connection.execute(`
         SELECT * FROM wechat_home_news WHERE id = ?
       `, [id])
-      
       if (dataResult.length === 0) {
         throw new Error('当前id的数据不存在')
       }
-      
-      return {
+
+      let theData = {
         ...dataResult[0],
         content: dataResult[0].content.replaceAll('BASE_URL', BASE_URL)
       }
+
+      if (flag === 'wechat') {
+        await redisUtils.set(`newsDetail:${id}`, theData)
+      }
+      
+      return theData
     } catch (error) {
       throw error
     }
@@ -515,6 +582,7 @@ class WechatService {
 
       return insertResult
     } catch (error) {
+      console.log(error);
       await conn.rollback();
       throw error
     } finally {
@@ -577,6 +645,8 @@ class WechatService {
         )
       }
 
+      await redisUtils.del(`newsDetail:${id}`)
+
       await conn.commit(); 
   
       return 'success'
@@ -620,6 +690,9 @@ class WechatService {
         [id]
       );
 
+      await redisUtils.del('newsList:forWechat')
+      await redisUtils.del(`newsDetail:${id}`)
+
       await conn.commit(); 
   
       return 'success'
@@ -656,6 +729,9 @@ class WechatService {
   
         throw new Error('操作失败');
       }
+
+      await redisUtils.del('newsList:forWechat')
+      await redisUtils.del(`newsDetail:${id}`)
   
       return 'success'
     } catch (error) {
@@ -688,6 +764,9 @@ class WechatService {
   
         throw new Error('操作失败');
       }
+
+      await redisUtils.del('newsList:forWechat')
+      await redisUtils.del(`newsDetail:${id}`)
   
       return 'success'
     } catch (error) {

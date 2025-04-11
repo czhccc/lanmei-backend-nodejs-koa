@@ -16,6 +16,8 @@ const {
 
 const wechatService = require('./wechat.service');
 
+const redisUtils = require('../utils/redisUtils')
+
 class GoodsService {
   async createGoods(params) {
     const { goodsName, goodsUnit, goodsCategoryId, goodsRemark='', goodsRichText='<p>暂无更多介绍</p>' } = params;
@@ -248,6 +250,8 @@ class GoodsService {
         
       }
 
+      await redisUtils.del(`goodsDetail:${goodsId}`)
+
       await conn.commit();
 
       return 'success'
@@ -268,6 +272,12 @@ class GoodsService {
     }
 
     try {
+
+      let redisData = await redisUtils.get(`goodsDetail:${id}`)
+      if (redisData) {
+        return redisData
+      }
+
       const [goodsInfo, swiperInfo] = await Promise.all([
         connection.execute(`SELECT * FROM goods WHERE id = ?`, [id]),
         connection.execute(`SELECT * FROM goods_media WHERE goods_id = ? AND useType = 'swiper'`, [id])
@@ -290,6 +300,8 @@ class GoodsService {
         goods_coverImage: goodsInfo[0][0].goods_coverImage ? `${BASE_URL}/${goodsInfo[0][0].goods_coverImage}` : null,
         swiperList,
       }
+
+      await redisUtils.set(`goodsDetail:${id}`, goods)
 
       return goods
     } catch (error) {
@@ -351,6 +363,61 @@ class GoodsService {
           goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
         }
       }),
+    };
+  }
+
+  async getGoodsListForWechat(params) {
+    const { goodsName, goodsCategoryId } = params;
+    
+    let redisData = await redisUtils.get(`goodsList:forWechat:CategoryId_${goodsCategoryId}`)
+    if (redisData) {
+      return {
+        records: redisData
+      }
+    }
+
+    const queryParams = [];
+    let whereClause = ` WHERE goods_isSelling=1`;
+
+    if (goodsName) {
+      whereClause += ` AND goods_name LIKE ?`;
+      queryParams.push(`%${escapeLike(goodsName)}%`)
+    }
+    if (!goodsName && goodsCategoryId && Number.isInteger(goodsCategoryId) && goodsCategoryId>0) {
+      whereClause += ` AND goods_categoryId = ?`;
+      queryParams.push(Number(goodsCategoryId))
+    }
+
+    const [dataResult] = await connection.execute(`
+        SELECT 
+          id,
+          goods_categoryId,
+          goods_name,
+          goods_unit,
+          goods_coverImage,
+          batch_type,
+          batch_preorder_minPrice,
+          batch_preorder_maxPrice,
+          batch_stock_unitPrice
+            FROM goods ${whereClause}
+              ORDER BY createTime DESC 
+      `, 
+      [...queryParams]
+    )
+
+    let theGoodsList = dataResult.map(item => {
+      return {
+        ...item,
+        goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
+      }
+    })
+
+    if (goodsCategoryId) {
+      await redisUtils.set(`goodsList:forWechat:CategoryId_${goodsCategoryId}`, theGoodsList)
+    }
+
+    return {
+      records: theGoodsList
     };
   }
 
@@ -489,9 +556,13 @@ class GoodsService {
         Object.values(historyData)
       );
 
-      await conn.commit();
+      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.del(`goodsDetail:${batchInfo.id}`)
 
-      wechatService.filterUnusableRecommend()
+      await conn.commit();
+      
+      wechatService.cleanRecommendList()
 
       return 'success'
     } catch (error) {
@@ -519,6 +590,7 @@ class GoodsService {
 
       const [batchInfoResult] = await connection.execute(`
         SELECT 
+          goods_categoryId,
           batch_type, 
           batch_preorder_finalPrice, 
           batch_stock_remainingQuantity 
@@ -546,10 +618,14 @@ class GoodsService {
         [value, id]
       )
 
+      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.del(`goodsDetail:${id}`)
+
       await conn.commit();
 
-      if (value === 0) {
-        wechatService.filterUnusableRecommend()
+      if (value === 0) { // 下架
+        wechatService.cleanRecommendList()
       }
 
       return 'success'
@@ -730,7 +806,7 @@ class GoodsService {
 
       // ====================== 1. 查询商品信息并加锁 ======================
       const [batchInfoResult] = await conn.execute(
-        `SELECT batch_no FROM goods WHERE id = ? FOR UPDATE`, 
+        `SELECT batch_no, goods_categoryId FROM goods WHERE id = ? FOR UPDATE`, 
         [id]
       );
       if (batchInfoResult.length === 0) {
@@ -776,9 +852,13 @@ class GoodsService {
         [...Object.values(updateFields), id]
       );
 
+      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.del(`goodsDetail:${id}`)
+
       await conn.commit();
 
-      wechatService.filterUnusableRecommend()
+      wechatService.cleanRecommendList()
 
       return 'success'
     } catch (error) {
@@ -805,6 +885,7 @@ class GoodsService {
       // ====================== 1. 查询商品信息并加锁 ======================
       const [batchInfoResult] = await conn.execute(`
         SELECT 
+          goods_categoryId,
           batch_no, batch_type, batch_startTime, batch_startBy,
           batch_preorder_minPrice, batch_preorder_maxPrice, batch_preorder_finalPrice,
           batch_stock_unitPrice, batch_minQuantity, batch_discounts_promotion, batch_shipProvinces,
@@ -909,10 +990,14 @@ class GoodsService {
         `INSERT INTO batch_history (${historyFields}) VALUES (${historyPlaceholders})`,
         Object.values(historyData)
       );
+
+      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.del(`goodsDetail:${id}`)
   
       await conn.commit();
 
-      wechatService.filterUnusableRecommend()
+      wechatService.cleanRecommendList()
 
       return 'success';
     } catch (error) {
@@ -940,6 +1025,7 @@ class GoodsService {
       // ====================== 查询商品信息并加锁 ======================
       const [batchInfoResult] = await conn.execute(
         `SELECT 
+          goods_categoryId,
           batch_no, batch_type, 
           batch_preorder_minPrice, batch_preorder_maxPrice 
             FROM goods WHERE id = ? 
@@ -992,9 +1078,13 @@ class GoodsService {
         [nowTime, thePhone, finalPrice, batchInfo.batch_no]
       );
 
+      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.del(`goodsDetail:${goodsId}`)
+
       await conn.commit();
 
-      wechatService.filterUnusableRecommend()
+      wechatService.cleanRecommendList()
 
       return 'success'
     } catch (error) {
@@ -1004,10 +1094,6 @@ class GoodsService {
       if (conn) conn.release();
     }
   }
-}
-
-class utilClass {
-
 }
 
 module.exports = new GoodsService()

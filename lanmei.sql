@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 03/04/2025 22:46:23
+ Date: 11/04/2025 21:55:21
 */
 
 SET NAMES utf8mb4;
@@ -32,7 +32,7 @@ CREATE TABLE `aboutus`  (
 -- ----------------------------
 -- Records of aboutus
 -- ----------------------------
-INSERT INTO `aboutus` VALUES (1, '[{\"lat\": \"29.505098\", \"lon\": \"120.686843\", \"address\": \"嵊州市美汐蓝莓专业合作社\"}, {\"lat\": \"30.236717\", \"lon\": \"120.432993\", \"address\": \"萧山国际机场T4航站楼\"}]', '[{\"type\": \"手机号\", \"contact\": \"13999999999\"}, {\"type\": \"微信号\", \"contact\": \"wx123456789\"}]', '<p><span style=\"color: rgb(225, 60, 57);\">hello11</span></p><p><img src=\"BASE_URL/aboutUs/aboutUs_20241025101248_6powd5.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p>111111111</p><p><br></p><p><br></p>');
+INSERT INTO `aboutus` VALUES (1, '[{\"lat\": \"29.505098\", \"lon\": \"120.686843\", \"address\": \"嵊州市美汐蓝莓专业合作社\"}, {\"lat\": \"30.236717\", \"lon\": \"120.432993\", \"address\": \"萧山国际机场T4航站楼11111111\"}]', '[{\"type\": \"手机号\", \"contact\": \"13999999999\"}, {\"type\": \"微信号\", \"contact\": \"wx123456789\"}]', '<p><span style=\"color: rgb(225, 60, 57);\">hello11</span></p><p><img src=\"BASE_URL/aboutUs/aboutUs_20241025101248_6powd5.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p>111111111</p><p><br></p><p><br></p>');
 
 -- ----------------------------
 -- Table structure for aboutus_images
@@ -43,12 +43,12 @@ CREATE TABLE `aboutus_images`  (
   `url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 41 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 43 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of aboutus_images
 -- ----------------------------
-INSERT INTO `aboutus_images` VALUES (40, 'aboutUs/aboutUs_20241025101248_6powd5.png', '2024-10-25 10:12:50');
+INSERT INTO `aboutus_images` VALUES (42, 'aboutUs/aboutUs_20241025101248_6powd5.png', '2025-04-11 09:50:50');
 
 -- ----------------------------
 -- Table structure for admin
@@ -139,7 +139,7 @@ CREATE TABLE `category`  (
 INSERT INTO `category` VALUES (1, '水果', NULL);
 INSERT INTO `category` VALUES (2, '蓝莓', 1);
 INSERT INTO `category` VALUES (3, '百香果', 1);
-INSERT INTO `category` VALUES (4, '养殖类', NULL);
+INSERT INTO `category` VALUES (4, '养殖类11', NULL);
 INSERT INTO `category` VALUES (5, '鸭子', 4);
 INSERT INTO `category` VALUES (6, '鸡', 4);
 INSERT INTO `category` VALUES (7, '海鲜', NULL);
@@ -303,10 +303,10 @@ CREATE TABLE `goods`  (
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
-INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 1, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '2025-04-03 20:16:36', '19967303498', '20250403201636_hl1l6t', 'preorder', NULL, NULL, 10.00, 20.00, '2025-03-17 21:53:11', '19967303498', NULL, NULL, 2.0, '[{\"id\": 0, \"amount\": 10, \"content\": \"111111\"}, {\"id\": 1, \"amount\": 20, \"content\": \"222222\"}]', '[{\"discount\": 5, \"quantity\": 2}, {\"discount\": 10, \"quantity\": 4}]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-15 09:14:14', '2025-04-03 20:16:39');
+INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 1, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '2025-04-03 20:16:36', '19967303498', '20250403201636_hl1l6t', 'preorder', NULL, NULL, 10.00, 20.00, '2025-03-17 21:53:11', '19967303498', NULL, NULL, 2.0, '[{\"id\": 0, \"amount\": 10, \"content\": \"111111\"}, {\"id\": 1, \"amount\": 20, \"content\": \"222222\"}]', '[{\"discount\": 5, \"quantity\": 2}, {\"discount\": 10, \"quantity\": 4}]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-15 09:14:14', '2025-04-11 21:32:32');
 INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 0, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-57_20250311220333_ekir9a.jpg', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', NULL, NULL, '2024-10-15 11:49:45', '2025-03-31 21:13:48');
 INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 0, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '2025-03-17 21:03:25', '19967303498', '20250317210325_vpjd9g', 'stock', 100.00, 99997.00, NULL, NULL, NULL, NULL, NULL, 5.00, 1.0, NULL, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-17 09:20:31', '2025-03-29 20:24:27');
-INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 1, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20250326195737_wkmeb0.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '2025-03-26 20:02:49', '19967303498', '20250326200249_flzdd6', 'stock', 100.00, 98.00, NULL, NULL, NULL, NULL, NULL, 2.00, 1.0, NULL, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-25 10:16:32', '2025-03-31 21:16:43');
+INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 1, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20250326195737_wkmeb0.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '2025-03-26 20:02:49', '19967303498', '20250326200249_flzdd6', 'stock', 100.00, 98.00, NULL, NULL, NULL, NULL, NULL, 2.00, 1.0, NULL, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '', '2024-10-25 10:16:32', '2025-04-11 21:55:09');
 INSERT INTO `goods` VALUES (60, '鸭子商品', '只', 5, 1, '鸭子商品备注', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '2025-04-03 13:05:41', '19967303498', '20250403130541_wlmakn', 'stock', 1000.00, 989.00, NULL, NULL, NULL, NULL, NULL, 10.00, 1.0, '[{\"id\": 0, \"amount\": 10, \"content\": \"选项111111111111111111\"}, {\"id\": 1, \"amount\": 20, \"content\": \"选项2选项2选项2选项2选项2选项2选项\"}]', '[{\"discount\": 10, \"quantity\": 2}, {\"discount\": 20, \"quantity\": 4}]', '[{\"code\": \"32\", \"name\": \"江苏省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}, {\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', '22222222222', '2024-11-08 16:17:53', '2025-04-03 22:07:02');
 
 -- ----------------------------
@@ -3908,6 +3908,23 @@ INSERT INTO `ship_areas` VALUES ('659011', '新星市', 'district', '6590', 0);
 INSERT INTO `ship_areas` VALUES ('659012', '白杨市', 'district', '6590', 0);
 
 -- ----------------------------
+-- Table structure for system_logs
+-- ----------------------------
+DROP TABLE IF EXISTS `system_logs`;
+CREATE TABLE `system_logs`  (
+  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
+  `level` enum('error','warn','info','debug') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `message` varchar(2048) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `timestamp` datetime NOT NULL,
+  `meta` json NULL,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of system_logs
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for wechat_home_news
 -- ----------------------------
 DROP TABLE IF EXISTS `wechat_home_news`;
@@ -3920,11 +3937,15 @@ CREATE TABLE `wechat_home_news`  (
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 33 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 43 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of wechat_home_news
 -- ----------------------------
+INSERT INTO `wechat_home_news` VALUES (33, '11111111', '<p>111111111++</p>', 1, 1, '2025-04-11 13:01:50', '2025-04-11 13:39:00');
+INSERT INTO `wechat_home_news` VALUES (34, '22222', '<p>2222222</p>', 1, 1, '2025-04-11 13:02:22', '2025-04-11 13:39:45');
+INSERT INTO `wechat_home_news` VALUES (36, '33333', '<p>7777777</p>', 1, 0, '2025-04-11 13:28:21', '2025-04-11 13:37:40');
+INSERT INTO `wechat_home_news` VALUES (42, '777', '<p>77777</p>', 1, 0, '2025-04-11 17:17:38', '2025-04-11 17:26:57');
 
 -- ----------------------------
 -- Table structure for wechat_home_notify
@@ -3967,6 +3988,5 @@ CREATE TABLE `wechat_home_recommend`  (
 -- ----------------------------
 -- Records of wechat_home_recommend
 -- ----------------------------
-INSERT INTO `wechat_home_recommend` VALUES (59, 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', NULL, 1, '2025-03-29 20:20:40');
 
 SET FOREIGN_KEY_CHECKS = 1;

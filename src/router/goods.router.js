@@ -19,6 +19,8 @@ goodsRouter.get('/getGoodsDetailById', GoodsController.getGoodsDetailById)
 
 goodsRouter.get('/getGoodsList', tableResponseHandler, GoodsController.getGoodsList)
 
+goodsRouter.post('/getGoodsListForWechat', GoodsController.getGoodsListForWechat)
+
 goodsRouter.post('/endCurrentBatch', verifyToken, GoodsController.endCurrentBatch)
 
 goodsRouter.post('/changeGoodsIsSelling', verifyToken, GoodsController.changeGoodsIsSelling)

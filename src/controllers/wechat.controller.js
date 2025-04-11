@@ -64,6 +64,11 @@ class WechatController {
   }
 
   // 用户收货地址
+  async getNewsListForWechat(ctx, next) {
+    const params = ctx.request.query
+    const result = await service.getNewsListForWechat(params)
+    ctx.body = result
+  }
   async getAddressList(ctx, next) {
     const params = ctx.request.query
     const result = await service.getAddressList(params)

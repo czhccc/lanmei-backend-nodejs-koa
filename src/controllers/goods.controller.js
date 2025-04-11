@@ -43,6 +43,14 @@ class GoodsController {
     ctx.body = result
   }
 
+  async getGoodsListForWechat(ctx, next) {
+    const params = ctx.request.body
+    
+    const result = await service.getGoodsListForWechat(params)
+
+    ctx.body = result
+  }
+
   async endCurrentBatch(ctx, next) {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone

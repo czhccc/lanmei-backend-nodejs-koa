@@ -29,6 +29,7 @@ wechatRouter.get('/recommend', WechatController.getRecommendList)
 wechatRouter.post('/recommend', verifyToken, WechatController.editRecommendList)
 
 // 资讯
+wechatRouter.get('/news/listForWechat', WechatController.getNewsListForWechat)
 wechatRouter.get('/news/list', tableResponseHandler, WechatController.getNewsList)
 wechatRouter.get('/news/detail', WechatController.getNewsDetail)
 wechatRouter.post('/news/add', verifyToken, WechatController.addNews)

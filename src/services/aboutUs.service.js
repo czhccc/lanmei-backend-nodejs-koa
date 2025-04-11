@@ -6,11 +6,13 @@ const {
   BASE_URL
 } = require('../app/config')
 
+const redisUtils = require('../utils/redisUtils')
+
 class AboutUsService {
   async updateAboutUs(params) {
     let { aboutUs } = params
 
-    let savedAboutUs = aboutUs.replaceAll(BASE_URL, 'BASE_URL')
+    let savedAboutUs = String(aboutUs || '')?.replaceAll(BASE_URL, 'BASE_URL') || null
 
     const imgSrcList = richTextExtractImageSrc(aboutUs).map(url => url.replace(`${BASE_URL}/`, ''));
 
@@ -55,6 +57,12 @@ class AboutUsService {
         ]);
       }
 
+      await redisUtils.set('aboutUs', {
+        address: params.address,
+        contact: params.contact,
+        aboutUs: savedAboutUs
+      });
+
       await conn.commit();
 
       return 'success'
@@ -68,12 +76,25 @@ class AboutUsService {
   }
 
   async getAboutUs() {
-    const [result] = await connection.execute(`SELECT * FROM aboutUs WHERE id=1`);
-    if (result.length === 0) 
-      return null;
+    try {
+      const redisData = await redisUtils.get('aboutUs');
+      
+      if (redisData) {
+        return redisData;
+      }
+      
+      const [result] = await connection.execute(`SELECT * FROM aboutUs WHERE id=1`);
+      if (result.length === 0) 
+        return null;
 
-    result[0].aboutUs = result[0].aboutUs.replaceAll('BASE_URL', BASE_URL);
-    return result[0];
+      result[0].aboutUs = result[0].aboutUs.replaceAll('BASE_URL', BASE_URL);
+
+      await redisUtils.set('aboutUs', result[0]);
+
+      return result[0];   
+    } catch (error) {
+      console.log(error);
+    }
   }
 }
 

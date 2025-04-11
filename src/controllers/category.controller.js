@@ -16,6 +16,14 @@ class CategoryController {
 
     ctx.body = result
   }
+
+  async getCategoryForWechat(ctx, next) {
+    const params = ctx.request.query
+
+    const result = await service.getCategoryForWechat(params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new CategoryController()
