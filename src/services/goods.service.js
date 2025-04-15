@@ -1,7 +1,5 @@
 const connection = require('../app/database')
 
-const generateDatetimeId = require('../utils/genarateDatetimeId')
-
 const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
 
 const escapeLike = require('../utils/escapeLike')
@@ -14,35 +12,38 @@ const {
   BASE_URL
 } = require('../app/config');
 
+const {
+  generateBatchNo
+} = require('../utils/generateSomething')
+
 const wechatService = require('./wechat.service');
 
 const redisUtils = require('../utils/redisUtils')
+
+const enum_goods_batchType = require('../app/enum')
+const enum_media_fileType = require('../app/enum')
+const enum_media_useType = require('../app/enum')
+
+const logger = require('../utils/logger');
 
 class GoodsService {
   async createGoods(params) {
     const { goodsName, goodsUnit, goodsCategoryId, goodsRemark='', goodsRichText='<p>暂无更多介绍</p>' } = params;
 
-    if (!goodsName?.trim()) {
-      throw new Error('缺少参数：goodsName')
+    try {
+      const result = await connection.execute(`
+        INSERT goods 
+          (goods_name, goods_unit, goods_categoryId, goods_remark, goods_richText) 
+          VALUES (?, ?, ?, ?, ?)
+      `, [
+        goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText
+      ]);
+  
+      return result[0].insertId      
+    } catch (error) {
+      logger.error('service error: createGoods', { error })
+      throw error
     }
-    if (!goodsUnit?.trim()) {
-      throw new Error('缺少参数：goodsUnit')
-    }
-    if (!goodsCategoryId) {
-      throw new Error('缺少参数：goodsCategoryId')
-    }
-    
-    const statement = `
-      INSERT goods 
-        (goods_name, goods_unit, goods_categoryId, goods_remark, goods_richText) 
-        VALUES (?, ?, ?, ?, ?)
-    `
-
-    const result = await connection.execute(statement, [
-      goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText
-    ]);
-
-    return result[0].insertId
   }
 
   async updateGoods(params) {
@@ -57,20 +58,20 @@ class GoodsService {
       coverImageUrl,
       swiperList = [],
       goodsRichText = '<p>暂无更多介绍</p>',
+
+      batchNo,
+      batchType, 
+      batchStartTime,
+      batchPreorderMinPrice, 
+      batchPreorderMaxPrice,
+      batchStockUnitPrice,
+      batchStockTotalQuantity,
+      batchMinQuantity, 
+      batchDiscountsPromotion,
+      batchExtraOptions,
+      batchShipProvinces,
+      batchRemark,
     } = params;
-    
-    if (!goodsId) {
-      throw new Error('缺少参数：goodsId')
-    }
-    if (!goodsName?.trim()) {
-      throw new Error('缺少参数：goodsName')
-    }
-    if (!goodsUnit?.trim()) {
-      throw new Error('缺少参数：goodsUnit')
-    }
-    if (!goodsCategoryId) {
-      throw new Error('缺少参数：goodsCategoryId')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -130,106 +131,15 @@ class GoodsService {
 
       // 处理批次信息
       if (params.batchType) {
-        const {
-          batchNo,
-          batchType, 
-          batchStartTime,
-          batchPreorderMinPrice, 
-          batchPreorderMaxPrice,
-          batchStockUnitPrice,
-          batchStockTotalQuantity,
-          batchMinQuantity, 
-          batchDiscountsPromotion,
-          batchExtraOptions,
-          batchShipProvinces,
-          batchRemark,
-        } = params;
-        
-        // 校验满减优惠
-        if (batchDiscountsPromotion?.length > 0) {
-          const quantitySet = new Set();
-        
-          for (const item of batchDiscountsPromotion) {
-            if (item.quantity===null || item.quantity===undefined) {
-              throw new Error('优惠策略 数量 未填写完整')
-            }
-            if (item.quantity < 0) {
-              throw new Error('优惠策略 优惠金额 须大于等于 0')
-            }
-            if (item.discount===null || item.discount===undefined) {
-              throw new Error('优惠策略 优惠金额 未填写完整')
-            }
-            if (item.discount <= 0) {
-              throw new Error('优惠策略 优惠金额 须大于 0')
-            }
-        
-            if (quantitySet.has(item.quantity)) {
-              throw new Error(`优惠策略中数量 "${item.quantity}" 重复`)
-            }
-        
-            quantitySet.add(item.quantity);
-          }
-        }
-
         // 校验额外选项
         let handledBatchExtraOptions = batchExtraOptions || []
         if (batchExtraOptions?.length > 0) { 
-          const contentSet = new Set();
-
-          for (const item of batchExtraOptions) {
-            if (item.content===null || item.content===undefined || item.content.trim()==='') {
-              throw new Error('额外选项 内容 未填写完整')
-            }
-            if (item.amount===null || item.amount===undefined) {
-              throw new Error('额外选项 金额 未填写完整')
-            }
-            if (item.amount < 0) {
-              throw new Error('额外选项 金额 须大于等于 0')
-            }
-
-            if (contentSet.has(item.content)) {
-              throw new Error(`额外选项 选项内容 "${item.content}" 重复`)
-            }
-        
-            contentSet.add(item.content);
-          }
-
           handledBatchExtraOptions = batchExtraOptions.map((item, index) => {
             return {
               id: index,
               ...item,
             }
           })
-        }
-
-        // 校验邮费规则
-        if (batchShipProvinces.length === 0) {
-          throw new Error('未填写邮费规则')
-        }
-        for (const province of batchShipProvinces) {
-          if (province.freeShippingQuantity === 1) continue; // 1个就包邮
-
-          const validations = [
-            { field: 'baseQuantity', content: '首重最大数量' },
-            { field: 'basePostage', content: '首重邮费' },
-            { field: 'extraQuantity', content: '每续重几件' },
-            { field: 'extraPostage', content: '续重单位邮费' },
-            { field: 'freeShippingQuantity', content: '包邮数量' }
-          ];
-
-          if (province.baseQuantity > province.freeShippingQuantity) {
-            throw new Error('包邮数量须大于等于首重最大数量');
-          }
-
-          for (const { field, content } of validations) {
-            const value = province[field];
-            if (value===undefined || value===null) {
-              throw new Error(`${province.name} ${content} 未填写`);
-            }
-            if (value === 0) {
-              throw new Error(`${province.name} ${content} 不能为0`);
-            }
-          }
         }
 
         let batchStatement = `
@@ -240,8 +150,8 @@ class GoodsService {
                 batch_stock_unitPrice=?, batch_stock_totalQuantity=?, batch_stock_remainingQuantity=?
           WHERE id=?
         `;
-        const batchResult = await conn.execute(batchStatement, [
-          thePhone, batchNo || generateDatetimeId(), batchType, batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'), batchMinQuantity,
+        const [batchResult] = await conn.execute(batchStatement, [
+          thePhone, batchNo || generateBatchNo(), batchType, batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'), batchMinQuantity,
           JSON.stringify(batchDiscountsPromotion||[]), JSON.stringify(handledBatchExtraOptions||[]), JSON.stringify(batchShipProvinces), batchRemark,
           batchPreorderMinPrice || null, batchPreorderMaxPrice || null,
           batchStockUnitPrice || null, batchStockTotalQuantity || null, batchStockTotalQuantity || null,
@@ -250,30 +160,26 @@ class GoodsService {
         
       }
 
-      await redisUtils.del(`goodsDetail:${goodsId}`)
+      await redisUtils.delWithVersion(`goodsDetail:${goodsId}`)
 
       await conn.commit();
 
       return 'success'
     } catch (error) {
+      logger.error('service error: updateGoods', { error })
       await conn.rollback();
       throw error
     } finally {
       if (conn) conn.release();
     }
-
   }
 
   async getGoodsDetailById(params) {
     const { id } = params
 
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
-
     try {
 
-      let redisData = await redisUtils.get(`goodsDetail:${id}`)
+      let redisData = await redisUtils.getWithVersion(`goodsDetail:${id}`)
       if (redisData) {
         return redisData
       }
@@ -301,10 +207,11 @@ class GoodsService {
         swiperList,
       }
 
-      await redisUtils.set(`goodsDetail:${id}`, goods)
+      await redisUtils.setWithVersion(`goodsDetail:${id}`, goods)
 
       return goods
     } catch (error) {
+      logger.error('service error: getGoodsDetailById', { error })
       throw error
     }
   }
@@ -340,36 +247,41 @@ class GoodsService {
       }
     }
 
-    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
-    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
+    try {
+      const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+      const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    const [countResult, dataResult] = await Promise.all([
-      await connection.execute(`SELECT COUNT(*) as total FROM goods ${whereClause}`, queryParams),
-      await connection.execute(`
-          SELECT * FROM goods ${whereClause}
-          ORDER BY createTime DESC 
-          LIMIT ? OFFSET ?
-        `, 
-        [...queryParams, String(pageSizeInt), String(offset)]
-      )
-    ])
-
-    return {
-      total: countResult[0][0].total,
-      records: dataResult[0].map(item => {
-        return {
-          ...item,
-          goods_richText: item.goods_richText.replaceAll('BASE_URL', BASE_URL),
-          goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
-        }
-      }),
-    };
+      const [countResult, dataResult] = await Promise.all([
+        await connection.execute(`SELECT COUNT(*) as total FROM goods ${whereClause}`, queryParams),
+        await connection.execute(`
+            SELECT * FROM goods ${whereClause}
+            ORDER BY createTime DESC 
+            LIMIT ? OFFSET ?
+          `, 
+          [...queryParams, String(pageSizeInt), String(offset)]
+        )
+      ])
+  
+      return {
+        total: countResult[0][0].total,
+        records: dataResult[0].map(item => {
+          return {
+            ...item,
+            goods_richText: item.goods_richText.replaceAll('BASE_URL', BASE_URL),
+            goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
+          }
+        }),
+      };   
+    } catch (error) {
+      logger.error('service error: getGoodsList', { error })
+      throw error
+    }
   }
 
   async getGoodsListForWechat(params) {
     const { goodsName, goodsCategoryId } = params;
     
-    let redisData = await redisUtils.get(`goodsList:forWechat:CategoryId_${goodsCategoryId}`)
+    let redisData = await redisUtils.getWithVersion(`goodsList:forWechat:CategoryId_${goodsCategoryId}`)
     if (redisData) {
       return {
         records: redisData
@@ -388,48 +300,46 @@ class GoodsService {
       queryParams.push(Number(goodsCategoryId))
     }
 
-    const [dataResult] = await connection.execute(`
-        SELECT 
-          id,
-          goods_categoryId,
-          goods_name,
-          goods_unit,
-          goods_coverImage,
-          batch_type,
-          batch_preorder_minPrice,
-          batch_preorder_maxPrice,
-          batch_stock_unitPrice
-            FROM goods ${whereClause}
-              ORDER BY createTime DESC 
-      `, 
-      [...queryParams]
-    )
+    try {
+      const [dataResult] = await connection.execute(`
+          SELECT 
+            id,
+            goods_categoryId,
+            goods_name,
+            goods_unit,
+            goods_coverImage,
+            batch_type,
+            batch_preorder_minPrice,
+            batch_preorder_maxPrice,
+            batch_stock_unitPrice
+              FROM goods ${whereClause}
+                ORDER BY createTime DESC 
+        `, 
+        [...queryParams]
+      )
 
-    let theGoodsList = dataResult.map(item => {
-      return {
-        ...item,
-        goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
+      let theGoodsList = dataResult.map(item => {
+        return {
+          ...item,
+          goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
+        }
+      })
+
+      if (goodsCategoryId) {
+        await redisUtils.setWithVersion(`goodsList:forWechat:CategoryId_${goodsCategoryId}`, theGoodsList)
       }
-    })
 
-    if (goodsCategoryId) {
-      await redisUtils.set(`goodsList:forWechat:CategoryId_${goodsCategoryId}`, theGoodsList)
+      return {
+        records: theGoodsList
+      };   
+    } catch (error) {
+      logger.error('service error: getGoodsListForWechat', { error })
+      throw error
     }
-
-    return {
-      records: theGoodsList
-    };
   }
 
   async endCurrentBatch(params) {
     const { thePhone, goodsId } = params
-
-    if (!thePhone) {
-      throw new Error('缺少参数：thePhone');
-    }
-    if (!goodsId) {
-      throw new Error('缺少参数：goodsId');
-    }
     
     const conn = await connection.getConnection();  // 从连接池获取连接
     try {
@@ -556,9 +466,9 @@ class GoodsService {
         Object.values(historyData)
       );
 
-      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
-      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
-      await redisUtils.del(`goodsDetail:${batchInfo.id}`)
+      await redisUtils.delWithVersion(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.delWithVersion('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.delWithVersion(`goodsDetail:${batchInfo.id}`)
 
       await conn.commit();
       
@@ -566,23 +476,16 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
-      console.log(error)
+      logger.error('service error: endCurrentBatch', { error })
       await conn.rollback();
       throw error;
     } finally {
       if (conn) conn.release();
     }
-
   }
 
   async changeGoodsIsSelling(params) {
     const { id, value } = params
-
-    if (!id) throw new Error('缺少参数：id')
-    if (typeof value === 'undefined') throw new Error('缺少参数：value');
-    if (typeof value !== 'number' || (value !== 0 && value !== 1)) {
-      throw new Error('无效的上架状态值（必须为 0 或 1）');
-    }
     
     const conn = await connection.getConnection();
     try {
@@ -618,9 +521,9 @@ class GoodsService {
         [value, id]
       )
 
-      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
-      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
-      await redisUtils.del(`goodsDetail:${id}`)
+      await redisUtils.delWithVersion(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.delWithVersion('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.delWithVersion(`goodsDetail:${id}`)
 
       await conn.commit();
 
@@ -630,6 +533,7 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
+      logger.error('service error: changeGoodsIsSelling', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -639,10 +543,6 @@ class GoodsService {
 
   async getHistoryBatchesList(params) {
     const { id, pageNo, pageSize, batchNo, startTime, endTime, status } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
 
     const queryParams = [];
   
@@ -667,138 +567,143 @@ class GoodsService {
       queryParams.push(status)
     }
     
-    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
-    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
+    try {
+      const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+      const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    const [countResult, dataResult] = await Promise.all([
-      await connection.execute(`SELECT COUNT(*) as total FROM batch_history ${whereClause}`, queryParams),
-      await connection.execute(
-        `SELECT * FROM batch_history ${whereClause} LIMIT ? OFFSET ?`, 
-        [...queryParams, String(pageSizeInt), String(offset)]
-      )
-    ])
-  
-    return {
-      total: countResult[0][0].total,
-      records: dataResult[0],
-    };
+      const [countResult, dataResult] = await Promise.all([
+        await connection.execute(
+          `SELECT COUNT(*) as total FROM batch_history ${whereClause}`, 
+          queryParams
+        ),
+        await connection.execute(
+          `SELECT * FROM batch_history ${whereClause} LIMIT ? OFFSET ?`, 
+          [...queryParams, String(pageSizeInt), String(offset)]
+        )
+      ])
+    
+      return {
+        total: countResult[0][0].total,
+        records: dataResult[0],
+      };
+    } catch (error) {
+      logger.error('service error: getHistoryBatchesList', { error })
+      throw error
+    }
   }
 
   async getBatchTotalInfo(params) {
     const { id } = params
 
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
-
-    const [batchInfoResult] = await connection.execute(
-      `SELECT batch_no, batch_type, batch_preorder_finalPrice FROM goods WHERE id=?`, 
-      [id]
-    )
-    if (batchInfoResult.length === 0) {
-      throw new Error(`ID为 ${id} 的商品不存在`)
-    }
-    const batchInfo = batchInfoResult[0]
-    if (!batchInfo.batch_type) {
-      throw new Error('无当前批次')
-    }
+    try {
+      const [batchInfoResult] = await connection.execute(
+        `SELECT batch_no, batch_type, batch_preorder_finalPrice FROM goods WHERE id=?`, 
+        [id]
+      )
+      if (batchInfoResult.length === 0) {
+        throw new Error(`ID为 ${id} 的商品不存在`)
+      }
+      const batchInfo = batchInfoResult[0]
+      if (!batchInfo.batch_type) {
+        throw new Error('无当前批次')
+      }
+      
+      if (batchInfo.batch_type === 'preorder') { // 预订
+        if (!batchInfo.batch_preorder_finalPrice) { // 预订阶段
+          const statisticsStatement = `
+            SELECT 
+              COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
+              COUNT(CASE WHEN status = 'reserved' THEN 1 END) AS reservedOrdersCount,   -- reserved 状态的订单数量
+              COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
+              SUM(CASE WHEN status = 'reserved' THEN quantity ELSE 0 END) AS reservedQuantity,   -- reserved 状态的 quantity 总和
+              SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity   -- canceled 状态的 quantity 总和
+            FROM orders
+            WHERE batch_no = ? AND status IN ('reserved', 'canceled')
+          `
+          const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
+          const statisticsInfo = statisticsResult[0][0]
+  
+          return {
+            totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
+            reservedOrdersCount: +statisticsInfo.reservedOrdersCount, // 已预订订单
+            canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
+            reservedQuantity: +statisticsInfo.reservedQuantity+statisticsInfo.canceledQuantity, // 已预订量
+            canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消量
+          }
+        } else { // 售卖阶段
+          const statisticsStatement = `
+            SELECT 
+              COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
+              COUNT(CASE WHEN status = 'unpaid' THEN 1 END) AS unpaidOrdersCount,   -- unpaid 状态的订单数量
+              COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
+              COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
+              COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
+              COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
+              SUM(CASE WHEN status = 'unpaid' THEN quantity ELSE 0 END) AS unpaidQuantity,   -- unpaid 状态的 quantity 总和
+              SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,   -- paid 状态的 quantity 总和
+              SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,   -- completed 状态的 quantity 总和
+              SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity,   -- canceled 状态的 quantity 总和
+              SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity   -- refunded 状态的 quantity 总和
+            FROM orders
+            WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
+          `
+          const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
+          const statisticsInfo = statisticsResult[0][0]
+  
+          return {
+            totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
+            reservedOrdersCount: +statisticsInfo.unpaidOrdersCount+statisticsInfo.paidOrdersCount+statisticsInfo.completedOrdersCount+statisticsInfo.refundedOrdersCount, // 已预订订单
+            canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
+            reservedQuantity: +statisticsInfo.unpaidQuantity+statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
     
-    if (batchInfo.batch_type === 'preorder') { // 预订
-      if (!batchInfo.batch_preorder_finalPrice) { // 预订阶段
-        const statisticsStatement = `
-          SELECT 
-            COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
-            COUNT(CASE WHEN status = 'reserved' THEN 1 END) AS reservedOrdersCount,   -- reserved 状态的订单数量
-            COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
-            SUM(CASE WHEN status = 'reserved' THEN quantity ELSE 0 END) AS reservedQuantity,   -- reserved 状态的 quantity 总和
-            SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity   -- canceled 状态的 quantity 总和
-          FROM orders
-          WHERE batch_no = ? AND status IN ('reserved', 'canceled')
-        `
-        const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
-        const statisticsInfo = statisticsResult[0][0]
-
-        return {
-          totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
-          reservedOrdersCount: +statisticsInfo.reservedOrdersCount, // 已预订订单
-          canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
-          reservedQuantity: +statisticsInfo.reservedQuantity+statisticsInfo.canceledQuantity, // 已预订量
-          canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消量
+            unpaidOrdersCount: +statisticsInfo.unpaidOrdersCount, // 未付款
+            unpaidQuantity: +statisticsInfo.unpaidQuantity, // 未付款
+            paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
+            paidQuantity: +statisticsInfo.paidQuantity, // 已付款
+            completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
+            completedQuantity: +statisticsInfo.completedQuantity, // 已完成
+            canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消
+            canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消
+            refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
+            refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
+          }
         }
-      } else { // 售卖阶段
+      } else {
         const statisticsStatement = `
           SELECT 
-            COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
-            COUNT(CASE WHEN status = 'unpaid' THEN 1 END) AS unpaidOrdersCount,   -- unpaid 状态的订单数量
+            COUNT(*) AS totalOrdersCount,   -- 总订单数量
             COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
             COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
-            COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
             COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
-            SUM(CASE WHEN status = 'unpaid' THEN quantity ELSE 0 END) AS unpaidQuantity,   -- unpaid 状态的 quantity 总和
             SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,   -- paid 状态的 quantity 总和
             SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,   -- completed 状态的 quantity 总和
-            SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity,   -- canceled 状态的 quantity 总和
             SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity   -- refunded 状态的 quantity 总和
           FROM orders
           WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
         `
         const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
         const statisticsInfo = statisticsResult[0][0]
-
+  
         return {
           totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
-          reservedOrdersCount: +statisticsInfo.unpaidOrdersCount+statisticsInfo.paidOrdersCount+statisticsInfo.completedOrdersCount+statisticsInfo.refundedOrdersCount, // 已预订订单
-          canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
-          reservedQuantity: +statisticsInfo.unpaidQuantity+statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
+          reservedQuantity: +statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
   
-          unpaidOrdersCount: +statisticsInfo.unpaidOrdersCount, // 未付款
-          unpaidQuantity: +statisticsInfo.unpaidQuantity, // 未付款
           paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
           paidQuantity: +statisticsInfo.paidQuantity, // 已付款
           completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
           completedQuantity: +statisticsInfo.completedQuantity, // 已完成
-          canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消
-          canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消
           refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
           refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
         }
-      }
-    } else {
-      const statisticsStatement = `
-        SELECT 
-          COUNT(*) AS totalOrdersCount,   -- 总订单数量
-          COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
-          COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
-          COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
-          SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,   -- paid 状态的 quantity 总和
-          SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,   -- completed 状态的 quantity 总和
-          SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity   -- refunded 状态的 quantity 总和
-        FROM orders
-        WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
-      `
-      const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
-      const statisticsInfo = statisticsResult[0][0]
-
-      return {
-        totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
-        reservedQuantity: +statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
-
-        paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
-        paidQuantity: +statisticsInfo.paidQuantity, // 已付款
-        completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
-        completedQuantity: +statisticsInfo.completedQuantity, // 已完成
-        refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
-        refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
-      }
+      }   
+    } catch (error) {
+      logger.error('service error: getBatchTotalInfo', { error })
+      throw error
     }
   }
 
   async deleteCurrentBatch(params) {
     const { id } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -852,9 +757,9 @@ class GoodsService {
         [...Object.values(updateFields), id]
       );
 
-      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
-      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
-      await redisUtils.del(`goodsDetail:${id}`)
+      await redisUtils.delWithVersion(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.delWithVersion('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.delWithVersion(`goodsDetail:${id}`)
 
       await conn.commit();
 
@@ -862,7 +767,7 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
-      console.log(error);
+      logger.error('service error: deleteCurrentBatch', { error })
       await conn.rollback();
       throw error;
     } finally {
@@ -872,10 +777,6 @@ class GoodsService {
 
   async cancelAllOrdersInCurrentBatch(params) {
     const { thePhone, id, cancelReason } = params;
-
-    if (!cancelReason?.trim()) {
-      throw new Error('取消原因不能为空');
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -991,9 +892,9 @@ class GoodsService {
         Object.values(historyData)
       );
 
-      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
-      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
-      await redisUtils.del(`goodsDetail:${id}`)
+      await redisUtils.delWithVersion(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.delWithVersion('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.delWithVersion(`goodsDetail:${id}`)
   
       await conn.commit();
 
@@ -1001,6 +902,7 @@ class GoodsService {
 
       return 'success';
     } catch (error) {
+      logger.error('service error: cancelAllOrdersInCurrentBatch', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -1010,13 +912,6 @@ class GoodsService {
 
   async preorderBatchIsReadyToSell(params) {
     const { thePhone, goodsId, finalPrice } = params
-
-    if (typeof finalPrice !== 'number' || finalPrice <= 0) {
-      throw new Error('最终价格必须为正数');
-    }
-    if (typeof goodsId !== 'number' || goodsId <= 0) {
-      throw new Error('商品ID格式错误');
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -1078,9 +973,9 @@ class GoodsService {
         [nowTime, thePhone, finalPrice, batchInfo.batch_no]
       );
 
-      await redisUtils.del(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
-      await redisUtils.del('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
-      await redisUtils.del(`goodsDetail:${goodsId}`)
+      await redisUtils.delWithVersion(`goodsList:forWechat:CategoryId_${batchInfo.goods_categoryId}`)
+      await redisUtils.delWithVersion('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
+      await redisUtils.delWithVersion(`goodsDetail:${goodsId}`)
 
       await conn.commit();
 
@@ -1088,6 +983,7 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
+      logger.error('service error: preorderBatchIsReadyToSell', { error })
       await conn.rollback();
       throw error;
     } finally {

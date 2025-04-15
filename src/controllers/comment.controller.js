@@ -4,6 +4,14 @@ class CommentController {
   async comment(ctx, next) {
     const params = ctx.request.body
 
+    const { author, comment } = params;
+    if (!author) {
+      throw new Error('缺少参数：author')
+    }
+    if (!comment) {
+      throw new Error('缺少参数：comment')
+    }
+
     const result = await service.comment(params)
 
     ctx.body = result
@@ -20,14 +28,30 @@ class CommentController {
   async response(ctx, next) {
     let params = ctx.request.body
     params.author = ctx.theUser.phone
+
+    const { commentId, response, author } = params;
+    if (!commentId) {
+      throw new Error('缺少参数：commentId')
+    }
+    if (!response) {
+      throw new Error('缺少参数：response')
+    }
+    if (!author) {
+      throw new Error('缺少参数：author')
+    }
     
     const result = await service.response(params)
 
-    ctx.body = '回复成功'
+    ctx.body = result
   }
 
   async getCommentDetailById(ctx, next) {
     const params = ctx.request.query
+
+    const { commentId } = params;
+    if (!commentId) {
+      throw new Error('缺少参数：commentId')
+    }
     
     const result = await service.getCommentDetailById(params)
 
@@ -44,6 +68,11 @@ class CommentController {
 
   async getUserComments(ctx, next) {
     const params = ctx.request.query
+
+    const { author, startTime, endTime } = params
+    if (!author) {
+      throw new Error('缺少参数：author')
+    }
     
     const result = await service.getUserComments(params)
 

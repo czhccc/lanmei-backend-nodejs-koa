@@ -5,9 +5,10 @@ const AuthService = require('../services/auth.service')
 const { TOKEN_PUBLIC_KEY } = require('../app/config')
 
 const { 
-  encryptPasswordUtil,
   comparePasswordUtil 
 } = require('../utils/encrypt-password-util')
+
+const logger = require('../utils/logger')
 
 // 验证参数
 const verifyLoginParams = async (ctx, next) => {
@@ -22,9 +23,11 @@ const verifyLoginParams = async (ctx, next) => {
 
   const adminByPhone = await AuthService.getAdminByPhone(phone)
   if (adminByPhone.length <= 0) {
+    logger.warn('该手机号的admin不存在')
     throw new Error('该手机号的admin不存在')
   } else {
     if (!comparePasswordUtil(password, adminByPhone[0].password)) {
+      logger.warn('admin密码错误')
       throw new Error('密码错误')
     }
   }

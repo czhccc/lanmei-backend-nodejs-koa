@@ -22,8 +22,8 @@ async function insertRegions() {
           [province.code, province.name, 'province']
         );
         console.log('省份插入成功:', province.code);
-      } catch (err) {
-        console.error('插入省份失败:', province.code, err.message);
+      } catch (error) {
+        console.error('插入省份失败:', province.code, error.message);
         continue; // 跳过当前省份的子节点处理
       }
 
@@ -37,8 +37,8 @@ async function insertRegions() {
               [city.code, city.name, 'city', province.code]
             );
             console.log('市插入成功:', city.code);
-          } catch (err) {
-            console.error('插入市失败:', city.code, err.message);
+          } catch (error) {
+            console.error('插入市失败:', city.code, error.message);
             return; // 跳过当前市的子节点处理
           }
 
@@ -51,8 +51,8 @@ async function insertRegions() {
                   [district.code, district.name, 'district', city.code]
                 );
                 console.log('区插入成功:', district.code);
-              } catch (err) {
-                console.error('插入区失败:', district.code, err.message);
+              } catch (error) {
+                console.error('插入区失败:', district.code, error.message);
                 return; // 跳过当前市的子节点处理
               }
             });

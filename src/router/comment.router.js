@@ -6,7 +6,7 @@ const {
   verifyToken
 } = require('../middlewares/auth.middleware')
 
-const tableResponseHandler = require('../middlewares/global/table-response-handler');
+const tableResponseHandler = require('../middlewares/table-response-handler');
 
 const commentRouter = new Router({prefix: '/comment'})
 commentRouter.post('/', verifyToken, CommentController.comment)

@@ -6,9 +6,10 @@ const {
   verifyToken
 } = require('../middlewares/auth.middleware')
 
-const tableResponseHandler = require('../middlewares/global/table-response-handler');
+const tableResponseHandler = require('../middlewares/table-response-handler');
 
 const adminRouter = new Router({prefix: '/admin'})
+
 adminRouter.post('/', verifyToken, AdminController.createOrUpdateAdmin)
 
 adminRouter.get('/', verifyToken, tableResponseHandler, AdminController.getAdminList)

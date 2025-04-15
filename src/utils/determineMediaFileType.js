@@ -1,5 +1,7 @@
 const path = require('path');
 
+const logger = require('./logger');
+
 // 预定义扩展名集合（小写）
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']);
 const VIDEO_EXTENSIONS = new Set(['mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv', 'mpeg', 'mpg', '3gp']);
@@ -20,6 +22,10 @@ const determineMediaFileType = (filePath) => {
   if (VIDEO_EXTENSIONS.has(ext)) {
     return 'video';
   }
+
+  logger.warn('未知文件类型', {
+    filePath,
+  });
   return 'unknown';
 }
 

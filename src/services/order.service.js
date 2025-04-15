@@ -8,10 +8,28 @@ const {
   BASE_URL
 } = require('../app/config')
 
+const {
+  generateOrderNo
+} = require('../utils/generateSomething')
+
+const enum_order_status = require('../app/enum');
+
+const logger = require('../utils/logger');
+
+const redisUtils = require('../utils/redisUtils');
+
+const { 
+  setIdempotencyKey,
+  delIdempotencyKey
+} = require('../utils/idempotency')
+
 class OrderService {
   async createOrder(params) {
     const conn = await connection.getConnection();
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
       await conn.beginTransaction();
   
       const {
@@ -23,16 +41,6 @@ class OrderService {
         extraOptionsIds = [],
       } = params;
 
-      if (!goods_id) {
-        throw new Error('缺少参数：goods_id')
-      }
-      if (!(Number.isInteger(quantity) && quantity>0)) {
-        throw new Error('商品数量必须为正整数')
-      }
-      if (!receive_provinceCode || !receive_cityCode || !receive_districtCode || !receive_address.trim() || !receive_name || !receive_phone) {
-        throw new Error('收货信息不完整')
-      }
-  
       // ====================== 获取商品信息 ======================
       const [batchInfoResult] = await conn.execute(`
         SELECT  
@@ -122,17 +130,10 @@ class OrderService {
         lockedBatchInfo: batchInfo,
       })
 
-      // 生成订单号
-      const getRandomLetters = (length) => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-        return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-      };
-      const orderNo = `${dayjs().format('YYYYMMDDHHmmss')}${params.thePhone.slice(-4)}${getRandomLetters(2)}`;
-
       const orderBaseFields = {
         goods_id,
         create_by: params.thePhone,
-        order_no: orderNo,
+        order_no: generateOrderNo(),
         batch_no: batchInfo.batch_no,
         batch_type: batchInfo.batch_type,
         quantity: Number(quantity),
@@ -194,6 +195,10 @@ class OrderService {
         id: insertResult.insertId 
       };
     } catch (error) {
+      logger.error('service error: createOrder', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+
       await conn.rollback();
       throw error;
     } finally {
@@ -202,10 +207,6 @@ class OrderService {
   }
 
   async updateOrder(params) {
-    if (!params.id) {
-      throw new Error('缺少参数：id')
-    }
-
     const conn = await connection.getConnection();
     try {
       await conn.beginTransaction();
@@ -319,8 +320,8 @@ class OrderService {
       await conn.commit();
       return changes;
     } catch (error) {
+      logger.error('service error: updateOrder', { error })
       await conn.rollback();
-      console.log(error);
       throw error;
     } finally {
       if (conn) conn.release();
@@ -362,37 +363,38 @@ class OrderService {
       queryParams.push(params.startTime || null, params.startTime || null, params.endTime || null, params.endTime || null)
     }
 
-    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
-    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
+    try {
+      const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+      const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    const [totalResult, dataResult] = await Promise.all([
-      connection.execute(`
-        SELECT COUNT(*) as total FROM orders ${query}
-      `, queryParams),
-      connection.execute(`
-        SELECT * from orders ${query} 
-          ORDER BY createTime DESC 
-            LIMIT ? OFFSET ?
-      `, [...queryParams, String(pageSizeInt), String(offset)])
-    ]);
+      const [totalResult, dataResult] = await Promise.all([
+        connection.execute(`
+          SELECT COUNT(*) as total FROM orders ${query}
+        `, queryParams),
+        connection.execute(`
+          SELECT * from orders ${query} 
+            ORDER BY createTime DESC 
+              LIMIT ? OFFSET ?
+        `, [...queryParams, String(pageSizeInt), String(offset)])
+      ]);
 
-    return {
-      total: totalResult[0][0].total,  // 总记录数
-      records: dataResult[0].map(item => {
-        return {
-          ...item,
-          snapshot_coverImage: `${BASE_URL}/${item.snapshot_coverImage}`
-        }
-      })
-    };
+      return {
+        total: totalResult[0][0].total,  // 总记录数
+        records: dataResult[0].map(item => {
+          return {
+            ...item,
+            snapshot_coverImage: `${BASE_URL}/${item.snapshot_coverImage}`
+          }
+        })
+      };   
+    } catch (error) {
+      logger.error('service error: getOrderList', { error })
+      throw error
+    }
   }
 
   async getOrderDetailById(params) {
     const { id } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -412,6 +414,7 @@ class OrderService {
         snapshot_goodsRichText: orderDetail.snapshot_goodsRichText.replaceAll('BASE_URL', BASE_URL),
       }
     } catch (error) {
+      logger.error('service error: getOrderDetailById', { error })
       await conn.rollback();
       throw error;
     } finally {
@@ -421,10 +424,6 @@ class OrderService {
 
   async cancelOrder(params) {
     let { orderId, cancelOrderReason=null, thePhone } = params
-    
-    if (!orderId) {
-      throw new Error('缺少参数：orderId')
-    }
 
     try {
       await connection.beginTransaction();
@@ -453,63 +452,13 @@ class OrderService {
       
       return 'success'
     } catch (error) {
-      throw error
-    }
-  }
-
-  async getOrdersLogsList(params) {
-    const { pageNo, pageSize } = params;
-
-    let query = ' WHERE 1=1'
-    let queryParams = []
-
-    if (params.order_id) {
-      query += ` AND order_id LIKE ?`
-      queryParams.push(`%${escapeLike(params.order_id)}%`)
-    }
-    if (params.order_no) {
-      query += ` AND order_no LIKE ?`
-      queryParams.push(`%${escapeLike(params.order_no)}%`)
-    }
-    if (params.create_by) {
-      query += ` AND create_by LIKE ?`
-      queryParams.push(`%${escapeLike(params.create_by)}%`)
-    }
-    if (params.startTime || params.endTime) {
-      query += ` AND (createTime >= ? OR ? IS NULL) AND (createTime <= ? OR ? IS NULL)`
-      queryParams.push(params.startTime || null, params.startTime || null, params.endTime || null, params.endTime || null)
-    }
-
-    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
-    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
-
-    try {
-      const [totalResult, dataResult] = await Promise.all([
-        connection.execute(`
-          SELECT COUNT(*) as total FROM orders_logs ${query}
-        `, queryParams),
-        connection.execute(`
-          SELECT * from orders_logs ${query} 
-            ORDER BY createTime DESC 
-              LIMIT ? OFFSET ?
-        `, [...queryParams, String(pageSizeInt), String(offset)])
-      ]);
-
-      return {
-        total: totalResult[0][0].total,
-        records: dataResult[0]
-      };
-    } catch (error) {
+      logger.error('service error: cancelOrder', { error })
       throw error
     }
   }
 
   async payOrder(params) {
     const { orderId } = params
-
-    if (!orderId) {
-      throw new Error('缺少参数：orderId');
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -601,9 +550,8 @@ class OrderService {
       await conn.commit();
       return 'success';
     } catch (error) {
-      console.log(error);
+      logger.error('service error: payOrder', { error })
       await conn.rollback();
-
       throw error
     } finally {
       if (conn) conn.release();
@@ -613,13 +561,6 @@ class OrderService {
 
   async shipOrder(params) {
     const { orderId, trackingNumber, thePhone } = params
-
-    if (!orderId) {
-      throw new Error('缺少参数：orderId');
-    }
-    if (!trackingNumber) {
-      throw new Error('缺少参数：trackingNumber');
-    }
 
     try {
       const [shipOrderResult] = await connection.execute(`
@@ -657,16 +598,13 @@ class OrderService {
 
       return 'success';
     } catch (error) {
+      logger.error('service error: shipOrder', { error })
       throw error
     }
   }
 
   async completeOrder(params) {
     const { orderId, thePhone } = params
-
-    if (!orderId) {
-      throw new Error('缺少参数：orderId');
-    }
 
     try {
       const [completeOrderResult] = await connection.execute(`
@@ -703,11 +641,13 @@ class OrderService {
 
       return 'success';
     } catch (error) {
+      logger.error('service error: completeOrder', { error })
       throw error
     }
   }
 
   async generateOrderInfo(params) {
+    // 1、小程序的下单页面  2、createOrder service
     const { 
       goodsId, 
       quantity, 
@@ -718,6 +658,7 @@ class OrderService {
       lockedBatchInfo,
     } = params
 
+    // generateOrderInfo有直接被其他createOrder service内部使用，参数校验直接放service里
     if (!isCreatingOrder) {
       if (!goodsId) {
         throw new Error('缺少参数：goodsId')
@@ -847,7 +788,56 @@ class OrderService {
       return result;
 
     } catch (error) {
+      logger.error('service error: generateOrderInfo', { error })
       throw error;
+    }
+  }
+
+  async getOrdersLogsList(params) {
+    const { pageNo, pageSize } = params;
+
+    let query = ' WHERE 1=1'
+    let queryParams = []
+
+    if (params.order_id) {
+      query += ` AND order_id LIKE ?`
+      queryParams.push(`%${escapeLike(params.order_id)}%`)
+    }
+    if (params.order_no) {
+      query += ` AND order_no LIKE ?`
+      queryParams.push(`%${escapeLike(params.order_no)}%`)
+    }
+    if (params.create_by) {
+      query += ` AND create_by LIKE ?`
+      queryParams.push(`%${escapeLike(params.create_by)}%`)
+    }
+    if (params.startTime || params.endTime) {
+      query += ` AND (createTime >= ? OR ? IS NULL) AND (createTime <= ? OR ? IS NULL)`
+      queryParams.push(params.startTime || null, params.startTime || null, params.endTime || null, params.endTime || null)
+    }
+
+    try {
+      const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+      const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
+
+      const [totalResult, dataResult] = await Promise.all([
+        connection.execute(`
+          SELECT COUNT(*) as total FROM orders_logs ${query}
+        `, queryParams),
+        connection.execute(`
+          SELECT * from orders_logs ${query} 
+            ORDER BY createTime DESC 
+              LIMIT ? OFFSET ?
+        `, [...queryParams, String(pageSizeInt), String(offset)])
+      ]);
+
+      return {
+        total: totalResult[0][0].total,
+        records: dataResult[0]
+      };
+    } catch (error) {
+      logger.error('service error: getOrdersLogsList', { error })
+      throw error
     }
   }
 }

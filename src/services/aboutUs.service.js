@@ -8,6 +8,8 @@ const {
 
 const redisUtils = require('../utils/redisUtils')
 
+const logger = require('../utils/logger')
+
 class AboutUsService {
   async updateAboutUs(params) {
     let { aboutUs } = params
@@ -57,7 +59,7 @@ class AboutUsService {
         ]);
       }
 
-      await redisUtils.set('aboutUs', {
+      await redisUtils.setWithVersion('aboutUs', {
         address: params.address,
         contact: params.contact,
         aboutUs: savedAboutUs
@@ -67,8 +69,8 @@ class AboutUsService {
 
       return 'success'
     } catch (error) {
+      logger.error('service error: updateAboutUs', { error })
       await conn.rollback();
-      console.log(error);
       throw new Error('mysql事务失败，已回滚');
     } finally {
       if (conn) conn.release();
@@ -77,8 +79,8 @@ class AboutUsService {
 
   async getAboutUs() {
     try {
-      const redisData = await redisUtils.get('aboutUs');
-      
+      const redisData = await redisUtils.getWithVersion('aboutUs');
+
       if (redisData) {
         return redisData;
       }
@@ -89,11 +91,11 @@ class AboutUsService {
 
       result[0].aboutUs = result[0].aboutUs.replaceAll('BASE_URL', BASE_URL);
 
-      await redisUtils.set('aboutUs', result[0]);
+      await redisUtils.setWithVersion('aboutUs', result[0]);
 
       return result[0];   
     } catch (error) {
-      console.log(error);
+      logger.error('service error: getAboutUs', { error })
     }
   }
 }

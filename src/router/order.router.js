@@ -2,15 +2,15 @@ const Router = require('koa-router')
 
 const OrderController = require('../controllers/order.controller')
 
-const {
-  verifyToken
-} = require('../middlewares/auth.middleware')
+const { verifyToken } = require('../middlewares/auth.middleware')
 
-const tableResponseHandler = require('../middlewares/global/table-response-handler');
+const tableResponseHandler = require('../middlewares/table-response-handler');
+
+const checkIdempotencyKey = require('../middlewares/checkIdempotencyKey')
 
 const orderRouter = new Router({prefix: '/order'})
 
-orderRouter.post('/createOrder', verifyToken, OrderController.createOrder)
+orderRouter.post('/createOrder', verifyToken, checkIdempotencyKey, OrderController.createOrder)
 
 orderRouter.get('/getOrderList', verifyToken, tableResponseHandler, OrderController.getOrderList)
 

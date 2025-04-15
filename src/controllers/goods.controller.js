@@ -11,13 +11,125 @@ class GoodsController {
     }
 
     if (params.goodsId) {
-      const result = await service.updateGoods(params)
-      ctx.body = '修改成功'
-    } else {
-      const goodsId = await service.createGoods(params)
-      ctx.body = {
-        goodsId
+      const { goodsId, goodsName, goodsUnit, goodsCategoryId, batchType, batchDiscountsPromotion, batchExtraOptions, batchShipProvinces } = params;
+
+      if (!goodsId) {
+        throw new Error('缺少参数：goodsId')
       }
+      if (!goodsName?.trim()) {
+        throw new Error('缺少参数：goodsName')
+      }
+      if (!goodsUnit?.trim()) {
+        throw new Error('缺少参数：goodsUnit')
+      }
+      if (!goodsCategoryId) {
+        throw new Error('缺少参数：goodsCategoryId')
+      }
+  
+      if (batchType && !enum_goods_batchType[batchType]) {
+        throw new Error('参数格式错误：batchType')
+      }
+
+      if (params.batchType) {
+        // 校验满减优惠
+        if (batchDiscountsPromotion?.length > 0) {
+          const quantitySet = new Set();
+        
+          for (const item of batchDiscountsPromotion) {
+            if (item.quantity===null || item.quantity===undefined) {
+              throw new Error('优惠策略 数量 未填写完整')
+            }
+            if (item.quantity < 0) {
+              throw new Error('优惠策略 优惠金额 须大于等于 0')
+            }
+            if (item.discount===null || item.discount===undefined) {
+              throw new Error('优惠策略 优惠金额 未填写完整')
+            }
+            if (item.discount <= 0) {
+              throw new Error('优惠策略 优惠金额 须大于 0')
+            }
+        
+            if (quantitySet.has(item.quantity)) {
+              throw new Error(`优惠策略中数量 "${item.quantity}" 重复`)
+            }
+        
+            quantitySet.add(item.quantity);
+          }
+        }
+
+        // 校验额外选项
+        if (batchExtraOptions?.length > 0) { 
+          const contentSet = new Set();
+
+          for (const item of batchExtraOptions) {
+            if (item.content===null || item.content===undefined || item.content.trim()==='') {
+              throw new Error('额外选项 内容 未填写完整')
+            }
+            if (item.amount===null || item.amount===undefined) {
+              throw new Error('额外选项 金额 未填写完整')
+            }
+            if (item.amount < 0) {
+              throw new Error('额外选项 金额 须大于等于 0')
+            }
+
+            if (contentSet.has(item.content)) {
+              throw new Error(`额外选项 选项内容 "${item.content}" 重复`)
+            }
+        
+            contentSet.add(item.content);
+          }
+        }
+
+        // 校验邮费规则
+        if (batchShipProvinces.length === 0) {
+          throw new Error('未填写邮费规则')
+        }
+        for (const province of batchShipProvinces) {
+          if (province.freeShippingQuantity === 1) continue; // 1个就包邮
+
+          const validations = [
+            { field: 'baseQuantity', content: '首重最大数量' },
+            { field: 'basePostage', content: '首重邮费' },
+            { field: 'extraQuantity', content: '每续重几件' },
+            { field: 'extraPostage', content: '续重单位邮费' },
+            { field: 'freeShippingQuantity', content: '包邮数量' }
+          ];
+
+          if (province.baseQuantity > province.freeShippingQuantity) {
+            throw new Error('包邮数量须大于等于首重最大数量');
+          }
+
+          for (const { field, content } of validations) {
+            const value = province[field];
+            if (value===undefined || value===null) {
+              throw new Error(`${province.name} ${content} 未填写`);
+            }
+            if (value === 0) {
+              throw new Error(`${province.name} ${content} 不能为0`);
+            }
+          }
+        }
+      }
+
+      const result = await service.updateGoods(params)
+
+      ctx.body = result
+    } else {
+      const { goodsName, goodsUnit, goodsCategoryId } = params;
+
+      if (!goodsName?.trim()) {
+        throw new Error('缺少参数：goodsName')
+      }
+      if (!goodsUnit?.trim()) {
+        throw new Error('缺少参数：goodsUnit')
+      }
+      if (!goodsCategoryId) {
+        throw new Error('缺少参数：goodsCategoryId')
+      }
+
+      const result = await service.createGoods(params)
+
+      ctx.body = result
     }
 
   }
@@ -27,7 +139,7 @@ class GoodsController {
     
     const { id } = params
     if (!id) {
-      throw new Error('缺少必填字段：商品id')
+      throw new Error('缺少参数：id')
     }
 
     const result = await service.getGoodsDetailById(params)
@@ -54,17 +166,37 @@ class GoodsController {
   async endCurrentBatch(ctx, next) {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone
+
+    const { goodsId } = params
+    if (!thePhone) {
+      throw new Error('缺少参数：thePhone');
+    }
+    if (!goodsId) {
+      throw new Error('缺少参数：goodsId');
+    }
+
     const result = await service.endCurrentBatch(params)
 
-    ctx.body = '操作成功'
+    ctx.body = result
   }
 
   async changeGoodsIsSelling(ctx, next) {
     const params = ctx.request.body
+
+    const { id, value } = params
+    if (!id) {
+      throw new Error('缺少参数：id')
+    }
+    if (typeof value === 'undefined') {
+      throw new Error('缺少参数：value');
+    }
+    if (typeof value !== 'number' || (value !== 0 && value !== 1)) {
+      throw new Error('无效的上架状态值（必须为 0 或 1）');
+    }
     
     const result = await service.changeGoodsIsSelling(params)
 
-    ctx.body = '操作成功'
+    ctx.body = result
   }
 
   async getHistoryBatchesList(ctx, next) {
@@ -72,7 +204,7 @@ class GoodsController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少必填字段：商品id')
+      throw new Error('缺少参数：id')
     }
     
     const result = await service.getHistoryBatchesList(params)
@@ -85,7 +217,7 @@ class GoodsController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少必填字段：商品id')
+      throw new Error('缺少参数：id')
     }
     
     const result = await service.getBatchTotalInfo(params)
@@ -98,7 +230,7 @@ class GoodsController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少必填字段：商品id')
+      throw new Error('缺少参数：id')
     }
     
     const result = await service.deleteCurrentBatch(params)
@@ -111,10 +243,10 @@ class GoodsController {
 
     const { id, cancelReason } = params
     if (!id) {
-      throw new Error('缺少必填字段：商品id')
+      throw new Error('缺少参数：id')
     }
-    if (!cancelReason) {
-      throw new Error('缺少必填字段：取消预订原因')
+    if (!cancelReason?.trim()) {
+      throw new Error('缺少参数：cancelReason')
     }
     
     params.thePhone = ctx.theUser.phone
@@ -128,10 +260,16 @@ class GoodsController {
 
     const { goodsId, finalPrice } = params
     if (!goodsId) {
-      throw new Error('缺少必填字段：商品id')
+      throw new Error('缺少参数：goodsId')
     }
     if (!finalPrice) {
-      throw new Error('缺少必填字段：最终定价')
+      throw new Error('缺少参数：finalPrice')
+    }
+    if (typeof goodsId !== 'number' || goodsId <= 0) {
+      throw new Error('参数格式错误: goodsId');
+    }
+    if (typeof finalPrice !== 'number' || finalPrice <= 0) {
+      throw new Error('参数格式错误: finalPrice必须为正数');
     }
 
     params.thePhone = ctx.theUser.phone

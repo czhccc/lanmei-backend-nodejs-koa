@@ -17,14 +17,14 @@ const clearUnusableFilesByFileName = async (folderPath, dbFiles) => {
 
     await Promise.all(filesToDelete.map(file => {
       const filePath = path.join(folderPath, file);
-      return fs.promises.unlink(filePath).catch(err => {
-        console.error(`删除文件失败: ${filePath}`, err);
+      return fs.promises.unlink(filePath).catch(error => {
+        console.error(`删除文件失败: ${filePath}`, error);
       });
     }));
 
     console.log(`${path.basename(folderPath)} 文件夹清理完成`);
-  } catch (err) {
-    console.error(`读取 ${folderPath} 文件目录失败`, err);
+  } catch (error) {
+    console.error(`读取 ${folderPath} 文件目录失败`, error);
   }
 };
 

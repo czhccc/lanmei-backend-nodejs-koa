@@ -22,8 +22,6 @@ class AuthController {
       }
     )
 
-    // const decodedToken = jwt.decode(token); 
-
     ctx.body = {
       phone: theUser.phone,
       token

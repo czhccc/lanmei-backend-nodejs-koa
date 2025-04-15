@@ -4,9 +4,13 @@ class AboutUsController {
   async updateAboutUs(ctx, next) {
     const params = ctx.request.body
 
+    if (!params.aboutUs) {
+      throw new Error('缺少参数: aboutUs')
+    }
+
     const result = await service.updateAboutUs(params)
 
-    ctx.body = '修改成功'
+    ctx.body = result
   }
 
   async getAboutUs(ctx, next) {

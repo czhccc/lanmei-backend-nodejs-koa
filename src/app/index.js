@@ -4,7 +4,7 @@ const cors = require('@koa/cors');
 const staticAssets = require('koa-static')
 const path = require('path');
 
-const responseHandler = require('../middlewares/global/response-handler');
+const responseHandler = require('../middlewares/response-handler');
 
 const useRoutes = require('../router/index')
 

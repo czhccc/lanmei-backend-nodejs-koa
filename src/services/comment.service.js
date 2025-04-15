@@ -2,16 +2,11 @@ const connection = require('../app/database')
 
 const dayjs = require('dayjs')
 
+const logger = require('../utils/logger')
+
 class CommentService {
   async comment(params) {
     const { author, comment } = params;
-
-    if (!author) {
-      throw new Error('缺少参数：author')
-    }
-    if (!comment) {
-      throw new Error('缺少参数：comment')
-    }
 
     try {
       // 查询今天已留言次数
@@ -38,6 +33,7 @@ class CommentService {
 
       return 'success'
     } catch (error) {
+      logger.error('service error: comment', { error })
       throw error
     }
   }
@@ -57,67 +53,63 @@ class CommentService {
       }
     }
 
-    // 查询总记录数
-    const countStatement = `
-      SELECT COUNT(*) as total 
-      FROM comment m
-      LEFT JOIN (
-          SELECT comment_id, MAX(createTime) AS latestTime 
-          FROM comment_response 
-          GROUP BY comment_id
-      ) latest ON m.id = latest.comment_id
-      LEFT JOIN comment_response r ON latest.comment_id = r.comment_id AND latest.latestTime = r.createTime
-    ` + whereClause;
-    const totalResult = await connection.execute(countStatement, queryParams);
-    const total = totalResult[0][0].total;  // 获取总记录数
+    try {
+      // 查询总记录数
+      const countStatement = `
+        SELECT COUNT(*) as total 
+        FROM comment m
+        LEFT JOIN (
+            SELECT comment_id, MAX(createTime) AS latestTime 
+            FROM comment_response 
+            GROUP BY comment_id
+        ) latest ON m.id = latest.comment_id
+        LEFT JOIN comment_response r ON latest.comment_id = r.comment_id AND latest.latestTime = r.createTime
+      ` + whereClause;
 
-    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
-    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
+      const totalResult = await connection.execute(countStatement, queryParams);
+      const total = totalResult[0][0].total;  // 获取总记录数
 
-    // 构建分页查询的 SQL 语句
-    const statement = `
-          SELECT m.id AS commentId, 
-                  m.comment, 
-                  m.author AS commentAuthor, 
-                  m.createTime AS commentTime, 
-                  r.response, 
-                  r.author AS responseAuthor, 
-                  r.createTime AS responseTime
-          FROM comment m
-          LEFT JOIN (
-              SELECT comment_id, MAX(createTime) AS latestTime 
-              FROM comment_response 
-              GROUP BY comment_id
-          ) latest ON m.id = latest.comment_id
-          LEFT JOIN comment_response r ON latest.comment_id = r.comment_id AND latest.latestTime = r.createTime
-      ` + whereClause + 
-      ` ORDER BY 
-          CASE WHEN r.response IS NULL THEN 0 ELSE 1 END ASC,  -- 没有回复的留言在前面
-          commentTime DESC                                    -- 按留言时间从新到旧排序
-      LIMIT ? OFFSET ?
-    `;
+      const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+      const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    queryParams.push(String(pageSizeInt), String(offset));
-    const [result] = await connection.execute(statement, queryParams);
+      // 构建分页查询的 SQL 语句
+      const statement = `
+            SELECT m.id AS commentId, 
+                    m.comment, 
+                    m.author AS commentAuthor, 
+                    m.createTime AS commentTime, 
+                    r.response, 
+                    r.author AS responseAuthor, 
+                    r.createTime AS responseTime
+            FROM comment m
+            LEFT JOIN (
+                SELECT comment_id, MAX(createTime) AS latestTime 
+                FROM comment_response 
+                GROUP BY comment_id
+            ) latest ON m.id = latest.comment_id
+            LEFT JOIN comment_response r ON latest.comment_id = r.comment_id AND latest.latestTime = r.createTime
+        ` + whereClause + 
+        ` ORDER BY 
+            CASE WHEN r.response IS NULL THEN 0 ELSE 1 END ASC,  -- 没有回复的留言在前面
+            commentTime DESC                                    -- 按留言时间从新到旧排序
+        LIMIT ? OFFSET ?
+      `;
 
-    return {
-      total,
-      records: result,
-    };
+      queryParams.push(String(pageSizeInt), String(offset));
+      const [result] = await connection.execute(statement, queryParams);
+
+      return {
+        total,
+        records: result,
+      };
+    } catch (error) {
+      logger.error('service error: getCommentList', { error })
+      throw error
+    }
   }
 
   async response(params) {
     const { commentId, response, author } = params;
-
-    if (!commentId) {
-      throw new Error('缺少参数：commentId')
-    }
-    if (!response) {
-      throw new Error('缺少参数：response')
-    }
-    if (!author) {
-      throw new Error('缺少参数：author')
-    }
 
     try {
       const [commentExists] = await connection.execute(`SELECT id FROM comment WHERE id = ? LIMIT 1`, [commentId]);
@@ -125,21 +117,20 @@ class CommentService {
         throw new Error('评论不存在')
       }
 
-      const result = await connection.execute(`INSERT comment_response (comment_id, response, author) VALUES (?, ?, ?)`, 
+      const result = await connection.execute(
+        `INSERT comment_response (comment_id, response, author) VALUES (?, ?, ?)`, 
         [commentId, response, author]
       )
+
       return 'success'
     } catch (error) {
+      logger.error('service error: response', { error })
       throw error
     }
   }
 
   async getCommentDetailById(params) {
     const { commentId } = params;
-
-    if (!params.commentId) {
-      throw new Error('缺少参数：commentId')
-    }
 
     const statement = `
       SELECT 
@@ -174,6 +165,7 @@ class CommentService {
       
       return comment
     } catch (error) {
+      logger.error('service error: getCommentDetailById', { error })
       throw error
     }
   }
@@ -189,23 +181,23 @@ class CommentService {
       whereClause += hasResponsed === 'true' ? " AND r.response IS NOT NULL" : " AND r.response IS NULL";
     }
 
-    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
-    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
-
-    const statement = `
-      SELECT 
-        m.id commentId, m.comment, m.author commentAuthor, m.createTime commentTime,
-        r.id responseId, r.response, r.author responseAuthor, r.createTime responseTime
-          FROM comment m
-            LEFT JOIN comment_response r ON m.id = r.comment_id
-              ${whereClause} 
-                ORDER BY commentTime DESC    -- 按留言时间从新到旧排序
-                  LIMIT ? OFFSET ?
-    `;
-
-    queryParams.push(String(pageSizeInt), String(offset));
-
     try {
+      const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+      const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
+
+      const statement = `
+        SELECT 
+          m.id commentId, m.comment, m.author commentAuthor, m.createTime commentTime,
+          r.id responseId, r.response, r.author responseAuthor, r.createTime responseTime
+            FROM comment m
+              LEFT JOIN comment_response r ON m.id = r.comment_id
+                ${whereClause} 
+                  ORDER BY commentTime DESC    -- 按留言时间从新到旧排序
+                    LIMIT ? OFFSET ?
+      `;
+
+      queryParams.push(String(pageSizeInt), String(offset));
+
       const [rows] = await connection.execute(statement, queryParams);
 
       const groupedData = rows.reduce((acc, item) => {
@@ -235,16 +227,13 @@ class CommentService {
 
       return { records: Object.values(groupedData) };
     } catch (error) {
+      logger.error('service error: getCommentListByWechat', { error })
       throw error;
     }
   }
 
   async getUserComments(params) {
     const { author, startTime, endTime } = params
-
-    if (!author) {
-      throw new Error('缺少参数：author')
-    }
 
     let statement = `
       SELECT 
@@ -308,6 +297,7 @@ class CommentService {
         records 
       };
     } catch (error) {
+      logger.error('service error: getUserComments', { error })
       throw error;
     }
   }

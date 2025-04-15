@@ -4,9 +4,14 @@ class CategoryController {
   async updateCategory(ctx, next) {
     const params = ctx.request.body
 
+    const { categoryList } = params
+    if (!categoryList) {
+      throw new Error('缺少参数: categoryList')
+    }
+
     const result = await service.updateCategory(params)
 
-    ctx.body = '修改成功'
+    ctx.body = result
   }
 
   async getCategory(ctx, next) {

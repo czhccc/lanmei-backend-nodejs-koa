@@ -12,6 +12,14 @@ class ShipController {
   async changeUsable(ctx, next) {
     const params = ctx.request.body
 
+    const { value, code } = params
+    if (!value) {
+      throw new Error('缺少参数：value')
+    }
+    if (!code) {
+      throw new Error('缺少参数：code')
+    }
+
     const result = await service.changeUsable(params)
 
     ctx.body = result
@@ -19,6 +27,11 @@ class ShipController {
 
   async getShipProvincesOfLastBatch(ctx, next) {
     const params = ctx.request.query
+
+    const { goodsId } = params
+    if (!goodsId) {
+      throw new Error('缺少参数：goodsId')
+    }
 
     const result = await service.getShipProvincesOfLastBatch(params)
 

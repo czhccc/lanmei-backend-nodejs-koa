@@ -1,5 +1,4 @@
 const connection = require('../app/database')
-const generateDatetimeId = require('../utils/genarateDatetimeId')
 
 const richTextExtractImageSrc = require('../utils/richTextExtractImageSrc')
 

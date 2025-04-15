@@ -46,25 +46,27 @@ const WX_PAY_CONFIG = {
 
 
 // ================================ 导出 ================================
-module.exports.APP_PORT = APP_PORT
-module.exports.BASE_URL = BASE_URL
-module.exports.DEFAULT_PASSWORD = DEFAULT_PASSWORD
+module.exports = {
+  APP_PORT,
+  BASE_URL,
+  DEFAULT_PASSWORD,
 
-module.exports.TOKEN_PRIVATE_KEY = TOKEN_PRIVATE_KEY
-module.exports.TOKEN_PUBLIC_KEY = TOKEN_PUBLIC_KEY
-module.exports.TOKEN_DURATION = TOKEN_DURATION
+  TOKEN_PRIVATE_KEY,
+  TOKEN_PUBLIC_KEY,
+  TOKEN_DURATION,
 
-module.exports.MYSQL_HOST = MYSQL_HOST
-module.exports.MYSQL_PORT = MYSQL_PORT
-module.exports.MYSQL_DATABASE = MYSQL_DATABASE
-module.exports.MYSQL_USER = MYSQL_USER
-module.exports.MYSQL_PASSWORD = MYSQL_PASSWORD
+  MYSQL_HOST,
+  MYSQL_PORT,
+  MYSQL_DATABASE,
+  MYSQL_USER,
+  MYSQL_PASSWORD,
 
-module.exports.REDIS_HOST = REDIS_HOST
-module.exports.REDIS_PORT = REDIS_PORT
-module.exports.REDIS_PASSWORD = REDIS_PASSWORD
-module.exports.REDIS_DB = REDIS_DB
-module.exports.REDIS_MAX_RETRIES = REDIS_MAX_RETRIES
-module.exports.REDIS_TIMEOUT = REDIS_TIMEOUT
+  REDIS_HOST,
+  REDIS_PORT,
+  REDIS_PASSWORD,
+  REDIS_DB,
+  REDIS_MAX_RETRIES,
+  REDIS_TIMEOUT,
 
-module.exports.WX_PAY_CONFIG = WX_PAY_CONFIG
+  WX_PAY_CONFIG
+}

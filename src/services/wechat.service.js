@@ -1,5 +1,13 @@
 const connection = require('../app/database');
 
+const axios = require('axios');
+
+const jwt = require('jsonwebtoken')
+const {
+  TOKEN_PRIVATE_KEY,
+  TOKEN_DURATION
+} = require('../app/config')
+
 const escapeLike = require('../utils/escapeLike')
 
 const dayjs = require('dayjs')
@@ -12,32 +20,61 @@ const redisUtils = require('../utils/redisUtils')
 
 const {
   BASE_URL
-} = require('../app/config')
+} = require('../app/config');
+
+const logger = require('../utils/logger');
 
 class WechatService {
+  async getPhoneNumber(params) {
+    const { code, encryptedData, iv } = params;
+
+    // 微信的 appId 和 appSecret
+    const appId = 'wx742023d15a0c05ed';
+    const appSecret = 'd999393e4cf30baa5f0ac9378a3ab6f0';
+    const getAccessTokenUrl = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${appId}&secret=${appSecret}`;
+
+    try {
+      const currentTime = new Date().getTime();
+      if (WechatController.accessTokenCache.accessToken && WechatController.accessTokenCache.expireTime > currentTime) { // 有token
+
+      } else { // token失效
+        const getAccessTokenResult = await axios.get(getAccessTokenUrl);
+        // console.log('getAccessTokenResult.data', getAccessTokenResult.data)
+        WechatController.accessTokenCache = {
+          accessToken: getAccessTokenResult.data.access_token,
+          expireTime: currentTime + getAccessTokenResult.data.expires_in*1000,
+        }
+      }
+      
+      const getPhoneUrl = `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${WechatController.accessTokenCache.accessToken}`
+      let getPhoneResult = await axios.post(getPhoneUrl, { code })
+
+      const phone = getPhoneResult.data.phone_info.phoneNumber
+
+      const token = jwt.sign(
+        {
+          phone: phone,
+        }, 
+        TOKEN_PRIVATE_KEY,
+        {
+          expiresIn: TOKEN_DURATION,
+          algorithm: 'RS256',
+        }
+      )
+
+      return {
+        phone,
+        token
+      }
+    } catch (error) {
+      logger.error('service error: getPhoneNumber', { error })
+      throw new Error('手机号解密失败')
+    }
+  }
 
   // 用户收货地址
   async addAddress(params) {
     const { name, phone, create_by, provinceCode, cityCode, districtCode, detail, isDefault } = params
-
-    if (!name) {
-      throw new Error('缺少参数：name')
-    }
-    if (!phone) {
-      throw new Error('缺少参数：phone')
-    }
-    if (!provinceCode) {
-      throw new Error('缺少参数：provinceCode')
-    }
-    if (!cityCode) {
-      throw new Error('缺少参数：cityCode')
-    }
-    if (!districtCode) {
-      throw new Error('缺少参数：districtCode')
-    }
-    if (!detail) {
-      throw new Error('缺少参数：detail')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -77,6 +114,7 @@ class WechatService {
       
       return '新增成功'
     } catch (error) {
+      logger.error('service error: addAddress', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -85,28 +123,6 @@ class WechatService {
   }
   async editAddress(params) {
     const { id, name, phone, provinceCode, cityCode, districtCode, detail, isDefault } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
-    if (!name) {
-      throw new Error('缺少参数：name')
-    }
-    if (!phone) {
-      throw new Error('缺少参数：phone')
-    }
-    if (!provinceCode) {
-      throw new Error('缺少参数：provinceCode')
-    }
-    if (!cityCode) {
-      throw new Error('缺少参数：cityCode')
-    }
-    if (!districtCode) {
-      throw new Error('缺少参数：districtCode')
-    }
-    if (!detail) {
-      throw new Error('缺少参数：detail')
-    }
 
     try {
       const [addressExistResult] = await connection.execute(
@@ -145,15 +161,12 @@ class WechatService {
   
       return 'success'
     } catch (error) {
+      logger.error('service error: editAddress', { error })
       throw error
     }
   }
   async getAddressList(params) {
     const { create_by } = params
-
-    if (!create_by) {
-      throw new Error('缺少参数：create_by')
-    }
 
     try {
       const [result] = await connection.execute(
@@ -163,15 +176,12 @@ class WechatService {
   
       return result
     } catch (error) {
+      logger.error('service error: getAddressList', { error })
       throw error
     }
   }
   async deleteAddress(params) {
     const { id } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
 
     try {
       const [result] = await connection.execute(
@@ -193,15 +203,12 @@ class WechatService {
   
       return '删除成功'
     } catch (error) {
+      logger.error('service error: deleteAddress', { error })
       throw error
     }
   }
   async getDefaultAddress(params) {
     const { create_by } = params
-
-    if (!create_by) {
-      throw new Error('缺少参数：create_by')
-    }
 
     try {
       const result = await connection.execute(
@@ -211,6 +218,7 @@ class WechatService {
   
       return result[0]
     } catch (error) {
+      logger.error('service error: getDefaultAddress', { error })
       throw error
     }
   }
@@ -220,20 +228,17 @@ class WechatService {
   async notify(params) {
     const { content, thePhone } = params
 
-    if (!content) {
-      throw new Error('缺少参数：content')
-    }
-
     try {
       const insertResult = await connection.execute(
         `INSERT wechat_home_notify (content, createBy) VALUES (?,?)`, 
         [content, thePhone]
       )
 
-      await redisUtils.del('notification:latest')
+      await redisUtils.delWithVersion('notification:latest')
 
       return insertResult
     } catch (error) {
+      logger.error('service error: notify', { error })
       throw error
     }
   }
@@ -260,12 +265,13 @@ class WechatService {
         records: result[0],
       };
     } catch (error) {
+      logger.error('service error: getNotificationList', { error })
       throw error
     }
   }
   async getLatestNotification() {
     try {
-      const redisData = await redisUtils.get('notification:latest');
+      const redisData = await redisUtils.getWithVersion('notification:latest');
       if (redisData) {
         return redisData;
       }
@@ -278,13 +284,14 @@ class WechatService {
         let record = result[0]
         record.createTime = dayjs(record.createTime).format('YYYY-MM-DD HH:mm')
 
-        await redisUtils.set('notification:latest', record);
+        await redisUtils.setWithVersion('notification:latest', record);
 
         return record;
       }
 
     } catch (error) {
-      console.log(error)
+      logger.error('service error: getLatestNotification', { error })
+      throw error
     }
   }
   
@@ -292,7 +299,7 @@ class WechatService {
   // 首页推荐轮播图
   async getRecommendList(params) {
     try {
-      let redisData = await redisUtils.get('recommendList:forWechat')
+      let redisData = await redisUtils.getWithVersion('recommendList:forWechat')
       if (redisData) {
         return redisData
       }
@@ -309,19 +316,16 @@ class WechatService {
         }
       })
 
-      await redisUtils.set('recommendList:forWechat', records)
+      await redisUtils.setWithVersion('recommendList:forWechat', records)
     
       return records
     } catch (error) {
+      logger.error('service error: getRecommendList', { error })
       throw error
     }
   }
   async editRecommendList(params) {
     const { list } = params
-
-    if (!list) {
-      throw new Error('缺少参数：list')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -370,12 +374,13 @@ class WechatService {
         )
       }
 
-      await redisUtils.del('recommendList:forWechat')
+      await redisUtils.delWithVersion('recommendList:forWechat')
 
       await conn.commit(); 
 
       return 'success'
     } catch (error) {
+      logger.error('service error: editRecommendList', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -417,11 +422,13 @@ class WechatService {
         );
       }
 
-      await redisUtils.del('recommendList:forWechat')
+      await redisUtils.delWithVersion('recommendList:forWechat')
 
       await conn.commit();
+
       return 'success';
     } catch (error) {
+      logger.error('service error: cleanRecommendList', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -431,33 +438,6 @@ class WechatService {
 
 
   // 资讯
-  async getNewsListForWechat(params) {
-    try {
-      const redisData = await redisUtils.get('newsList:forWechat')
-      if (redisData) {
-        return redisData
-      }
-      
-      const [result] = await connection.execute(`
-        SELECT * from wechat_home_news WHERE isShow = 1
-          ORDER BY createTime DESC 
-            LIMIT 6
-      `, [])
-
-      let records = result.map(item => {
-        return {
-          ...item,
-          content: item.content.replaceAll('BASE_URL', BASE_URL)
-        }
-      })
-
-      await redisUtils.set('newsList:forWechat', records)
-  
-      return records
-    } catch (error) {
-      throw error
-    }
-  }
   async getNewsList(params) {
     const { pageNo, pageSize, title, startTime, endTime, showed, pinned } = params;
 
@@ -485,39 +465,68 @@ class WechatService {
         query += ` AND isPin = 0`;
     }
 
-    const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
-    const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
+    try {
+      const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
+      const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
 
-    const [totalResult, dataResult] = await Promise.all([
-      connection.execute(`
-        SELECT COUNT(*) as total FROM wechat_home_news ${query}
-      `, queryParams),
-      connection.execute(`
-        SELECT * from wechat_home_news ${query} 
+      const [totalResult, dataResult] = await Promise.all([
+        connection.execute(`
+          SELECT COUNT(*) as total FROM wechat_home_news ${query}
+        `, queryParams),
+        connection.execute(`
+          SELECT * from wechat_home_news ${query} 
+            ORDER BY createTime DESC 
+              LIMIT ? OFFSET ?
+        `, [...queryParams, String(pageSizeInt), String(offset)])
+      ]);
+
+      return {
+        total: totalResult[0][0].total,
+        records: dataResult[0].map(item => {
+          return {
+            ...item,
+            content: item.content.replaceAll('BASE_URL', BASE_URL)
+          }
+        })
+      };
+    } catch (error) {
+      logger.error('service error: getNewsList', { error })
+      throw error   
+    }
+  }
+  async getNewsListForWechat(params) {
+    try {
+      const redisData = await redisUtils.getWithVersion('newsList:forWechat')
+      if (redisData) {
+        return redisData
+      }
+      
+      const [result] = await connection.execute(`
+        SELECT * from wechat_home_news WHERE isShow = 1
           ORDER BY createTime DESC 
-            LIMIT ? OFFSET ?
-      `, [...queryParams, String(pageSizeInt), String(offset)])
-    ]);
+            LIMIT 6
+      `, [])
 
-    return {
-      total: totalResult[0][0].total,
-      records: dataResult[0].map(item => {
+      let records = result.map(item => {
         return {
           ...item,
           content: item.content.replaceAll('BASE_URL', BASE_URL)
         }
       })
-    };
+
+      await redisUtils.setWithVersion('newsList:forWechat', records)
+  
+      return records
+    } catch (error) {
+      logger.error('service error: getNewsListForWechat', { error })
+      throw error
+    }
   }
   async getNewsDetail(params) {
     const { id, flag } = params
 
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
-
     try {
-      const redisData = await redisUtils.get(`newsDetail:${id}`)
+      const redisData = await redisUtils.getWithVersion(`newsDetail:${id}`)
       if (redisData) {
         return redisData
       }
@@ -535,23 +544,17 @@ class WechatService {
       }
 
       if (flag === 'wechat') {
-        await redisUtils.set(`newsDetail:${id}`, theData)
+        await redisUtils.setWithVersion(`newsDetail:${id}`, theData)
       }
       
       return theData
     } catch (error) {
+      logger.error('service error: getNewsDetail', { error })
       throw error
     }
   }
   async addNews(params) {
     const { title, content } = params
-
-    if (!title) {
-      throw new Error('缺少参数：title')
-    }
-    if (!content) {
-      throw new Error('缺少参数：content')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -582,7 +585,7 @@ class WechatService {
 
       return insertResult
     } catch (error) {
-      console.log(error);
+      logger.error('service error: addNews', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -591,16 +594,6 @@ class WechatService {
   }
   async editNews(params) {
     const { id, title, content } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
-    if (!title?.trim()) {
-      throw new Error('缺少参数：title')
-    }
-    if (!content?.trim()) {
-      throw new Error('缺少参数：content')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -645,12 +638,13 @@ class WechatService {
         )
       }
 
-      await redisUtils.del(`newsDetail:${id}`)
+      await redisUtils.delWithVersion(`newsDetail:${id}`)
 
       await conn.commit(); 
   
       return 'success'
     } catch (error) {
+      logger.error('service error: editNews', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -659,10 +653,6 @@ class WechatService {
   }
   async deleteNews(params) {
     const { id } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
 
     const conn = await connection.getConnection();
     try {
@@ -690,13 +680,14 @@ class WechatService {
         [id]
       );
 
-      await redisUtils.del('newsList:forWechat')
-      await redisUtils.del(`newsDetail:${id}`)
+      await redisUtils.delWithVersion('newsList:forWechat')
+      await redisUtils.delWithVersion(`newsDetail:${id}`)
 
       await conn.commit(); 
   
       return 'success'
     } catch (error) {
+      logger.error('service error: deleteNews', { error })
       await conn.rollback();
       throw error
     } finally {
@@ -705,13 +696,6 @@ class WechatService {
   }
   async showNews(params) {
     const { id, value } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
-    if (value === undefined) {
-      throw new Error('缺少参数：value')
-    }
 
     try {
       const [result] = await connection.execute(
@@ -730,23 +714,17 @@ class WechatService {
         throw new Error('操作失败');
       }
 
-      await redisUtils.del('newsList:forWechat')
-      await redisUtils.del(`newsDetail:${id}`)
+      await redisUtils.delWithVersion('newsList:forWechat')
+      await redisUtils.delWithVersion(`newsDetail:${id}`)
   
       return 'success'
     } catch (error) {
+      logger.error('service error: showNews', { error })
       throw error
     }
   }
   async pinNews(params) {
     const { id, value } = params
-
-    if (!id) {
-      throw new Error('缺少参数：id')
-    }
-    if (value === undefined) {
-      throw new Error('缺少参数：value')
-    }
 
     try {
       const [result] = await connection.execute(
@@ -765,11 +743,12 @@ class WechatService {
         throw new Error('操作失败');
       }
 
-      await redisUtils.del('newsList:forWechat')
-      await redisUtils.del(`newsDetail:${id}`)
+      await redisUtils.delWithVersion('newsList:forWechat')
+      await redisUtils.delWithVersion(`newsDetail:${id}`)
   
       return 'success'
     } catch (error) {
+      logger.error('service error: pinNews', { error })
       throw error
     }
   }
