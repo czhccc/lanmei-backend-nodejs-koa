@@ -18,8 +18,8 @@ class AboutUsService {
 
     const imgSrcList = richTextExtractImageSrc(aboutUs).map(url => url.replace(`${BASE_URL}/`, ''));
 
-    const conn = await connection.getConnection();  // 从连接池获取连接
     try {
+      const conn = await connection.getConnection();  // 从连接池获取连接
       await conn.beginTransaction();  // 开启事务
 
       // 仅当 imgSrcList 非空时才执行删除操作，减少数据库 IO
@@ -69,9 +69,11 @@ class AboutUsService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: updateAboutUs', { error })
       await conn.rollback();
-      throw new Error('mysql事务失败，已回滚');
+
+      logger.error('service error: updateAboutUs', { error })
+      
+      throw error
     } finally {
       if (conn) conn.release();
     }

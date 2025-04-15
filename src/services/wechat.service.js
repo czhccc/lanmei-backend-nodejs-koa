@@ -22,53 +22,76 @@ const {
   BASE_URL
 } = require('../app/config');
 
+const { 
+  setIdempotencyKey,
+  delIdempotencyKey
+} = require('../utils/idempotency')
+
 const logger = require('../utils/logger');
 
 class WechatService {
+  static accessTokenCache = {
+    accessToken: null,
+    expireTime: null,
+  }
+  
   async getPhoneNumber(params) {
-    const { code, encryptedData, iv } = params;
-
-    // 微信的 appId 和 appSecret
+    const { code } = params;
     const appId = 'wx742023d15a0c05ed';
     const appSecret = 'd999393e4cf30baa5f0ac9378a3ab6f0';
-    const getAccessTokenUrl = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${appId}&secret=${appSecret}`;
-
+    
     try {
-      const currentTime = new Date().getTime();
-      if (WechatController.accessTokenCache.accessToken && WechatController.accessTokenCache.expireTime > currentTime) { // 有token
-
-      } else { // token失效
-        const getAccessTokenResult = await axios.get(getAccessTokenUrl);
-        // console.log('getAccessTokenResult.data', getAccessTokenResult.data)
-        WechatController.accessTokenCache = {
-          accessToken: getAccessTokenResult.data.access_token,
-          expireTime: currentTime + getAccessTokenResult.data.expires_in*1000,
-        }
-      }
+      // 使用有效的时间比较机制
+      const now = Date.now();
       
-      const getPhoneUrl = `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${WechatController.accessTokenCache.accessToken}`
-      let getPhoneResult = await axios.post(getPhoneUrl, { code })
-
-      const phone = getPhoneResult.data.phone_info.phoneNumber
-
-      const token = jwt.sign(
-        {
-          phone: phone,
-        }, 
-        TOKEN_PRIVATE_KEY,
-        {
-          expiresIn: TOKEN_DURATION,
-          algorithm: 'RS256',
+      // 强制类型转换保证数值类型安全
+      if (!WechatService.accessTokenCache.accessToken || Number(WechatService.accessTokenCache.expireTime) <= now) {
+        const tokenResponse = await axios.get(
+          `https://api.weixin.qq.com/cgi-bin/token`,
+          { params: { grant_type: 'client_credential', appid: appId, secret: appSecret } }
+        );
+  
+        if (tokenResponse.data.errcode) {
+          throw new Error(`微信token接口错误: ${tokenResponse.data.errmsg}`);
         }
-      )
-
-      return {
-        phone,
-        token
+  
+        WechatService.accessTokenCache = {
+          accessToken: tokenResponse.data.access_token,
+          expireTime: now + (Number(tokenResponse.data.expires_in) * 1000 - 3000), // 提前3秒过期保证安全
+        };
       }
+  
+      // 使用更安全的参数传递方式
+      const phoneResponse = await axios.post(
+        `https://api.weixin.qq.com/wxa/business/getuserphonenumber`,
+        { code },
+        { params: { access_token: WechatService.accessTokenCache.accessToken } }
+      );
+  
+      if (phoneResponse.data.errcode) {
+        throw new Error(`微信手机号接口错误: ${phoneResponse.data.errmsg}`);
+      }
+  
+      // 增加数据存在性校验
+      if (!phoneResponse.data.phone_info?.phoneNumber) {
+        throw new Error('微信返回数据格式异常');
+      }
+  
+      // 使用更精确的过期时间计算
+      const token = jwt.sign(
+        { phone: phoneResponse.data.phone_info.phoneNumber },
+        TOKEN_PRIVATE_KEY,
+        { expiresIn: TOKEN_DURATION, algorithm: 'RS256' }
+      );
+  
+      return {
+        phone: phoneResponse.data.phone_info.phoneNumber,
+        token
+      };
     } catch (error) {
-      logger.error('service error: getPhoneNumber', { error })
-      throw new Error('手机号解密失败')
+      logger.error('service error: getPhoneNumber', { error: error });
+      
+      throw error
     }
   }
 
@@ -76,8 +99,11 @@ class WechatService {
   async addAddress(params) {
     const { name, phone, create_by, provinceCode, cityCode, districtCode, detail, isDefault } = params
 
-    const conn = await connection.getConnection();
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       if (isDefault) {
@@ -114,8 +140,12 @@ class WechatService {
       
       return '新增成功'
     } catch (error) {
-      logger.error('service error: addAddress', { error })
       await conn.rollback();
+
+      logger.error('service error: addAddress', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+
       throw error
     } finally {
       if (conn) conn.release();
@@ -125,6 +155,9 @@ class WechatService {
     const { id, name, phone, provinceCode, cityCode, districtCode, detail, isDefault } = params
 
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+      
       const [addressExistResult] = await connection.execute(
         `SELECT id FROM customer_address WHERE id = ? LIMIT 1`
         [id]
@@ -162,6 +195,9 @@ class WechatService {
       return 'success'
     } catch (error) {
       logger.error('service error: editAddress', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+
       throw error
     }
   }
@@ -184,6 +220,9 @@ class WechatService {
     const { id } = params
 
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
       const [result] = await connection.execute(
         `DELETE FROM customer_address WHERE id = ?`, 
         [id]
@@ -204,6 +243,9 @@ class WechatService {
       return '删除成功'
     } catch (error) {
       logger.error('service error: deleteAddress', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+
       throw error
     }
   }
@@ -327,8 +369,8 @@ class WechatService {
   async editRecommendList(params) {
     const { list } = params
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       await conn.execute(`DELETE FROM wechat_home_recommend`, [])
@@ -380,17 +422,18 @@ class WechatService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: editRecommendList', { error })
       await conn.rollback();
+
+      logger.error('service error: editRecommendList', { error })
+      
       throw error
     } finally {
       if (conn) conn.release();
     }
   }
   async cleanRecommendList(params) { // 商品状态变化后清理已下架的推荐商品
-    const conn = await connection.getConnection();
-
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
       
       const [recommendResults] = await connection.execute(
@@ -428,8 +471,10 @@ class WechatService {
 
       return 'success';
     } catch (error) {
-      logger.error('service error: cleanRecommendList', { error })
       await conn.rollback();
+
+      logger.error('service error: cleanRecommendList', { error })
+      
       throw error
     } finally {
       if (conn) conn.release();
@@ -555,9 +600,9 @@ class WechatService {
   }
   async addNews(params) {
     const { title, content } = params
-
-    const conn = await connection.getConnection();
+    
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [insertResult] = await conn.execute(`
@@ -585,8 +630,10 @@ class WechatService {
 
       return insertResult
     } catch (error) {
-      logger.error('service error: addNews', { error })
       await conn.rollback();
+
+      logger.error('service error: addNews', { error })
+
       throw error
     } finally {
       if (conn) conn.release();
@@ -595,8 +642,8 @@ class WechatService {
   async editNews(params) {
     const { id, title, content } = params
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [updateResult] = await conn.execute(
@@ -644,8 +691,10 @@ class WechatService {
   
       return 'success'
     } catch (error) {
-      logger.error('service error: editNews', { error })
       await conn.rollback();
+
+      logger.error('service error: editNews', { error })
+
       throw error
     } finally {
       if (conn) conn.release();
@@ -654,8 +703,8 @@ class WechatService {
   async deleteNews(params) {
     const { id } = params
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [result] = await conn.execute(
@@ -687,8 +736,10 @@ class WechatService {
   
       return 'success'
     } catch (error) {
-      logger.error('service error: deleteNews', { error })
       await conn.rollback();
+
+      logger.error('service error: deleteNews', { error })
+      
       throw error
     } finally {
       if (conn) conn.release();

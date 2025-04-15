@@ -3,11 +3,9 @@ const service = require('../services/comment.service')
 class CommentController {
   async comment(ctx, next) {
     const params = ctx.request.body
+    params.author = ctx.theUser.phone
 
-    const { author, comment } = params;
-    if (!author) {
-      throw new Error('缺少参数：author')
-    }
+    const { comment } = params;
     if (!comment) {
       throw new Error('缺少参数：comment')
     }

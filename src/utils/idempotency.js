@@ -19,7 +19,9 @@ const generateIdempotencyKey = (params, prefix='') => {
   }
 
   // 保证字段顺序一致性：按 key 排序
-  const orderedParams = {};
+  const orderedParams = {
+    prefix,
+  };
   Object.keys(params).sort().forEach(key => {
     orderedParams[key] = params[key];
   });

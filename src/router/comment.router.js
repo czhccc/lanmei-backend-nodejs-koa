@@ -6,10 +6,12 @@ const {
   verifyToken
 } = require('../middlewares/auth.middleware')
 
+const checkIdempotencyKey = require('../middlewares/checkIdempotencyKey')
+
 const tableResponseHandler = require('../middlewares/table-response-handler');
 
 const commentRouter = new Router({prefix: '/comment'})
-commentRouter.post('/', verifyToken, CommentController.comment)
+commentRouter.post('/', verifyToken, checkIdempotencyKey, CommentController.comment)
 
 commentRouter.get('/getCommentList', verifyToken, tableResponseHandler, CommentController.getCommentList)
 

@@ -6,8 +6,8 @@ const logger = require('../utils/logger')
 
 class CategoryService {
   async updateCategory(params) {
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       await conn.execute('DELETE FROM category');
@@ -55,8 +55,10 @@ class CategoryService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: updateCategory', { error })
       await conn.rollback();
+
+      logger.error('service error: updateCategory', { error })
+      
       throw error
     } finally {
       if (conn) conn.release();

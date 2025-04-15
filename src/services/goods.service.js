@@ -73,8 +73,8 @@ class GoodsService {
       batchRemark,
     } = params;
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [currentGoodsInfoResult] = await conn.execute(`SELECT batch_type FROM goods WHERE id = ? FOR UPDATE`, [goodsId]);
@@ -166,8 +166,10 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: updateGoods', { error })
       await conn.rollback();
+
+      logger.error('service error: updateGoods', { error })
+      
       throw error
     } finally {
       if (conn) conn.release();
@@ -341,8 +343,8 @@ class GoodsService {
   async endCurrentBatch(params) {
     const { thePhone, goodsId } = params
     
-    const conn = await connection.getConnection();  // 从连接池获取连接
     try {
+      const conn = await connection.getConnection();  // 从连接池获取连接
       await conn.beginTransaction();  // 开启事务
 
       // ====================== 1. 查询商品信息并加锁 ======================
@@ -476,8 +478,10 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: endCurrentBatch', { error })
       await conn.rollback();
+
+      logger.error('service error: endCurrentBatch', { error })
+      
       throw error;
     } finally {
       if (conn) conn.release();
@@ -487,8 +491,8 @@ class GoodsService {
   async changeGoodsIsSelling(params) {
     const { id, value } = params
     
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [batchInfoResult] = await connection.execute(`
@@ -533,8 +537,10 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: changeGoodsIsSelling', { error })
       await conn.rollback();
+
+      logger.error('service error: changeGoodsIsSelling', { error })
+      
       throw error
     } finally {
       if (conn) conn.release();
@@ -705,8 +711,8 @@ class GoodsService {
   async deleteCurrentBatch(params) {
     const { id } = params
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       // ====================== 1. 查询商品信息并加锁 ======================
@@ -767,8 +773,10 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: deleteCurrentBatch', { error })
       await conn.rollback();
+
+      logger.error('service error: deleteCurrentBatch', { error })
+      
       throw error;
     } finally {
       if (conn) conn.release();
@@ -778,9 +786,10 @@ class GoodsService {
   async cancelAllOrdersInCurrentBatch(params) {
     const { thePhone, id, cancelReason } = params;
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
+
       const nowTime = dayjs().format('YYYY-MM-DD HH:mm:ss'); // 统一时间戳
 
       // ====================== 1. 查询商品信息并加锁 ======================
@@ -902,8 +911,10 @@ class GoodsService {
 
       return 'success';
     } catch (error) {
-      logger.error('service error: cancelAllOrdersInCurrentBatch', { error })
       await conn.rollback();
+
+      logger.error('service error: cancelAllOrdersInCurrentBatch', { error })
+      
       throw error
     } finally {
       if (conn) conn.release();
@@ -913,8 +924,8 @@ class GoodsService {
   async preorderBatchIsReadyToSell(params) {
     const { thePhone, goodsId, finalPrice } = params
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
       
       // ====================== 查询商品信息并加锁 ======================
@@ -983,8 +994,10 @@ class GoodsService {
 
       return 'success'
     } catch (error) {
-      logger.error('service error: preorderBatchIsReadyToSell', { error })
       await conn.rollback();
+
+      logger.error('service error: preorderBatchIsReadyToSell', { error })
+      
       throw error;
     } finally {
       if (conn) conn.release();

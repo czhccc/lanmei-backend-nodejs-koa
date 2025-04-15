@@ -1,11 +1,6 @@
 const service = require('../services/wechat.service')
 
 class WechatController {
-  static accessTokenCache = {
-    accessToken: null,
-    expireTime: null,
-  }
-
   async getPhoneNumber(ctx, next) {
     const params = ctx.request.body
 

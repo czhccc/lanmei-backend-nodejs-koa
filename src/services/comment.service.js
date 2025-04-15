@@ -2,6 +2,11 @@ const connection = require('../app/database')
 
 const dayjs = require('dayjs')
 
+const { 
+  setIdempotencyKey,
+  delIdempotencyKey
+} = require('../utils/idempotency')
+
 const logger = require('../utils/logger')
 
 class CommentService {
@@ -9,6 +14,9 @@ class CommentService {
     const { author, comment } = params;
 
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
       // 查询今天已留言次数
       const queryTodayCommentTimesStatement = `
         SELECT COUNT(*) AS count 
@@ -34,6 +42,9 @@ class CommentService {
       return 'success'
     } catch (error) {
       logger.error('service error: comment', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+      
       throw error
     }
   }

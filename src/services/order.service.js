@@ -25,11 +25,11 @@ const {
 
 class OrderService {
   async createOrder(params) {
-    const conn = await connection.getConnection();
     try {
-
+      
       setIdempotencyKey(params.idempotencyKey)
 
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
   
       const {
@@ -195,11 +195,12 @@ class OrderService {
         id: insertResult.insertId 
       };
     } catch (error) {
+      await conn.rollback();
+
       logger.error('service error: createOrder', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
-      await conn.rollback();
       throw error;
     } finally {
       if (conn) conn.release();
@@ -207,8 +208,8 @@ class OrderService {
   }
 
   async updateOrder(params) {
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       // 允许修改的字段白名单
@@ -320,8 +321,10 @@ class OrderService {
       await conn.commit();
       return changes;
     } catch (error) {
-      logger.error('service error: updateOrder', { error })
       await conn.rollback();
+
+      logger.error('service error: updateOrder', { error })
+      
       throw error;
     } finally {
       if (conn) conn.release();
@@ -396,8 +399,9 @@ class OrderService {
   async getOrderDetailById(params) {
     const { id } = params
 
-    const conn = await connection.getConnection();
     try {
+      const conn = await connection.getConnection();
+
       const [orderDetailResult] = await conn.execute(`
         SELECT * FROM orders WHERE id = ? FOR UPDATE
       `, [id]);
@@ -414,8 +418,10 @@ class OrderService {
         snapshot_goodsRichText: orderDetail.snapshot_goodsRichText.replaceAll('BASE_URL', BASE_URL),
       }
     } catch (error) {
-      logger.error('service error: getOrderDetailById', { error })
       await conn.rollback();
+
+      logger.error('service error: getOrderDetailById', { error })
+      
       throw error;
     } finally {
       if (conn) conn.release();
@@ -426,6 +432,9 @@ class OrderService {
     let { orderId, cancelOrderReason=null, thePhone } = params
 
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
       await connection.beginTransaction();
 
       const [cancelReservedOrderResult] = await connection.execute(`
@@ -453,15 +462,21 @@ class OrderService {
       return 'success'
     } catch (error) {
       logger.error('service error: cancelOrder', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+
       throw error
     }
   }
 
   async payOrder(params) {
     const { orderId } = params
-
-    const conn = await connection.getConnection();
+    
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
+      const conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [getOrderInfoResult] = await conn.execute(
@@ -550,8 +565,12 @@ class OrderService {
       await conn.commit();
       return 'success';
     } catch (error) {
-      logger.error('service error: payOrder', { error })
       await conn.rollback();
+
+      logger.error('service error: payOrder', { error })
+      
+      delIdempotencyKey(params.idempotencyKey)
+
       throw error
     } finally {
       if (conn) conn.release();
@@ -563,6 +582,9 @@ class OrderService {
     const { orderId, trackingNumber, thePhone } = params
 
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
       const [shipOrderResult] = await connection.execute(`
         UPDATE orders 
         SET 
@@ -599,6 +621,9 @@ class OrderService {
       return 'success';
     } catch (error) {
       logger.error('service error: shipOrder', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+
       throw error
     }
   }
@@ -607,6 +632,9 @@ class OrderService {
     const { orderId, thePhone } = params
 
     try {
+
+      setIdempotencyKey(params.idempotencyKey)
+
       const [completeOrderResult] = await connection.execute(`
         UPDATE orders 
         SET 
@@ -642,6 +670,9 @@ class OrderService {
       return 'success';
     } catch (error) {
       logger.error('service error: completeOrder', { error })
+
+      delIdempotencyKey(params.idempotencyKey)
+
       throw error
     }
   }

@@ -44,7 +44,7 @@ module.exports = async (ctx, next) => {
       ctx.status = status;
     }
   } catch (error) {
-    logger.error('response-handler 捕获错误：', { error })
+    logger.error('response-handler 捕获错误', { error })
 
     let status = 400;
     let message = error.message || '未知错误！！！'
