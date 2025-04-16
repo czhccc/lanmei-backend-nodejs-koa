@@ -9,6 +9,8 @@ const {
 
 const logger = require('../utils/logger')
 
+const customError = require('../utils/customError')
+
 class CommentService {
   async comment(params) {
     const { author, comment } = params;
@@ -30,7 +32,7 @@ class CommentService {
 
       // 限制每天最多 10 条留言
       if (todayCommentCount >= 10) {
-        throw new Error('今日留言次数已达上限')
+        throw new customError.InvalidLogicError('今天留言次数已达上限')
       }
 
       // 插入留言记录
@@ -125,7 +127,7 @@ class CommentService {
     try {
       const [commentExists] = await connection.execute(`SELECT id FROM comment WHERE id = ? LIMIT 1`, [commentId]);
       if (commentExists.length === 0) {
-        throw new Error('评论不存在')
+        throw new customError.ResourceNotFoundError('评论不存在')
       }
 
       const result = await connection.execute(
@@ -157,7 +159,7 @@ class CommentService {
       const [result] = await connection.execute(statement, [commentId]);
     
       if (result.length === 0) {
-        throw new Error('评论不存在')
+        throw new customError.ResourceNotFoundError('评论不存在')
       }
       const comment = {
         commentId: result[0]?.commentId,

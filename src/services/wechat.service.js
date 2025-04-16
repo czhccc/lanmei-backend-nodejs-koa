@@ -29,6 +29,8 @@ const {
 
 const logger = require('../utils/logger');
 
+const customError = require('../utils/customError')
+
 class WechatService {
   static accessTokenCache = {
     accessToken: null,
@@ -52,7 +54,7 @@ class WechatService {
         );
   
         if (tokenResponse.data.errcode) {
-          throw new Error(`微信token接口错误: ${tokenResponse.data.errmsg}`);
+          throw new customError.InternalError(`微信token接口错误: ${tokenResponse.data.errmsg}`)
         }
   
         WechatService.accessTokenCache = {
@@ -69,12 +71,12 @@ class WechatService {
       );
   
       if (phoneResponse.data.errcode) {
-        throw new Error(`微信手机号接口错误: ${phoneResponse.data.errmsg}`);
+        throw new customError.InternalError(`微信手机号接口错误: ${phoneResponse.data.errmsg}`)
       }
   
       // 增加数据存在性校验
       if (!phoneResponse.data.phone_info?.phoneNumber) {
-        throw new Error('微信返回数据格式异常');
+        throw new customError.InternalError('微信返回数据格式异常')
       }
   
       // 使用更精确的过期时间计算
@@ -99,11 +101,12 @@ class WechatService {
   async addAddress(params) {
     const { name, phone, create_by, provinceCode, cityCode, districtCode, detail, isDefault } = params
 
+    let conn = null;
     try {
 
       setIdempotencyKey(params.idempotencyKey)
 
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       if (isDefault) {
@@ -122,13 +125,21 @@ class WechatService {
           provinceCode, cityCode, districtCode
         ]
       );
-      if (areas.length !== 3) throw new Error('地址信息不完整');
+      if (areas.length !== 3) {
+        throw new customError.MissingParameterError('地址信息不完整')
+      }
       const [province, city, district] = areas;
 
       // 层级验证
-      if (province.level !== 'province') throw new Error('所选省份不存在数据库中');
-      if (city.parent_code !== province.code) throw new Error('所选市不属于所选省');
-      if (district.parent_code !== city.code) throw new Error('所选区不属于所选市');
+      if (province.level !== 'province') {
+        throw new customError.InvalidParameterError('所选省份不在数据库中')
+      }
+      if (city.parent_code !== province.code) {
+        throw new customError.InvalidParameterError('所选市不属于所选省')
+      }
+      if (district.parent_code !== city.code) {
+        throw new customError.InvalidParameterError('所选区不属于所选市')
+      }
 
       const insertResult = await conn.execute(`
         INSERT 
@@ -163,7 +174,7 @@ class WechatService {
         [id]
       );
       if (addressExistResult.length === 0) {
-        throw new Error('收获地址不存在')
+        throw new customError.ResourceNotFoundError('该收货地址不存在')
       }
 
       const [areas] = await connection.execute(
@@ -176,14 +187,22 @@ class WechatService {
           provinceCode, cityCode, districtCode
         ]
       );
-      if (areas.length !== 3) throw new Error('地址信息不完整');
+      if (areas.length !== 3) {
+        throw new customError.MissingParameterError('收货地址信息不完整')
+      }
       const [province, city, district] = areas;
   
       // 层级验证
-      if (province.level !== 'province') throw new Error('所选省份不存在数据库中');
-      if (city.parent_code !== province.code) throw new Error('所选市不属于所选省');
-      if (district.parent_code !== city.code) throw new Error('所选区不属于所选市');
-  
+      if (province.level !== 'province') {
+        throw new customError.InvalidParameterError('provinceCode', '所选省份不存在数据库中')
+      }
+      if (city.parent_code !== province.code) { 
+        throw new customError.InvalidParameterError('provinceCode', '所选市不属于所选省')
+      }
+      if (district.parent_code !== city.code) {
+        throw new customError.InvalidParameterError('provinceCode', '所选区不属于所选市')
+      }
+
       const updateResult = await connection.execute(`
         UPDATE customer_address 
         SET name=?, phone=?, province=?, provinceCode=?, city=?, cityCode=?, district=?, districtCode=?, detail=?, isDefault=?
@@ -234,10 +253,10 @@ class WechatService {
           [id]
         );
         if (infoResult.length === 0) {
-          throw new Error('该收货地址不存在')
+          throw new customError.ResourceNotFoundError('该收货地址不存在')
         }
   
-        throw new Error('删除失败');
+        throw new customError.InvalidLogicError('删除失败')
       }
   
       return '删除成功'
@@ -369,8 +388,9 @@ class WechatService {
   async editRecommendList(params) {
     const { list } = params
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       await conn.execute(`DELETE FROM wechat_home_recommend`, [])
@@ -432,8 +452,10 @@ class WechatService {
     }
   }
   async cleanRecommendList(params) { // 商品状态变化后清理已下架的推荐商品
+
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
       
       const [recommendResults] = await connection.execute(
@@ -580,7 +602,7 @@ class WechatService {
         SELECT * FROM wechat_home_news WHERE id = ?
       `, [id])
       if (dataResult.length === 0) {
-        throw new Error('当前id的数据不存在')
+        throw new customError.ResourceNotFoundError('该资讯不存在')
       }
 
       let theData = {
@@ -601,8 +623,9 @@ class WechatService {
   async addNews(params) {
     const { title, content } = params
     
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [insertResult] = await conn.execute(`
@@ -642,8 +665,9 @@ class WechatService {
   async editNews(params) {
     const { id, title, content } = params
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [updateResult] = await conn.execute(
@@ -657,7 +681,7 @@ class WechatService {
           SELECT id FROM wechat_home_news WHERE id = ? LIMIT 1
         `, [id]);
         if (selectResult.length === 0) {
-          throw new Error('该id的数据不存在')
+          throw new customError.ResourceNotFoundError('该资讯不存在')
         }
       }
 
@@ -703,8 +727,9 @@ class WechatService {
   async deleteNews(params) {
     const { id } = params
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [result] = await conn.execute(
@@ -717,10 +742,10 @@ class WechatService {
           [id]
         );
         if (infoResult.length === 0) {
-          throw new Error('该id的数据不存在')
+          throw new customError.ResourceNotFoundError('该资讯不存在')
         }
   
-        throw new Error('删除失败');
+        throw new customError.InvalidLogicError('删除失败')
       }
 
       // ====================== 处理media ========================
@@ -759,10 +784,10 @@ class WechatService {
           [id]
         );
         if (infoResult.length === 0) {
-          throw new Error('该id的数据不存在')
+          throw new customError.ResourceNotFoundError('该资讯不存在')
         }
   
-        throw new Error('操作失败');
+        throw new customError.InvalidLogicError('操作失败')
       }
 
       await redisUtils.delWithVersion('newsList:forWechat')
@@ -788,10 +813,10 @@ class WechatService {
           [id]
         );
         if (infoResult.length === 0) {
-          throw new Error('该id的数据不存在')
+          throw new customError.ResourceNotFoundError('该资讯不存在')
         }
   
-        throw new Error('操作失败');
+        throw new customError.InvalidLogicError('操作失败')
       }
 
       await redisUtils.delWithVersion('newsList:forWechat')

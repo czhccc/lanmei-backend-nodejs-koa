@@ -4,10 +4,14 @@ const redisUtils = require('../utils/redisUtils')
 
 const logger = require('../utils/logger')
 
+const customError = require('../utils/customError')
+
 class CategoryService {
   async updateCategory(params) {
+
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       await conn.execute('DELETE FROM category');
@@ -29,7 +33,7 @@ class CategoryService {
             const dbId = currentId++;
 
             if (nameSet.has(node.name)) {
-              throw new Error(`分类名称重复：${node.name}`);
+              throw new customError.InvalidParameterError('name', `分类名称 "${node.name}" 重复`);
             }
             nameSet.add(node.name);
 
@@ -136,7 +140,7 @@ class CategoryService {
       return categoryList;
     } catch (error) {
       logger.error('service error: getCategory', { error })
-      throw new Error(`获取分类失败: ${error.message}`);
+      throw error
     }
   }
 
@@ -211,7 +215,7 @@ class CategoryService {
 
     } catch (error) {
       logger.error('service error: getCategoryForWechat', { error })
-      throw new Error(`获取分类失败: ${error.message}`);
+      throw error
     }
   }
 }

@@ -1,5 +1,7 @@
 const service = require('../services/comment.service')
 
+const customError = require('../utils/customError')
+
 class CommentController {
   async comment(ctx, next) {
     const params = ctx.request.body
@@ -7,7 +9,7 @@ class CommentController {
 
     const { comment } = params;
     if (!comment) {
-      throw new Error('缺少参数：comment')
+      throw new customError.MissingParameterError('comment')
     }
 
     const result = await service.comment(params)
@@ -29,13 +31,13 @@ class CommentController {
 
     const { commentId, response, author } = params;
     if (!commentId) {
-      throw new Error('缺少参数：commentId')
+      throw new customError.MissingParameterError('commentId')
     }
     if (!response) {
-      throw new Error('缺少参数：response')
+      throw new customError.MissingParameterError('response')
     }
     if (!author) {
-      throw new Error('缺少参数：author')
+      throw new customError.MissingParameterError('author')
     }
     
     const result = await service.response(params)
@@ -48,7 +50,7 @@ class CommentController {
 
     const { commentId } = params;
     if (!commentId) {
-      throw new Error('缺少参数：commentId')
+      throw new customError.MissingParameterError('commentId')
     }
     
     const result = await service.getCommentDetailById(params)
@@ -67,9 +69,9 @@ class CommentController {
   async getUserComments(ctx, next) {
     const params = ctx.request.query
 
-    const { author, startTime, endTime } = params
+    const { author } = params
     if (!author) {
-      throw new Error('缺少参数：author')
+      throw new customError.MissingParameterError('author')
     }
     
     const result = await service.getUserComments(params)

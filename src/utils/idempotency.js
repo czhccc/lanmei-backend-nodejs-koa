@@ -4,6 +4,8 @@ const crypto = require("crypto");
 
 const logger = require("./logger");
 
+const customError = require("./customError");
+
 /**
  * 生成幂等性 Key
  * @param {object} params - 用于生成key的参数，必须是对象
@@ -12,10 +14,10 @@ const logger = require("./logger");
  */
 const generateIdempotencyKey = (params, prefix='') => {
   if (typeof params !== 'object' || params === null || Array.isArray(params)) {
-    throw new Error('参数必须是一个非空对象');
+    throw new customError.InvalidParameterError('params', '参数必须是一个对象');
   }
   if (!prefix || typeof prefix !== 'string') {
-    throw new Error('前缀必须是一个字符串');
+    throw new customError.InvalidParameterError('prefix', '前缀必须是一个字符串');
   }
 
   // 保证字段顺序一致性：按 key 排序
@@ -35,7 +37,7 @@ const generateIdempotencyKey = (params, prefix='') => {
 const setIdempotencyKey = async (key) => {
   if (!key) {
     logger.error('utils/idempotency setIdempotencyKey 缺少参数: key');
-    throw new Error('缺少参数: key');
+    throw new customError.MissingParameterError('key')
   }
 
   try {
@@ -52,7 +54,7 @@ const setIdempotencyKey = async (key) => {
 const idempotencyKeyExists = async (key) => {
   if (!key) {
     logger.error('utils/idempotency idempotencyKeyExists 缺少参数: key');
-    throw new Error('缺少参数: key');
+    throw new customError.MissingParameterError('key')
   }
 
   try {
@@ -68,7 +70,7 @@ const idempotencyKeyExists = async (key) => {
 const delIdempotencyKey = async (key) => {
   if (!key) {
     logger.error('utils/idempotency delIdempotencyKey 缺少参数: key');
-    throw new Error('缺少参数: key');
+    throw new customError.MissingParameterError('key')
   }
 
   try {

@@ -4,12 +4,14 @@ const {
 
 const logger = require('../utils/logger');
 
+const customError = require('../utils/customError')
+
 const checkIdempotencyKey = async (ctx, next) => {
 
   const { idempotencyKey } = ctx.request.body
   
   if (!idempotencyKey) {
-    throw new Error('缺少参数: idempotencyKey');
+    throw new customError.MissingParameterError('idempotencyKey')
   }
 
   try {
@@ -19,8 +21,7 @@ const checkIdempotencyKey = async (ctx, next) => {
       ctx.request.body.idempotencyKey = idempotencyKey
       await next()
     } else {
-      logger.error('idempotencyKey 已存在，请勿重复提交')
-      throw new Error('请勿重复提交')
+      throw new customError.IdempotencyKeyError('idempotencyKey 已存在，请勿重复提交')
     }
   } catch (error) {
     logger.error('middleware checkIdempotencyKey checkIdempotencyKey error', { error })

@@ -18,8 +18,9 @@ class AboutUsService {
 
     const imgSrcList = richTextExtractImageSrc(aboutUs).map(url => url.replace(`${BASE_URL}/`, ''));
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();  // 从连接池获取连接
+      conn = await connection.getConnection();
       await conn.beginTransaction();  // 开启事务
 
       // 仅当 imgSrcList 非空时才执行删除操作，减少数据库 IO

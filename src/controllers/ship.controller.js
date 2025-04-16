@@ -1,5 +1,7 @@
 const service = require('../services/ship.service')
 
+const customError = require('../utils/customError')
+
 class ShipController {
   async getAll(ctx, next) {
     const params = ctx.request.query
@@ -14,10 +16,10 @@ class ShipController {
 
     const { value, code } = params
     if (!value) {
-      throw new Error('缺少参数：value')
+      throw new customError.MissingParameterError('value')
     }
     if (!code) {
-      throw new Error('缺少参数：code')
+      throw new customError.MissingParameterError('code')
     }
 
     const result = await service.changeUsable(params)
@@ -30,7 +32,7 @@ class ShipController {
 
     const { goodsId } = params
     if (!goodsId) {
-      throw new Error('缺少参数：goodsId')
+      throw new customError.MissingParameterError('goodsId')
     }
 
     const result = await service.getShipProvincesOfLastBatch(params)

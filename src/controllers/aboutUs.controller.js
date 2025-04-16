@@ -1,11 +1,13 @@
 const service = require('../services/aboutUs.service')
 
+const customError = require('../utils/customError')
+
 class AboutUsController {
   async updateAboutUs(ctx, next) {
     const params = ctx.request.body
 
     if (!params.aboutUs) {
-      throw new Error('缺少参数: aboutUs')
+      throw new customError.MissingParameterError('aboutUs')
     }
 
     const result = await service.updateAboutUs(params)

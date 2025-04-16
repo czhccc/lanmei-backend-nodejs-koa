@@ -4,6 +4,8 @@ const config = require("../app/config");
 
 const logger = require("./logger");
 
+const customError = require("./customError");
+
 class RedisClient {
   constructor() {
     this.config = {
@@ -62,7 +64,7 @@ class RedisClient {
       return JSON.stringify(data);
     } catch (error) {
       logger.error("RedisUtils _safeSerialize 失败", { error });
-      throw new Error("RedisUtils _safeSerialize 失败");
+      throw new customError.InternalError("RedisUtils _safeSerialize 失败");
     }
   }
 
@@ -176,7 +178,7 @@ class RedisClient {
   async getWithVersion(key) {
     if (!key || typeof key !== "string") {
       logger.error("RedisUtils getWithVersion 无效的键值格式", { key });
-      throw new Error("RedisUtils getWithVersion 无效的键值格式");
+      throw new customError.InternalError("key", "无效的键值格式");
     }
 
     try {
@@ -270,7 +272,7 @@ class RedisClient {
    */
   async getSimply(key) {
     if (!key || typeof key !== "string") {
-      throw new Error("RedisUtils getSimply 无效的键值格式");
+      throw new customError.InternalError('RedisUtils getSimply 无效的键值格式');
     }
 
     try {
@@ -341,7 +343,7 @@ class RedisClient {
   async keyExists(keys) {
     if (!keys || (typeof keys !== "string" && !Array.isArray(keys))) {
       logger.error("RedisUtils keyExists 失败，无效的键值格式", { keys });
-      throw new Error("无效的键值格式");
+      throw new customError.InternalError("keys", "无效的键值格式");
     }
   
     // 单个 key 的情况

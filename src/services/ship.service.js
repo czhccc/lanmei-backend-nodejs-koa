@@ -6,6 +6,8 @@ const dayjs = require('dayjs');
 
 const logger = require('../utils/logger');
 
+const customError = require('../utils/customError')
+
 class CommentService {
   async getAll(params) {
     const { level, code } = params
@@ -15,7 +17,7 @@ class CommentService {
 
     if (level) {
       if (level!=='province' && level!=='city' && level!=='district') {
-        throw new Error('level值错误')
+        throw new customError.InvalidParameterError('level')
       }
       whereClause += ` AND LEVEL = ?`
       queryParams.push(level)
@@ -59,7 +61,7 @@ class CommentService {
       `, [goodsId]);
   
       if (getShipProvincesOfLastBatchResult.length === 0) {
-        throw new Error('无上一批次的配置')
+        throw new customError.ResourceNotFoundError('无上一批次的配置')
       }
       const shipProvincesOfLastBatch = getShipProvincesOfLastBatchResult[0].shipProvinces
   

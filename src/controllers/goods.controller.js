@@ -1,33 +1,47 @@
 const service = require('../services/goods.service')
 
+const {
+  enum_goods_batchType,
+  enum_media_fileType,
+  enum_media_useType
+} = require('../app/enum')
+
+const customError = require('../utils/customError')
+
 class GoodsController {
   async createOrUpdateGoods(ctx, next) {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone
     
     const { goodsName, goodsUnit, goodsIsSelling } = params;
-    if (!goodsName || !goodsUnit || goodsIsSelling===undefined) {
-      throw new Error('缺少必填字段')
+    if (!goodsName) {
+      throw new customError.MissingParameterError('goodsName')
+    }
+    if (!goodsUnit) {
+      throw new customError.MissingParameterError('goodsUnit')
+    }
+    if (goodsIsSelling===undefined) {
+      throw new customError.MissingParameterError('goodsIsSelling')
     }
 
     if (params.goodsId) {
       const { goodsId, goodsName, goodsUnit, goodsCategoryId, batchType, batchDiscountsPromotion, batchExtraOptions, batchShipProvinces } = params;
 
       if (!goodsId) {
-        throw new Error('缺少参数：goodsId')
+        throw new customError.MissingParameterError('goodsId')
       }
       if (!goodsName?.trim()) {
-        throw new Error('缺少参数：goodsName')
+        throw new customError.MissingParameterError('goodsName')
       }
       if (!goodsUnit?.trim()) {
-        throw new Error('缺少参数：goodsUnit')
+        throw new customError.MissingParameterError('goodsUnit')
       }
       if (!goodsCategoryId) {
-        throw new Error('缺少参数：goodsCategoryId')
+        throw new customError.MissingParameterError('goodsCategoryId')
       }
-  
+      
       if (batchType && !enum_goods_batchType[batchType]) {
-        throw new Error('参数格式错误：batchType')
+        throw new customError.InvalidParameterError('batchType')
       }
 
       if (params.batchType) {
@@ -37,20 +51,20 @@ class GoodsController {
         
           for (const item of batchDiscountsPromotion) {
             if (item.quantity===null || item.quantity===undefined) {
-              throw new Error('优惠策略 数量 未填写完整')
+              throw new customError.InvalidParameterError('quantity', '优惠策略 数量 未填写完整')
             }
             if (item.quantity < 0) {
-              throw new Error('优惠策略 优惠金额 须大于等于 0')
+              throw new customError.InvalidParameterError('quantity', '优惠策略 数量 须大于等于 0')
             }
             if (item.discount===null || item.discount===undefined) {
-              throw new Error('优惠策略 优惠金额 未填写完整')
+              throw new customError.InvalidParameterError('discount', '优惠策略 优惠金额 未填写完整')
             }
             if (item.discount <= 0) {
-              throw new Error('优惠策略 优惠金额 须大于 0')
+              throw new customError.InvalidParameterError('discount', '优惠策略 优惠金额 须大于 0')
             }
         
             if (quantitySet.has(item.quantity)) {
-              throw new Error(`优惠策略中数量 "${item.quantity}" 重复`)
+              throw new customError.InvalidParameterError('quantity', `优惠策略中数量 "${item.quantity}" 重复`)
             }
         
             quantitySet.add(item.quantity);
@@ -63,17 +77,17 @@ class GoodsController {
 
           for (const item of batchExtraOptions) {
             if (item.content===null || item.content===undefined || item.content.trim()==='') {
-              throw new Error('额外选项 内容 未填写完整')
+              throw new customError.InvalidParameterError('content', '额外选项 内容 未填写完整')
             }
             if (item.amount===null || item.amount===undefined) {
-              throw new Error('额外选项 金额 未填写完整')
+              throw new customError.InvalidParameterError('amount', '额外选项 金额 未填写完整')
             }
             if (item.amount < 0) {
-              throw new Error('额外选项 金额 须大于等于 0')
+              throw new customError.InvalidParameterError('amount', '额外选项 金额 须大于等于 0')
             }
 
             if (contentSet.has(item.content)) {
-              throw new Error(`额外选项 选项内容 "${item.content}" 重复`)
+              throw new customError.InvalidParameterError('content', `额外选项中内容 "${item.content}" 重复`)
             }
         
             contentSet.add(item.content);
@@ -82,7 +96,7 @@ class GoodsController {
 
         // 校验邮费规则
         if (batchShipProvinces.length === 0) {
-          throw new Error('未填写邮费规则')
+          throw new customError.InvalidParameterError('batchShipProvinces', '邮费规则 不能为空')
         }
         for (const province of batchShipProvinces) {
           if (province.freeShippingQuantity === 1) continue; // 1个就包邮
@@ -96,16 +110,16 @@ class GoodsController {
           ];
 
           if (province.baseQuantity > province.freeShippingQuantity) {
-            throw new Error('包邮数量须大于等于首重最大数量');
+            throw new customError.InvalidParameterError('baseQuantity', `${province.name} 首重最大数量须小于等于包邮数量`)
           }
 
           for (const { field, content } of validations) {
             const value = province[field];
             if (value===undefined || value===null) {
-              throw new Error(`${province.name} ${content} 未填写`);
+              throw new customError.InvalidParameterError(field, `${province.name} ${content} 未填写`)
             }
             if (value === 0) {
-              throw new Error(`${province.name} ${content} 不能为0`);
+              throw new customError.InvalidParameterError(field, `${province.name} ${content} 须大于 0`)
             }
           }
         }
@@ -118,13 +132,13 @@ class GoodsController {
       const { goodsName, goodsUnit, goodsCategoryId } = params;
 
       if (!goodsName?.trim()) {
-        throw new Error('缺少参数：goodsName')
+        throw new customError.MissingParameterError('goodsName')
       }
       if (!goodsUnit?.trim()) {
-        throw new Error('缺少参数：goodsUnit')
+        throw new customError.MissingParameterError('goodsUnit')
       }
       if (!goodsCategoryId) {
-        throw new Error('缺少参数：goodsCategoryId')
+        throw new customError.MissingParameterError('goodsCategoryId')
       }
 
       const result = await service.createGoods(params)
@@ -139,7 +153,7 @@ class GoodsController {
     
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
 
     const result = await service.getGoodsDetailById(params)
@@ -169,10 +183,10 @@ class GoodsController {
 
     const { goodsId } = params
     if (!thePhone) {
-      throw new Error('缺少参数：thePhone');
+      throw new customError.MissingParameterError('thePhone')
     }
     if (!goodsId) {
-      throw new Error('缺少参数：goodsId');
+      throw new customError.MissingParameterError('goodsId')
     }
 
     const result = await service.endCurrentBatch(params)
@@ -185,13 +199,13 @@ class GoodsController {
 
     const { id, value } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     if (typeof value === 'undefined') {
-      throw new Error('缺少参数：value');
+      throw new customError.MissingParameterError('value')
     }
     if (typeof value !== 'number' || (value !== 0 && value !== 1)) {
-      throw new Error('无效的上架状态值（必须为 0 或 1）');
+      throw new customError.InvalidParameterError('value', '上架状态值必须为 0 或 1')
     }
     
     const result = await service.changeGoodsIsSelling(params)
@@ -204,7 +218,7 @@ class GoodsController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     
     const result = await service.getHistoryBatchesList(params)
@@ -217,7 +231,7 @@ class GoodsController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     
     const result = await service.getBatchTotalInfo(params)
@@ -230,7 +244,7 @@ class GoodsController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     
     const result = await service.deleteCurrentBatch(params)
@@ -243,10 +257,10 @@ class GoodsController {
 
     const { id, cancelReason } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     if (!cancelReason?.trim()) {
-      throw new Error('缺少参数：cancelReason')
+      throw new customError.MissingParameterError('cancelReason')
     }
     
     params.thePhone = ctx.theUser.phone
@@ -260,16 +274,16 @@ class GoodsController {
 
     const { goodsId, finalPrice } = params
     if (!goodsId) {
-      throw new Error('缺少参数：goodsId')
+      throw new customError.MissingParameterError('goodsId')
     }
     if (!finalPrice) {
-      throw new Error('缺少参数：finalPrice')
+      throw new customError.MissingParameterError('finalPrice')
     }
     if (typeof goodsId !== 'number' || goodsId <= 0) {
-      throw new Error('参数格式错误: goodsId');
+      throw new customError.InvalidParameterError('goodsId')
     }
     if (typeof finalPrice !== 'number' || finalPrice <= 0) {
-      throw new Error('参数格式错误: finalPrice必须为正数');
+      throw new customError.InvalidParameterError('finalPrice')
     }
 
     params.thePhone = ctx.theUser.phone

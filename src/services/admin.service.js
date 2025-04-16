@@ -4,13 +4,15 @@ const { encryptPasswordUtil } = require('../utils/encrypt-password-util')
 
 const escapeLike = require('../utils/escapeLike')
 
-const enum_admin_role = require('../app/enum')
+const { enum_admin_role } = require('../app/enum')
 
 const {
   DEFAULT_PASSWORD
 } = require('../app/config')
 
 const logger = require('../utils/logger')
+
+const customError = require('../utils/customError')
 
 class AdminService {
   async createAdmin(params) {
@@ -21,7 +23,7 @@ class AdminService {
       const existedPhones = existedPhonesResult[0]
       let phoneExisted = existedPhones.find(item => phone === item.phone)
       if (phoneExisted) {
-        throw new Error('手机号已存在')
+        throw new customError.InvalidParameterError('phone', '该手机号已存在')
       }
       
       const hashedPassword = encryptPasswordUtil(password || DEFAULT_PASSWORD)
@@ -66,7 +68,7 @@ class AdminService {
       `, queryParams);
 
       if (result.affectedRows === 0) {
-        throw new Error('管理员不存在');
+        throw new customError.ResourceNotFoundError('管理员不存在');
       }
       return 'success';
     } catch (error) {
@@ -124,7 +126,7 @@ class AdminService {
     try {
       const [result] = await connection.execute(`DELETE FROM admin WHERE phone = ?`, [phone]);
       if (result.affectedRows === 0) {
-        throw new Error('管理员不存在');
+        throw new customError.ResourceNotFoundError('管理员不存在');
       }
       return 'success';
     } catch (error) {

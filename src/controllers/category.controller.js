@@ -1,12 +1,14 @@
 const service = require('../services/category.service')
 
+const customError = require('../utils/customError')
+
 class CategoryController {
   async updateCategory(ctx, next) {
     const params = ctx.request.body
 
     const { categoryList } = params
     if (!categoryList) {
-      throw new Error('缺少参数: categoryList')
+      throw new customError.MissingParameterError('categoryList')
     }
 
     const result = await service.updateCategory(params)

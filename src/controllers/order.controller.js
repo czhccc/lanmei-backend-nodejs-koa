@@ -1,5 +1,7 @@
 const service = require('../services/order.service')
 
+const customError = require('../utils/customError')
+
 class OrderController {
   async createOrder(ctx, next) {
     const params = ctx.request.body
@@ -7,13 +9,28 @@ class OrderController {
 
     const { goods_id, quantity, receive_provinceCode, receive_cityCode, receive_districtCode, receive_address, receive_name, receive_phone } = params
     if (!goods_id) {
-      throw new Error('缺少参数：goods_id')
+      throw new customError.MissingParameterError('goods_id')
     }
     if (!(Number.isInteger(quantity) && quantity>0)) {
-      throw new Error('商品数量必须为正整数')
+      throw new customError.InvalidParameterError('quantity', '数量须为正整数')
     }
-    if (!receive_provinceCode || !receive_cityCode || !receive_districtCode || !receive_address.trim() || !receive_name || !receive_phone) {
-      throw new Error('收货信息不完整')
+    if (!receive_provinceCode) {
+      throw new customError.MissingParameterError('receive_provinceCode')
+    }
+    if (!receive_cityCode) {
+      throw new customError.MissingParameterError('receive_cityCode')
+    }
+    if (!receive_districtCode) {
+      throw new customError.MissingParameterError('receive_districtCode')
+    }
+    if (!receive_address.trim()) {
+      throw new customError.MissingParameterError('receive_address')
+    }
+    if (!receive_name) {
+      throw new customError.MissingParameterError('receive_name')
+    }
+    if (!receive_phone) {
+      throw new customError.MissingParameterError('receive_phone')
     }
     
     const result = await service.createOrder(params)
@@ -27,7 +44,7 @@ class OrderController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
 
     const result = await service.updateOrder(params)
@@ -48,7 +65,7 @@ class OrderController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     
     const result = await service.getOrderDetailById(params)
@@ -62,7 +79,7 @@ class OrderController {
 
     const { orderId } = params
     if (!orderId) {
-      throw new Error('缺少参数：orderId')
+      throw new customError.MissingParameterError('orderId')
     }
 
     const result = await service.cancelOrder(params)
@@ -75,7 +92,7 @@ class OrderController {
 
     const { orderId } = params
     if (!orderId) {
-      throw new Error('缺少参数：orderId');
+      throw new customError.MissingParameterError('orderId')
     }
     
     const result = await service.payOrder(params)
@@ -89,10 +106,10 @@ class OrderController {
 
     const { orderId, trackingNumber } = params
     if (!orderId) {
-      throw new Error('缺少参数：orderId');
+      throw new customError.MissingParameterError('orderId')
     }
     if (!trackingNumber) {
-      throw new Error('缺少参数：trackingNumber');
+      throw new customError.MissingParameterError('trackingNumber')
     }
 
     const result = await service.shipOrder(params)
@@ -106,7 +123,7 @@ class OrderController {
 
     const { orderId } = params
     if (!orderId) {
-      throw new Error('缺少参数：orderId');
+      throw new customError.MissingParameterError('orderId')
     }
 
     const result = await service.completeOrder(params)

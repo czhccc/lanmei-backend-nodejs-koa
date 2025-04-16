@@ -1,10 +1,11 @@
+const customError = require('../utils/customError')
 
 module.exports = async (ctx, next) => {
   if (!ctx.request.query.pageNo) {
-    throw new Error('无pageNo参数')
+    throw new customError.MissingParameterError('pageNo')
   }
   if (!ctx.request.query.pageSize) {
-    throw new Error('无pageSize参数')
+    throw new customError.MissingParameterError('pageSize')
   }
   
   await next()

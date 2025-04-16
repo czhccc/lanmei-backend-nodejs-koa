@@ -1,5 +1,7 @@
 const service = require('../services/wechat.service')
 
+const customError = require('../utils/customError')
+
 class WechatController {
   async getPhoneNumber(ctx, next) {
     const params = ctx.request.body
@@ -15,22 +17,22 @@ class WechatController {
 
     const { name, phone, provinceCode, cityCode, districtCode, detail } = params
     if (!name) {
-      throw new Error('缺少参数：name')
+      throw new customError.MissingParameterError('name')
     }
     if (!phone) {
-      throw new Error('缺少参数：phone')
+      throw new customError.MissingParameterError('phone')
     }
     if (!provinceCode) {
-      throw new Error('缺少参数：provinceCode')
+      throw new customError.MissingParameterError('provinceCode')
     }
     if (!cityCode) {
-      throw new Error('缺少参数：cityCode')
+      throw new customError.MissingParameterError('cityCode')
     }
     if (!districtCode) {
-      throw new Error('缺少参数：districtCode')
+      throw new customError.MissingParameterError('districtCode')
     }
     if (!detail) {
-      throw new Error('缺少参数：detail')
+      throw new customError.MissingParameterError('detail')
     }
 
     const result = await service.addAddress(params)
@@ -42,25 +44,25 @@ class WechatController {
 
     const { id, name, phone, provinceCode, cityCode, districtCode, detail } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     if (!name) {
-      throw new Error('缺少参数：name')
+      throw new customError.MissingParameterError('name')
     }
     if (!phone) {
-      throw new Error('缺少参数：phone')
+      throw new customError.MissingParameterError('phone')
     }
     if (!provinceCode) {
-      throw new Error('缺少参数：provinceCode')
+      throw new customError.MissingParameterError('provinceCode')
     }
     if (!cityCode) {
-      throw new Error('缺少参数：cityCode')
+      throw new customError.MissingParameterError('cityCode')
     }
     if (!districtCode) {
-      throw new Error('缺少参数：districtCode')
+      throw new customError.MissingParameterError('districtCode')
     }
     if (!detail) {
-      throw new Error('缺少参数：detail')
+      throw new customError.MissingParameterError('detail')
     }
 
     const result = await service.editAddress(params)
@@ -72,7 +74,7 @@ class WechatController {
 
     const { create_by } = params
     if (!create_by) {
-      throw new Error('缺少参数：create_by')
+      throw new customError.MissingParameterError('create_by')
     }
 
     const result = await service.getAddressList(params)
@@ -84,7 +86,7 @@ class WechatController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
 
     const result = await service.deleteAddress(params)
@@ -96,7 +98,7 @@ class WechatController {
 
     const { create_by } = params
     if (!create_by) {
-      throw new Error('缺少参数：create_by')
+      throw new customError.MissingParameterError('create_by')
     }
 
     const result = await service.getDefaultAddress(params)
@@ -111,7 +113,7 @@ class WechatController {
 
     const { content } = params
     if (!content) {
-      throw new Error('缺少参数：content')
+      throw new customError.MissingParameterError('content')
     }
 
     const result = await service.notify(params)
@@ -140,7 +142,7 @@ class WechatController {
 
     const { list } = params
     if (!list) {
-      throw new Error('缺少参数：list')
+      throw new customError.MissingParameterError('list')
     }
     
     const result = await service.editRecommendList(params)
@@ -164,7 +166,7 @@ class WechatController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
 
     const result = await service.getNewsDetail(params)
@@ -176,10 +178,10 @@ class WechatController {
 
     const { title, content } = params
     if (!title) {
-      throw new Error('缺少参数：title')
+      throw new customError.MissingParameterError('title')
     }
     if (!content) {
-      throw new Error('缺少参数：content')
+      throw new customError.MissingParameterError('content')
     }
 
     const result = await service.addNews(params)
@@ -191,13 +193,13 @@ class WechatController {
 
     const { id, title, content } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     if (!title?.trim()) {
-      throw new Error('缺少参数：title')
+      throw new customError.MissingParameterError('title')
     }
     if (!content?.trim()) {
-      throw new Error('缺少参数：content')
+      throw new customError.MissingParameterError('content')
     }
 
     const result = await service.editNews(params)
@@ -209,7 +211,7 @@ class WechatController {
 
     const { id } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
 
     const result = await service.deleteNews(params)
@@ -221,10 +223,10 @@ class WechatController {
 
     const { id, value } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     if (value === undefined) {
-      throw new Error('缺少参数：value')
+      throw new customError.MissingParameterError('value')
     }
 
     const result = await service.showNews(params)
@@ -236,10 +238,10 @@ class WechatController {
 
     const { id, value } = params
     if (!id) {
-      throw new Error('缺少参数：id')
+      throw new customError.MissingParameterError('id')
     }
     if (value === undefined) {
-      throw new Error('缺少参数：value')
+      throw new customError.MissingParameterError('value')
     }
 
     const result = await service.pinNews(params)

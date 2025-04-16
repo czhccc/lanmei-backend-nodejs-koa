@@ -293,7 +293,7 @@ CREATE TABLE `goods`  (
   `batch_minQuantity` decimal(10, 1) NULL DEFAULT NULL,
   `batch_extraOptions` json NULL COMMENT '额外选项',
   `batch_discounts_promotion` json NULL COMMENT '优惠策略',
-  `batch_shipProvinces` json NULL COMMENT '可邮寄区域',
+  `batch_ship_provinces` json NULL COMMENT '可邮寄区域',
   `batch_remark` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updateTIme` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

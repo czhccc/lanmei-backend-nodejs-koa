@@ -10,25 +10,31 @@ const {
 
 const logger = require('../utils/logger')
 
+const customError = require('../utils/customError')
+
 // 验证参数
 const verifyLoginParams = async (ctx, next) => {
   const { phone, password } = ctx.request.body
   
   if (!phone) {
-    throw new Error('缺少参数：phone')
+    throw new customError.MissingParameterError('phone')
   }
   if (!password) {
-    throw new Error('缺少参数：password')
+    throw new customError.MissingParameterError('password')
   }
 
   const adminByPhone = await AuthService.getAdminByPhone(phone)
   if (adminByPhone.length <= 0) {
+
     logger.warn('该手机号的admin不存在')
-    throw new Error('该手机号的admin不存在')
+    
+    throw new customError.InvalidParameterError('phone', '该手机号的admin不存在')
   } else {
     if (!comparePasswordUtil(password, adminByPhone[0].password)) {
+
       logger.warn('admin密码错误')
-      throw new Error('密码错误')
+
+      throw new customError.InvalidParameterError('password', 'admin密码错误')
     }
   }
 
@@ -41,7 +47,7 @@ const verifyToken = async (ctx, next) => {
   const authorization = ctx.headers.authorization
   
   if (!authorization) {
-    throw new Error('未授权')
+    throw new customError.InvalidTokenError()
   }
 
   const token = authorization.replace('Bearer ', '')
@@ -53,7 +59,7 @@ const verifyToken = async (ctx, next) => {
     })
     ctx.theUser = adminInfo
   } catch (error) {
-    throw new Error('未授权')
+    throw new customError.InvalidTokenError()
   }
   
   await next()

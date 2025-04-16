@@ -12,9 +12,7 @@ const {
   generateOrderNo
 } = require('../utils/generateSomething')
 
-const enum_order_status = require('../app/enum');
-
-const logger = require('../utils/logger');
+const { enum_order_status } = require('../app/enum');
 
 const redisUtils = require('../utils/redisUtils');
 
@@ -23,13 +21,19 @@ const {
   delIdempotencyKey
 } = require('../utils/idempotency')
 
+const logger = require('../utils/logger');
+
+const customError = require('../utils/customError')
+
 class OrderService {
   async createOrder(params) {
+
+    let conn = null;
     try {
       
       setIdempotencyKey(params.idempotencyKey)
 
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
   
       const {
@@ -49,20 +53,20 @@ class OrderService {
           batch_stock_remainingQuantity, batch_stock_unitPrice,
           batch_discounts_promotion, 
           batch_extraOptions, 
-          batch_shipProvinces,
+          batch_ship_provinces, batch_ship_canHomeDelivery, 
           goods_coverImage, goods_name, goods_unit, goods_remark, goods_richText
         FROM goods WHERE id = ? FOR UPDATE`,
         [goods_id]
       );
       if (batchInfoResult.length === 0) {
-        throw new Error('商品不存在')
+        throw new customError.ResourceNotFoundError('商品不存在')
       }
       const batchInfo = batchInfoResult[0];
       if (!batchInfo.batch_type) {
-        throw new Error('商品已下架');
+        throw new customError.InvalidLogicError('商品已下架')
       }
       if (batchInfo.goods_isSelling === 0) {
-        throw new Error('商品已下架');
+        throw new customError.InvalidLogicError('商品已下架')
       }
 
       // 校验省市区信息
@@ -76,19 +80,30 @@ class OrderService {
           receive_provinceCode, receive_cityCode, receive_districtCode
         ]
       );
-      if (areas.length !== 3) throw new Error('地址信息不完整');
+      if (areas.length !== 3) {
+        throw new customError.MissingParameterError('收货地址信息不完整')
+      }
       const [province, city, district] = areas;
 
-      if (province.level !== 'province') throw new Error('所选省份不存在数据库中');
-      if (city.parent_code !== province.code) throw new Error('所选市不属于所选省');
-      if (district.parent_code !== city.code) throw new Error('所选区不属于所选市');
+      if (province.level !== 'province') {
+        throw new customError.InvalidParameterError('所选省份不在数据库中')
+      }
+      if (city.parent_code !== province.code) {
+        throw new customError.InvalidParameterError('所选市不属于所选省')
+      }
+      if (district.parent_code !== city.code) {
+        throw new customError.InvalidParameterError('所选区不属于所选市')
+      }
 
-      const shipProvincesCodes = batchInfo.batch_shipProvinces.map(item => item.code);
+      const shipProvincesCodes = batchInfo.batch_ship_provinces.map(item => item.code);
       if (!shipProvincesCodes.includes(receive_provinceCode)) {
-        throw new Error('所选省份暂不支持配送');
+        throw new customError.InvalidLogicError('所选省份暂不支持配送')
       }
       if (receive_isHomeDelivery && district.name !== '嵊州市') {
-        throw new Error('只有嵊州市可以送货上门');
+        throw new customError.InvalidLogicError('只有嵊州市可以送货上门')
+      }
+      if (receive_isHomeDelivery && batch_ship_canHomeDelivery!==1) {
+        throw new customError.InvalidLogicError('当前不支持嵊州市送货上门')
       }
 
       // ====================== 按批次类型处理 ======================
@@ -112,10 +127,10 @@ class OrderService {
   
         if (updateResult.affectedRows === 0) {
           if (Number(batchInfo.batch_stock_remainingQuantity) === 0) {
-            throw new Error('商品库存为0')
+            throw new customError.InvalidLogicError('商品库存为0')
           }
           if (Number(batchInfo.batch_stock_remainingQuantity) < quantity) {
-            throw new Error('商品库存不足');
+            throw new customError.InvalidLogicError('商品库存不足')
           }
         }
       }
@@ -208,8 +223,10 @@ class OrderService {
   }
 
   async updateOrder(params) {
+
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       // 允许修改的字段白名单
@@ -229,7 +246,9 @@ class OrderService {
         `SELECT ${Array.from(allowedFields).join(', ')} FROM orders WHERE id = ? FOR UPDATE`,
         [params.id]
       );
-      if (orderResult.length === 0) throw new Error('订单不存在');
+      if (orderResult.length === 0) {
+        throw new customError.ResourceNotFoundError('订单不存在')
+      }
       const originalOrder = orderResult[0];
 
       // ------------ 阶段2：构建更新数据 ------------
@@ -265,25 +284,36 @@ class OrderService {
           addressParams.provinceCode, addressParams.cityCode, addressParams.districtCode
         ]
       );
-      if (areas.length !== 3) throw new Error('地址信息不完整');
+      if (areas.length !== 3) {
+        throw new customError.MissingParameterError('收货地址信息不完整')
+      }
       const [province, city, district] = areas;
 
       // 层级验证
-      if (province.level !== 'province') throw new Error('所选省份不存在数据库中');
-      if (city.parent_code !== province.code) throw new Error('所选市不属于所选省');
-      if (district.parent_code !== city.code) throw new Error('所选区不属于所选市');
+      if (province.level !== 'province') {
+        throw new customError.InvalidParameterError('所选省份不在数据库中')
+      }
+      if (city.parent_code !== province.code) {
+        throw new customError.InvalidParameterError('所选市不属于所选省')
+      }
+      if (district.parent_code !== city.code) {
+        throw new customError.InvalidParameterError('所选区不属于所选市')
+      }
 
       // 检查配送范围
       const [goodsResult] = await conn.execute(
-        `SELECT batch_shipProvinces FROM goods WHERE id = ?`,
+        `SELECT batch_ship_provinces, batch_ship_canHomeDelivery FROM goods WHERE id = ?`,
         [originalOrder.goods_id]
       );
-      const shipProvinces = goodsResult[0].batch_shipProvinces || '[]';
+      const shipProvinces = goodsResult[0].batch_ship_provinces || '[]';
       if (!shipProvinces.some(item => item.code === province.code)) {
-        throw new Error('当前省份不支持配送');
+        throw new customError.InvalidLogicError('当前省份不支持配送')
       }
       if (addressParams.isHomeDelivery && district.name !== '嵊州市') {
-        throw new Error('仅嵊州市支持送货上门');
+        throw new customError.InvalidLogicError('只有嵊州市可以送货上门')
+      }
+      if (addressParams.isHomeDelivery && batch_ship_canHomeDelivery!==1) {
+        throw new customError.InvalidLogicError('当前不支持嵊州市送货上门')
       }
 
       if (updateData.receive_provinceCode) {
@@ -399,15 +429,16 @@ class OrderService {
   async getOrderDetailById(params) {
     const { id } = params
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
 
       const [orderDetailResult] = await conn.execute(`
         SELECT * FROM orders WHERE id = ? FOR UPDATE
       `, [id]);
 
       if (orderDetailResult.length === 0) {
-        throw new Error('订单不存在')
+        throw new customError.ResourceNotFoundError('订单不存在')
       }
 
       const orderDetail = orderDetailResult[0]
@@ -449,11 +480,11 @@ class OrderService {
           SELECT status FROM orders WHERE id = ? LIMIT 1
         `, [orderId]);
         if (orderDetailResult.length === 0) {
-          throw new Error('订单不存在')
+          throw new customError.ResourceNotFoundError('订单不存在')
         }
         const orderInfo = orderDetailResult[0]
         if (orderInfo.status !== 'reserved') {
-          throw new Error('此订单非预订状态，无法取消预订')
+          throw new customError.InvalidLogicError('订单非预订状态，无法取消预订')
         }
       }
 
@@ -472,11 +503,12 @@ class OrderService {
   async payOrder(params) {
     const { orderId } = params
     
+    let conn = null;
     try {
 
       setIdempotencyKey(params.idempotencyKey)
 
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [getOrderInfoResult] = await conn.execute(
@@ -487,19 +519,19 @@ class OrderService {
       );
 
       if (getOrderInfoResult.length === 0) {
-        throw new Error('订单不存在');
+        throw new customError.ResourceNotFoundError('订单不存在')
       }
 
       const orderInfo = getOrderInfoResult[0]
 
       if (orderInfo.status !== 'unpaid') {
-        throw new Error('订单不是未付款状态');
+        throw new customError.InvalidLogicError('订单不是未付款状态')
       }
 
       // ------------------------------------------------------
       const batchInfoResult = await conn.execute(
         `SELECT 
-          batch_shipProvinces, batch_discounts_promotion, batch_preorder_finalPrice, batch_stock_unitPrice
+          batch_ship_provinces, batch_discounts_promotion, batch_preorder_finalPrice, batch_stock_unitPrice
           FROM goods WHERE id = ? FOR UPDATE`,
         [orderInfo.goods_id]
       );
@@ -507,9 +539,9 @@ class OrderService {
 
       // 计算邮费
       let postage = null
-      let postageRule = batchInfo.batch_shipProvinces.find(item => item.code === orderInfo.receive_provinceCode)
+      let postageRule = batchInfo.batch_ship_provinces.find(item => item.code === orderInfo.receive_provinceCode)
       if (!postageRule) {
-        throw new Error('当前省份无有效邮费规则');
+        throw new customError.InvalidLogicError('当前省份无有效邮费规则')
       }
       if (postageRule.freeShippingQuantity && orderInfo.quantity>=postageRule.freeShippingQuantity) { // 达到包邮条件
         postage = 0
@@ -524,7 +556,7 @@ class OrderService {
         }
       }
       if (postage < 0 ) {
-        throw new Error('邮费计算异常');
+        throw new customError.CalculationError('邮费计算异常')
       }
 
       // 计算满减优惠
@@ -606,16 +638,16 @@ class OrderService {
         );
   
         if (getOrderInfoResult.length === 0) {
-          throw new Error('订单不存在');
+          throw new customError.ResourceNotFoundError('订单不存在')
         }
   
         const orderInfo = getOrderInfoResult[0]
   
         if (orderInfo.status !== 'paid') {
-          throw new Error('订单不是已付款状态');
+          throw new customError.InvalidLogicError('订单不是已付款状态')
         }
 
-        throw new Error('存在未知错误，操作失败')
+        throw new customError.InvalidLogicError('操作失败')
       }
 
       return 'success';
@@ -655,16 +687,16 @@ class OrderService {
         );
   
         if (getOrderInfoResult.length === 0) {
-          throw new Error('订单不存在');
+          throw new customError.ResourceNotFoundError('订单不存在')
         }
   
         const orderInfo = getOrderInfoResult[0]
   
         if (orderInfo.status !== 'paid') {
-          throw new Error('订单不是已付款状态');
+          throw new customError.InvalidLogicError('订单不是已付款状态')
         }
 
-        throw new Error('操作失败，请联系管理员')
+        throw new customError.InvalidLogicError('操作失败')
       }
 
       return 'success';
@@ -692,16 +724,16 @@ class OrderService {
     // generateOrderInfo有直接被其他createOrder service内部使用，参数校验直接放service里
     if (!isCreatingOrder) {
       if (!goodsId) {
-        throw new Error('缺少参数：goodsId')
+        throw new customError.MissingParameterError('goodsId')
       }
       if (!quantity) {
-        throw new Error('缺少参数：quantity')
+        throw new customError.MissingParameterError('quantity')
       }
       if (!(Number.isInteger(quantity) && quantity>0)) {
-        throw new Error('商品数量必须为正整数')
+        throw new customError.InvalidParameterError('quantity')
       }
       if (!Array.isArray(extraOptionsIds)) {
-        throw new Error('参数格式错误：extraOptions')
+        throw new customError.InvalidParameterError('extraOptions')
       }
     }
 
@@ -721,22 +753,22 @@ class OrderService {
             batch_stock_unitPrice,
             batch_discounts_promotion,
             batch_extraOptions,
-            batch_shipProvinces
+            batch_ship_provinces
           FROM goods WHERE id = ?`,
           [goodsId]
         );
         batchInfo = batchInfoResult[0];
         if (batchInfoResult.length === 0) {
-          throw new Error('商品不存在');
+          throw new customError.ResourceNotFoundError('商品不存在')
         }
         if (!batchInfo.batch_type) {
-          throw new Error('商品已下架');
+          throw new customError.InvalidLogicError('商品已下架')
         }
         if (batchInfo.goods_isSelling === 0) {
-          throw new Error('商品已下架');
+          throw new customError.InvalidLogicError('商品已下架')
         }
         if (batchInfo.batch_type==='stock' && batchInfo.batch_stock_remainingQuantity<quantity) {
-          throw new Error('商品库存不足');
+          throw new customError.InvalidLogicError('商品库存不足')
         }
       }
       
@@ -769,7 +801,7 @@ class OrderService {
           const extraOption = batchInfo.batch_extraOptions.find(item => item.id === id);
 
           if (!extraOption) {
-            throw new Error(`额外选项 id:${id} 不存在`);
+            throw new customError.InvalidParameterError(`额外选项 id:${id} 不存在`)
           }
 
           extraOptions.push(extraOption);
@@ -788,9 +820,9 @@ class OrderService {
       }
 
       if (provinceCode) { // 有收获地址
-        const provinceRule = batchInfo.batch_shipProvinces.find(item => item.code===provinceCode);
+        const provinceRule = batchInfo.batch_ship_provinces.find(item => item.code===provinceCode);
         if (!provinceRule) {
-          throw new Error('所选省份暂不支持配送');
+          throw new customError.InvalidLogicError('所选省份暂不支持配送')
         }
 
         // 计算邮费逻辑（复用订单创建逻辑）

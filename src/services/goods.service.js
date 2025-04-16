@@ -20,11 +20,9 @@ const wechatService = require('./wechat.service');
 
 const redisUtils = require('../utils/redisUtils')
 
-const enum_goods_batchType = require('../app/enum')
-const enum_media_fileType = require('../app/enum')
-const enum_media_useType = require('../app/enum')
-
 const logger = require('../utils/logger');
+
+const customError = require('../utils/customError')
 
 class GoodsService {
   async createGoods(params) {
@@ -70,17 +68,19 @@ class GoodsService {
       batchDiscountsPromotion,
       batchExtraOptions,
       batchShipProvinces,
+      batchShipCanHomeDelivery,
       batchRemark,
     } = params;
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [currentGoodsInfoResult] = await conn.execute(`SELECT batch_type FROM goods WHERE id = ? FOR UPDATE`, [goodsId]);
       const currentGoodsInfo = currentGoodsInfoResult[0]
       if (currentGoodsInfo.batch_type) {
-        throw new Error('存在当前批次，无法更改商品信息')
+        throw new customError.InvalidLogicError('商品有当前批次，无法修改')
       }
 
       // 删除封面图、轮播图和富文本的图片记录
@@ -145,14 +145,14 @@ class GoodsService {
         let batchStatement = `
           UPDATE goods
             SET batch_startBy=?, batch_no=?, batch_type=?, batch_startTime=?, batch_minQuantity=?, 
-                batch_discounts_promotion=?, batch_extraOptions=?, batch_shipProvinces=?, batch_remark=?, 
+                batch_discounts_promotion=?, batch_extraOptions=?, batch_ship_provinces=?, batch_ship_canHomeDelivery=?, batch_remark=?, 
                 batch_preorder_minPrice=?, batch_preorder_maxPrice=?, 
                 batch_stock_unitPrice=?, batch_stock_totalQuantity=?, batch_stock_remainingQuantity=?
           WHERE id=?
         `;
         const [batchResult] = await conn.execute(batchStatement, [
           thePhone, batchNo || generateBatchNo(), batchType, batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'), batchMinQuantity,
-          JSON.stringify(batchDiscountsPromotion||[]), JSON.stringify(handledBatchExtraOptions||[]), JSON.stringify(batchShipProvinces), batchRemark,
+          JSON.stringify(batchDiscountsPromotion||[]), JSON.stringify(handledBatchExtraOptions||[]), JSON.stringify(batchShipProvinces), batchShipCanHomeDelivery, batchRemark,
           batchPreorderMinPrice || null, batchPreorderMaxPrice || null,
           batchStockUnitPrice || null, batchStockTotalQuantity || null, batchStockTotalQuantity || null,
           goodsId
@@ -192,7 +192,7 @@ class GoodsService {
       ]);
 
       if (goodsInfo[0].length === 0) {
-        throw new Error('商品不存在');
+        throw new customError.ResourceNotFoundError('商品不存在')
       }
 
       let swiperList = swiperInfo[0].map(item => {
@@ -343,8 +343,9 @@ class GoodsService {
   async endCurrentBatch(params) {
     const { thePhone, goodsId } = params
     
+    let conn = null;
     try {
-      const conn = await connection.getConnection();  // 从连接池获取连接
+      conn = await connection.getConnection();
       await conn.beginTransaction();  // 开启事务
 
       // ====================== 1. 查询商品信息并加锁 ======================
@@ -353,16 +354,16 @@ class GoodsService {
         [goodsId]
       );
       if (batchInfoResult.length === 0) {
-        throw new Error('商品不存在');
+        throw new customError.ResourceNotFoundError(`商品不存在`)
       }
       const batchInfo = batchInfoResult[0];
 
       // ====================== 2. 基础校验 ======================
       if (!batchInfo.batch_no) {
-        throw new Error('无当前批次')
+        throw new customError.InvalidLogicError('商品无当前批次')
       }
       if (batchInfo.batch_type==='preorder' && !batchInfo.batch_preorder_finalPrice) {
-        throw new Error('预订阶段无法结束批次')
+        throw new customError.InvalidLogicError('预订阶段无法结束批次')
       }
       
       // ====================== 3. 统计订单状态（优化查询） ======================
@@ -382,10 +383,10 @@ class GoodsService {
       } = ordersStatusResult[0] || {};
 
       if (unfinishedCount > 0) {
-        throw new Error('存在未完结订单，无法结束批次');
+        throw new customError.InvalidLogicError('存在未完结的订单，无法结束批次')
       }
       if (totalOrdersCount === 0) {
-        throw new Error('订单数为0，无法结束批次');
+        throw new customError.InvalidLogicError('订单数为0，无法结束批次')
       }
 
       // ====================== 计算总收入 ======================
@@ -422,7 +423,7 @@ class GoodsService {
           batch_preorder_maxPrice = NULL,
           batch_minQuantity = NULL,
           batch_discounts_promotion = NULL,
-          batch_shipProvinces = NULL,
+          batch_ship_provinces = NULL,
           batch_remark = NULL,
           batch_stock_totalQuantity = NULL,
           batch_stock_remainingQuantity = NULL
@@ -447,7 +448,7 @@ class GoodsService {
         minQuantity: batchInfo.batch_minQuantity,
         discounts_promotion: JSON.stringify(batchInfo.batch_discounts_promotion || []),
         coverImage: batchInfo.goods_coverImage || '',
-        shipProvinces: JSON.stringify(batchInfo.batch_shipProvinces || []),
+        shipProvinces: JSON.stringify(batchInfo.batch_ship_provinces || []),
         remark: batchInfo.batch_remark || '',
         status: 'completed',
         totalOrdersCount,
@@ -491,8 +492,9 @@ class GoodsService {
   async changeGoodsIsSelling(params) {
     const { id, value } = params
     
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const [batchInfoResult] = await connection.execute(`
@@ -506,18 +508,18 @@ class GoodsService {
         FOR UPDATE
       `, [id])
       if (batchInfoResult.length === 0) {
-        throw new Error(`ID为 ${id} 的商品不存在`)
+        throw new customError.ResourceNotFoundError(`商品不存在`)
       }
       const batchInfo = batchInfoResult[0]
       if (!batchInfo.batch_type) {
-        throw new Error('商品无当前批次')
+        throw new customError.InvalidLogicError('商品无当前批次')
       }
 
       if (batchInfo.batch_type==='preorder' && batchInfo.batch_preorder_finalPrice) {
-        throw new Error('售卖阶段的预订批次无法上架')
+        throw new customError.InvalidLogicError('交付阶段无法上架')
       }
       if (batchInfo.batch_type==='stock' && batchInfo.batch_stock_remainingQuantity <= 0) {
-        throw new Error('商品余量为0')
+        throw new customError.InvalidLogicError('商品库存为0，无法上架')
       }
 
       const updateResult = await connection.execute(
@@ -607,11 +609,11 @@ class GoodsService {
         [id]
       )
       if (batchInfoResult.length === 0) {
-        throw new Error(`ID为 ${id} 的商品不存在`)
+        throw new customError.ResourceNotFoundError(`商品不存在`)
       }
       const batchInfo = batchInfoResult[0]
       if (!batchInfo.batch_type) {
-        throw new Error('无当前批次')
+        throw new customError.InvalidLogicError('商品无当前批次')
       }
       
       if (batchInfo.batch_type === 'preorder') { // 预订
@@ -711,8 +713,9 @@ class GoodsService {
   async deleteCurrentBatch(params) {
     const { id } = params
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       // ====================== 1. 查询商品信息并加锁 ======================
@@ -721,12 +724,12 @@ class GoodsService {
         [id]
       );
       if (batchInfoResult.length === 0) {
-        throw new Error('商品不存在');
+        throw new customError.ResourceNotFoundError(`商品不存在`)
       }
       const batchInfo = batchInfoResult[0];
       
       if (!batchInfo.batch_no) {
-        throw new Error('无当前批次');
+        throw new customError.ResourceNotFoundError('商品无当前批次')
       }
 
       // ====================== 2. 检查是否有订单（事务内查询） ======================
@@ -735,7 +738,7 @@ class GoodsService {
         [batchInfo.batch_no]
       );
       if (ordersCountResult.length > 0) {
-        throw new Error('当前批次已有订单');
+        throw new customError.InvalidLogicError('当前批次已有订单，无法删除')
       }
 
       // ====================== 3. 执行批次删除操作 ======================
@@ -750,7 +753,7 @@ class GoodsService {
         batch_preorder_maxPrice: null,
         batch_minQuantity: null,
         batch_discounts_promotion: null,
-        batch_shipProvinces: null,
+        batch_ship_provinces: null,
         batch_remark: null,
         batch_stock_totalQuantity: null,
         batch_stock_remainingQuantity: null,
@@ -786,8 +789,9 @@ class GoodsService {
   async cancelAllOrdersInCurrentBatch(params) {
     const { thePhone, id, cancelReason } = params;
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
 
       const nowTime = dayjs().format('YYYY-MM-DD HH:mm:ss'); // 统一时间戳
@@ -798,7 +802,7 @@ class GoodsService {
           goods_categoryId,
           batch_no, batch_type, batch_startTime, batch_startBy,
           batch_preorder_minPrice, batch_preorder_maxPrice, batch_preorder_finalPrice,
-          batch_stock_unitPrice, batch_minQuantity, batch_discounts_promotion, batch_shipProvinces,
+          batch_stock_unitPrice, batch_minQuantity, batch_discounts_promotion, batch_ship_provinces,
           batch_remark, goods_name, goods_unit, goods_remark, goods_richText, goods_coverImage
             FROM goods WHERE id = ? 
             FOR UPDATE
@@ -806,15 +810,15 @@ class GoodsService {
         [id]
       );
       if (batchInfoResult.length === 0) {
-        throw new Error('商品不存在');
+        throw new customError.ResourceNotFoundError('商品不存在')
       }
       const batchInfo = batchInfoResult[0];
 
       if (!batchInfo.batch_no) {
-        throw new Error('无当前批次');
+        throw new customError.ResourceNotFoundError('商品无当前批次')
       }
       if (batchInfo.batch_type !== 'preorder') {
-        throw new Error('当前非预订批次');
+        throw new customError.InvalidLogicError('当前非预订批次')
       }
 
       // ====================== 3. 检查订单 ======================
@@ -828,7 +832,7 @@ class GoodsService {
       );
       
       if (ordersInfoResult[0].totalOrdersCount === 0) {
-        throw new Error('当前批次无订单');
+        throw new customError.InvalidLogicError('当前批次无订单')
       }
       const ordersInfo = ordersInfoResult[0]
       
@@ -845,7 +849,7 @@ class GoodsService {
            batch_preorder_maxPrice = NULL,
            batch_minQuantity = NULL,
            batch_discounts_promotion = NULL,
-           batch_shipProvinces = NULL,
+           batch_ship_provinces = NULL,
            batch_remark = NULL,
            goods_isSelling = 0
          WHERE id = ?`,
@@ -881,7 +885,7 @@ class GoodsService {
         minQuantity: batchInfo.batch_minQuantity,
         discounts_promotion: JSON.stringify(batchInfo.batch_discounts_promotion || []),
         coverImage: batchInfo.goods_coverImage || '',
-        shipProvinces: JSON.stringify(batchInfo.batch_shipProvinces || []),
+        shipProvinces: JSON.stringify(batchInfo.batch_ship_provinces || []),
         remark: batchInfo.batch_remark || '',
         status: 'canceled',
         cancel_reason: cancelReason,
@@ -924,8 +928,9 @@ class GoodsService {
   async preorderBatchIsReadyToSell(params) {
     const { thePhone, goodsId, finalPrice } = params
 
+    let conn = null;
     try {
-      const conn = await connection.getConnection();
+      conn = await connection.getConnection();
       await conn.beginTransaction();
       
       // ====================== 查询商品信息并加锁 ======================
@@ -939,18 +944,18 @@ class GoodsService {
         [goodsId]
       );
       if (batchInfoResult.length === 0) {
-        throw new Error('商品不存在');
+        throw new customError.ResourceNotFoundError('商品不存在')
       }
       const batchInfo = batchInfoResult[0];
 
       if (!batchInfo.batch_no) {
-        throw new Error('无当前批次');
+        throw new customError.ResourceNotFoundError('商品无当前批次')
       }
       if (batchInfo.batch_type !== 'preorder') {
-        throw new Error('当前非预订批次');  // 修正拼写错误：Errpr -> Error
+        throw new customError.InvalidLogicError('当前非预订批次')
       }
       if (finalPrice<batchInfo.batch_preorder_minPrice || finalPrice>batchInfo.batch_preorder_maxPrice) {
-        throw new Error('定价不在价格区间内')
+        throw new customError.InvalidLogicError('最终价格不在预订价格范围内')
       }
 
       // ====================== 检查订单数量（事务内查询） ======================
@@ -959,7 +964,7 @@ class GoodsService {
         [batchInfo.batch_no]
       );
       if (ordersCountResult[0].totalOrdersCount === 0) {
-        throw new Error('当前批次无订单');
+        throw new customError.InvalidLogicError('当前批次无订单')
       }
 
       // ====================== 更新批次最终价格 ======================

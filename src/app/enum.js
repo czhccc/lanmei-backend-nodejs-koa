@@ -24,8 +24,8 @@ const enum_media_fileType = Object.freeze({
 })
 
 const enum_media_useType = Object.freeze({
-  image: 'swiper',
-  video: 'richText',
+  swiper: 'swiper',
+  richText: 'richText',
 })
 
 const enum_shipArea_level = Object.freeze({
