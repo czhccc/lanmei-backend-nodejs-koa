@@ -32,7 +32,7 @@ class CommentService {
 
       return result[0];
     } catch (error) {
-      logger.error('service error: getAll', { error })
+      logger.error('service', 'service error: getAll', { error })
       throw error;
     }
   }
@@ -45,9 +45,9 @@ class CommentService {
         UPDATE ship_areas SET usable = ? WHERE code LIKE ?
       `, [value, `${escapeLike(code)}%`]);
 
-      return 'success';   
+      return '操作成功';   
     } catch (error) {
-      logger.error('service error: changeUsable', { error })
+      logger.error('service', 'service error: changeUsable', { error })
       throw error
     }
   }
@@ -99,7 +99,7 @@ class CommentService {
         finalResult
       }   
     } catch (error) {
-      logger.error('service error: getShipProvincesOfLastBatch', { error })
+      logger.error('service', 'service error: getShipProvincesOfLastBatch', { error })
       throw error
     }
   }

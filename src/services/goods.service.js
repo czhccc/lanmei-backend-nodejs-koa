@@ -39,7 +39,7 @@ class GoodsService {
   
       return result[0].insertId      
     } catch (error) {
-      logger.error('service error: createGoods', { error })
+      logger.error('service', 'service error: createGoods', { error })
       throw error
     }
   }
@@ -164,11 +164,11 @@ class GoodsService {
 
       await conn.commit();
 
-      return 'success'
+      return '更新成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: updateGoods', { error })
+      logger.error('service', 'service error: updateGoods', { error })
       
       throw error
     } finally {
@@ -213,7 +213,7 @@ class GoodsService {
 
       return goods
     } catch (error) {
-      logger.error('service error: getGoodsDetailById', { error })
+      logger.error('service', 'service error: getGoodsDetailById', { error })
       throw error
     }
   }
@@ -275,7 +275,7 @@ class GoodsService {
         }),
       };   
     } catch (error) {
-      logger.error('service error: getGoodsList', { error })
+      logger.error('service', 'service error: getGoodsList', { error })
       throw error
     }
   }
@@ -335,7 +335,7 @@ class GoodsService {
         records: theGoodsList
       };   
     } catch (error) {
-      logger.error('service error: getGoodsListForWechat', { error })
+      logger.error('service', 'service error: getGoodsListForWechat', { error })
       throw error
     }
   }
@@ -477,11 +477,11 @@ class GoodsService {
       
       wechatService.cleanRecommendList()
 
-      return 'success'
+      return '操作成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: endCurrentBatch', { error })
+      logger.error('service', 'service error: endCurrentBatch', { error })
       
       throw error;
     } finally {
@@ -537,11 +537,11 @@ class GoodsService {
         wechatService.cleanRecommendList()
       }
 
-      return 'success'
+      return '操作成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: changeGoodsIsSelling', { error })
+      logger.error('service', 'service error: changeGoodsIsSelling', { error })
       
       throw error
     } finally {
@@ -595,7 +595,7 @@ class GoodsService {
         records: dataResult[0],
       };
     } catch (error) {
-      logger.error('service error: getHistoryBatchesList', { error })
+      logger.error('service', 'service error: getHistoryBatchesList', { error })
       throw error
     }
   }
@@ -705,7 +705,7 @@ class GoodsService {
         }
       }   
     } catch (error) {
-      logger.error('service error: getBatchTotalInfo', { error })
+      logger.error('service', 'service error: getBatchTotalInfo', { error })
       throw error
     }
   }
@@ -774,11 +774,11 @@ class GoodsService {
 
       wechatService.cleanRecommendList()
 
-      return 'success'
+      return '删除成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: deleteCurrentBatch', { error })
+      logger.error('service', 'service error: deleteCurrentBatch', { error })
       
       throw error;
     } finally {
@@ -913,11 +913,11 @@ class GoodsService {
 
       wechatService.cleanRecommendList()
 
-      return 'success';
+      return '操作成功';
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: cancelAllOrdersInCurrentBatch', { error })
+      logger.error('service', 'service error: cancelAllOrdersInCurrentBatch', { error })
       
       throw error
     } finally {
@@ -997,11 +997,11 @@ class GoodsService {
 
       wechatService.cleanRecommendList()
 
-      return 'success'
+      return '操作成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: preorderBatchIsReadyToSell', { error })
+      logger.error('service', 'service error: preorderBatchIsReadyToSell', { error })
       
       throw error;
     } finally {

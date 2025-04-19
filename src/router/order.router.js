@@ -6,7 +6,7 @@ const { verifyToken } = require('../middlewares/auth.middleware')
 
 const tableResponseHandler = require('../middlewares/table-response-handler');
 
-const checkIdempotencyKey = require('../middlewares/checkIdempotencyKey')
+const checkIdempotencyKey = require('../middlewares/checkIdempotencyKey.middleware')
 
 const orderRouter = new Router({prefix: '/order'})
 

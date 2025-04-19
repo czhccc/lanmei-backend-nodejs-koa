@@ -41,9 +41,9 @@ class CommentService {
         [comment, author]
       )
 
-      return 'success'
+      return '留言成功'
     } catch (error) {
-      logger.error('service error: comment', { error })
+      logger.error('service', 'service error: comment', { error })
 
       delIdempotencyKey(params.idempotencyKey)
       
@@ -116,7 +116,7 @@ class CommentService {
         records: result,
       };
     } catch (error) {
-      logger.error('service error: getCommentList', { error })
+      logger.error('service', 'service error: getCommentList', { error })
       throw error
     }
   }
@@ -135,9 +135,9 @@ class CommentService {
         [commentId, response, author]
       )
 
-      return 'success'
+      return '回复成功'
     } catch (error) {
-      logger.error('service error: response', { error })
+      logger.error('service', 'service error: response', { error })
       throw error
     }
   }
@@ -178,7 +178,7 @@ class CommentService {
       
       return comment
     } catch (error) {
-      logger.error('service error: getCommentDetailById', { error })
+      logger.error('service', 'service error: getCommentDetailById', { error })
       throw error
     }
   }
@@ -240,7 +240,7 @@ class CommentService {
 
       return { records: Object.values(groupedData) };
     } catch (error) {
-      logger.error('service error: getCommentListByWechat', { error })
+      logger.error('service', 'service error: getCommentListByWechat', { error })
       throw error;
     }
   }
@@ -310,7 +310,7 @@ class CommentService {
         records 
       };
     } catch (error) {
-      logger.error('service error: getUserComments', { error })
+      logger.error('service', 'service error: getUserComments', { error })
       throw error;
     }
   }

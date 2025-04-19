@@ -1,210 +1,149 @@
-const path = require('path');
-const fs = require('fs');
-const winston = require('winston');
-const { format } = winston;
-const MySQLTransport = require('winston-mysql');
-const DailyRotateFile = require('winston-daily-rotate-file');
-const config = require('../app/config');
+// logger.js
+const pino = require('pino');
 
-// 创建日志目录（生产环境）
-const logDir = path.join(__dirname, '../system_logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
-}
+const util = require('util');
 
-/**
- * 增强版安全序列化函数（生产环境专用）
- */
-const productionStringify = (() => {
-  const replacer = (key, value) => {
-    const seen = new WeakSet();
-    
-    return (k, v) => {
-      // 处理循环引用
-      if (typeof v === 'object' && v !== null) {
-        if (seen.has(v)) return '[Circular]';
-        seen.add(v);
-      }
-      
-      // 简化处理特殊类型
-      if (v instanceof Error) {
-        return {
-          message: v.message,
-          stack: v.stack
-        };
-      }
-      if (typeof v === 'bigint') {
-        return v.toString();
-      }
-      return v;
-    };
-  };
+const connection = require('../app/database');
 
-  return (obj) => {
+// === 配置项 ===
+const ENABLE_DB_LOGGING = true;
+const SAVE_LEVELS = ['error', 'warn', 'info'];
+const VALID_LOG_LEVELS = new Set(['fatal', 'error', 'warn', 'info', 'debug', 'trace']);
+
+// 日志级别映射
+const levelMap = {
+  60: 'FATAL', // pino级别数值映射
+  50: 'ERROR',
+  40: 'WARN',
+  30: 'INFO',
+  20: 'DEBUG',
+  10: 'TRACE'
+};
+
+// === 自定义日志传输 ===
+const customTransport = {
+  write: (chunk) => {
     try {
-      return JSON.stringify(obj, replacer());
-    } catch (error) {
-      return `{ metaStringifyError: ${error.message} }`;
-    }
-  };
-})();
+      const log = JSON.parse(chunk);
 
-/**
- * 创建MySQL Transport
- */
-const createMySQLTransport = () => {
-  try {
-    return new MySQLTransport({
-      host: config.MYSQL_HOST,
-      user: config.MYSQL_USER,
-      password: config.MYSQL_PASSWORD,
-      database: config.MYSQL_DATABASE,
-      table: 'system_logs',
-      fields: {
-        level: 'level',
-        message: 'message',
-        timestamp: 'timestamp',
-        meta: 'meta'
-      },
-      queueLimit: 500,
-      connectionTimeout: 5000,
-      handleExceptions: true,
-      format: format.combine(
-        format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        // 生产环境专用格式化
-        format.metadata({ fillExcept: ['message', 'level', 'timestamp'] }),
-        format((info) => {
-          info.meta = productionStringify({
-            // 精选元数据字段
-            error: info.metadata.error,
-            stack: info.metadata.stack,
-            process: {
-              pid: process.pid,
-              memory: process.memoryUsage().rss
-            }
-          });
-          return info;
-        })()
-      )
-    });
-  } catch (error) {
-    console.error('MySQL Transport初始化失败:', error);
-    return null;
+      const timestamp = new Date(log.time).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/\//g, '-');
+
+      const output = util.format(
+        '[%s] %s %s - %s',
+        timestamp,
+        levelMap[log.level].padEnd(5),
+        log.module ? `<${log.module}>` : '<unknownModule>',
+        log.msg
+      );
+
+      const stream = log.level >= 50 ? process.stderr : process.stdout;
+      stream.write(output + '\n');
+
+      // 如果有 detail，打印
+      if (log.detail && Object.keys(log.detail).length > 0) {
+        stream.write('  ↪ Detail:\n');
+
+        // 检查是否是 Error 栈结构
+        if (log.detail.error && Array.isArray(log.detail.error.stack)) {
+          const { message, stack } = log.detail.error;
+
+          for (const line of stack) {
+            stream.write('          ' + line + '\n');
+          }
+        } else {
+          const detailStr = JSON.stringify(log.detail, null, 2)
+            .split('\n')
+            .map(line => '            ' + line)
+            .join('\n');
+          stream.write(detailStr + '\n');
+        }
+      }
+    } catch (err) {
+      console.error('日志格式化失败:', err);
+    }
   }
 };
 
-// 基础格式配置（开发环境）
-const devBaseFormat = format.combine(
-  format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  format.errors({ stack: true }),
-  format.splat(),
-  // 开发环境元数据简化
-  format.metadata({
-    fillWith: ['error', 'stack'],
-    fillExcept: ['message', 'level', 'timestamp']
-  }),
-  // 敏感信息过滤
-  format((info) => {
-    const { password, apiKey, token, ...cleanMeta } = info.metadata;
-    return { ...info, metadata: cleanMeta };
-  })()
-);
 
-// 控制台格式（开发环境友好）
-const consoleFormat = format.combine(
-  devBaseFormat,
-  format.colorize(),
-  format.printf(({ timestamp, level, message, metadata }) => {
-    let extras = '';
-    
-    if (metadata.error) {
-      extras += `\n[ERROR] ${metadata.error.message}`;
-      if (metadata.error.stack) {
-        extras += `\n${metadata.error.stack}`;
-      }
-    }
-    
-    if (metadata.stack) {
-      extras += `\n[STACK] ${metadata.stack}`;
-    }
+// === 初始化pino实例 ===
+const baseLogger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  timestamp: pino.stdTimeFunctions.isoTime
+}, customTransport);
 
-    return `[${timestamp}] ${level}: ${message}${extras}`;
-  })
-);
+// === 数据库日志写入 ===
+async function logToDB(level, moduleType, message, detail) {
+  if (!ENABLE_DB_LOGGING || !SAVE_LEVELS.includes(level)) return;
 
-// 生产环境格式配置
-const productionFormat = format.combine(
-  format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  format.errors({ stack: true }),
-  format.splat(),
-  format.metadata({
-    fillWith: ['error', 'stack', 'process'],
-    fillExcept: ['message', 'level', 'timestamp']
-  }),
-  format((info) => {
-    // 生产环境元数据优化
-    const { password, apiKey, token, ...cleanMeta } = info.metadata;
-    
-    // 简化进程信息
-    cleanMeta.process = {
-      pid: process.pid,
-      memory: process.memoryUsage().rss,
-      uptime: process.uptime()
-    };
+  try {
+    const detailStr = detail ? JSON.stringify(detail) : null;
 
-    // 错误对象处理
-    if (cleanMeta.error instanceof Error) {
-      cleanMeta.error = {
-        message: cleanMeta.error.message,
-        stack: cleanMeta.error.stack
+    await connection.query(
+      `INSERT INTO system_logs (level, moduleType, message, detail, timestamp) VALUES (?,?,?,?,?)`,
+      [level.toUpperCase(), moduleType, message, detailStr, new Date()]
+    );
+  } catch (err) {
+    process.stderr.write(`[Logger] 数据库写入失败: ${err.message}\n`);
+  }
+}
+
+// === 日志方法包装 ===
+const logger = {};
+for (const level of VALID_LOG_LEVELS) {
+  logger[level] = (module, message, detail) => {
+    let structuredDetail = detail;
+
+    // 如果传入的是 Error 实例，结构化处理
+    if (detail?.error && (detail.error instanceof Error)) {
+      structuredDetail = {
+        ...structuredDetail,
+        error: {
+          message: detail.error.message,
+          stack: detail.error.stack.split('\n') // 拆成数组方便换行显示
+        }
       };
     }
 
-    info.metadata = cleanMeta;
-    info.meta = productionStringify(cleanMeta);
-    return info;
-  })()
-);
+    // 构造日志对象
+    const pinoLogObj = {
+      module,
+      msg: message,
+      detail: structuredDetail
+    };
 
-// 初始化传输器
-const transports = [
-  new winston.transports.Console({ 
-    format: process.env.NODE_ENV === 'production' ? productionFormat : consoleFormat 
-  })
-];
+    // 调用pino核心记录方法
+    if (baseLogger[level]) {
+      baseLogger[level](pinoLogObj);
+    } else {
+      process.stderr.write(`[Logger] 无效日志级别: ${level}\n`);
+    }
 
-// MySQL传输器
-const mysqlTransport = createMySQLTransport();
-if (mysqlTransport) {
-  transports.push(mysqlTransport);
+    // 异步写入数据库
+    if (SAVE_LEVELS.includes(level)) {
+      logToDB(level, module, message, structuredDetail)
+        .catch(err => process.stderr.write(`[Logger] 异步写入失败: ${err.message}\n`));
+    }
+  };
 }
 
-// 生产环境文件传输
-if (process.env.NODE_ENV === 'production') {
-  transports.push(new DailyRotateFile({
-    filename: path.join(logDir, 'systemLogs-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    zippedArchive: true,
-    maxSize: '20m',
-    maxFiles: '30d',
-    auditFile: path.join(logDir, 'rotate-audit.json'),
-    format: productionFormat
-  }));
-}
 
-// 创建Logger实例
-const logger = winston.createLogger({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  handleRejections: true,
-  exitOnError: false,
-  transports
-});
-
-// 全局错误处理
-logger.transports.forEach(transport => {
-  transport.on('error', (error) => {
-    console.error('日志传输错误:', error.message);
-  });
-});
+// === 关闭方法 ===
+logger.shutdown = async () => {
+  if (ENABLE_DB_LOGGING) {
+    try {
+      await connections.end();
+      process.stdout.write('[Logger] 数据库连接池已关闭\n');
+    } catch (err) {
+      process.stderr.write(`[Logger] 关闭连接池失败: ${err.message}\n`);
+    }
+  }
+};
 
 module.exports = logger;

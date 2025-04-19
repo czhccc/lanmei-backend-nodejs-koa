@@ -14,7 +14,7 @@ class UtilService {
         idempotencyKey
       }
     } catch (error) {
-      logger.error('service error: getIdempotencyKey', { error })
+      logger.error('service', 'service error: getIdempotencyKey', { error })
       throw error
     }
   }

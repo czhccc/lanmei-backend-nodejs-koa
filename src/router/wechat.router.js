@@ -10,7 +10,7 @@ const tableResponseHandler = require('../middlewares/table-response-handler');
 
 const wechatRouter = new Router({prefix: '/wechat'})
 
-const checkIdempotencyKey = require('../middlewares/checkIdempotencyKey')
+const checkIdempotencyKey = require('../middlewares/checkIdempotencyKey.middleware')
 
 wechatRouter.post('/getPhoneNumber', WechatController.getPhoneNumber)
 

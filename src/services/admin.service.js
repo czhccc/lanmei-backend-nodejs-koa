@@ -32,9 +32,9 @@ class AdminService {
         name, phone, hashedPassword, role, (thePhone || null)
       ])
 
-      return 'success'
+      return '创建成功'
     } catch (error) {
-      logger.error('service error: createAdmin', { error })
+      logger.error('service', 'service error: createAdmin', { error })
       throw error
     }
   }
@@ -70,9 +70,9 @@ class AdminService {
       if (result.affectedRows === 0) {
         throw new customError.ResourceNotFoundError('管理员不存在');
       }
-      return 'success';
+      return '更新成功';
     } catch (error) {
-      logger.error('service error: updateAdmin', { error })
+      logger.error('service', 'service error: updateAdmin', { error })
       throw error;
     }
   }
@@ -106,7 +106,7 @@ class AdminService {
     
       queryParams.push(String(pageSizeInt), String(offset));
       const result = await connection.execute(
-        `SELECT phone, name, role FROM admin + ${whereClause} LIMIT ? OFFSET ?`, 
+        `SELECT phone, name, role FROM admin ${whereClause} LIMIT ? OFFSET ?`, 
         queryParams
       );
     
@@ -115,7 +115,7 @@ class AdminService {
         records: result[0],
       };   
     } catch (error) {
-      logger.error('service error: getAdminList', { error })
+      logger.error('service', 'service error: getAdminList', { error })
       throw error
     }
   }
@@ -128,9 +128,9 @@ class AdminService {
       if (result.affectedRows === 0) {
         throw new customError.ResourceNotFoundError('管理员不存在');
       }
-      return 'success';
+      return '删除成功';
     } catch (error) {
-      logger.error('service error: deleteAdminByPhone', { error })
+      logger.error('service', 'service error: deleteAdminByPhone', { error })
       throw error;
     }
   }

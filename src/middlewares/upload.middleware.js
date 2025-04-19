@@ -63,11 +63,7 @@ const classifyUploadedFile = async (ctx, next) => {
   await new Promise((resolve, reject) => {
     fs.rename(oldPath, newPath, (error) => {
       if (error) {
-        logger.error('重命名并移动文件失败', {
-          error,
-          oldPath,
-          newPath,
-        });
+        logger.error('upload', '重命名并移动文件失败', { error, oldPath, newPath, });
          // 删除临时文件
         return reject(new Error('文件重命名或移动失败'));
       }

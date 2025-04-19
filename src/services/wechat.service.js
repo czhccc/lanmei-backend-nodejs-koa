@@ -91,7 +91,7 @@ class WechatService {
         token
       };
     } catch (error) {
-      logger.error('service error: getPhoneNumber', { error: error });
+      logger.error('service', 'service error: getPhoneNumber', { error: error });
       
       throw error
     }
@@ -153,7 +153,7 @@ class WechatService {
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: addAddress', { error })
+      logger.error('service', 'service error: addAddress', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
@@ -211,9 +211,9 @@ class WechatService {
         name, phone, province.name, provinceCode, city.name, cityCode, district.name, districtCode, detail, isDefault, id
       ])
   
-      return 'success'
+      return '编辑成功'
     } catch (error) {
-      logger.error('service error: editAddress', { error })
+      logger.error('service', 'service error: editAddress', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
@@ -231,7 +231,7 @@ class WechatService {
   
       return result
     } catch (error) {
-      logger.error('service error: getAddressList', { error })
+      logger.error('service', 'service error: getAddressList', { error })
       throw error
     }
   }
@@ -261,7 +261,7 @@ class WechatService {
   
       return '删除成功'
     } catch (error) {
-      logger.error('service error: deleteAddress', { error })
+      logger.error('service', 'service error: deleteAddress', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
@@ -279,7 +279,7 @@ class WechatService {
   
       return result[0]
     } catch (error) {
-      logger.error('service error: getDefaultAddress', { error })
+      logger.error('service', 'service error: getDefaultAddress', { error })
       throw error
     }
   }
@@ -299,7 +299,7 @@ class WechatService {
 
       return insertResult
     } catch (error) {
-      logger.error('service error: notify', { error })
+      logger.error('service', 'service error: notify', { error })
       throw error
     }
   }
@@ -326,7 +326,7 @@ class WechatService {
         records: result[0],
       };
     } catch (error) {
-      logger.error('service error: getNotificationList', { error })
+      logger.error('service', 'service error: getNotificationList', { error })
       throw error
     }
   }
@@ -351,7 +351,7 @@ class WechatService {
       }
 
     } catch (error) {
-      logger.error('service error: getLatestNotification', { error })
+      logger.error('service', 'service error: getLatestNotification', { error })
       throw error
     }
   }
@@ -381,7 +381,7 @@ class WechatService {
     
       return records
     } catch (error) {
-      logger.error('service error: getRecommendList', { error })
+      logger.error('service', 'service error: getRecommendList', { error })
       throw error
     }
   }
@@ -440,11 +440,11 @@ class WechatService {
 
       await conn.commit(); 
 
-      return 'success'
+      return '编辑成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: editRecommendList', { error })
+      logger.error('service', 'service error: editRecommendList', { error })
       
       throw error
     } finally {
@@ -491,11 +491,11 @@ class WechatService {
 
       await conn.commit();
 
-      return 'success';
+      return '操作成功';
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: cleanRecommendList', { error })
+      logger.error('service', 'service error: cleanRecommendList', { error })
       
       throw error
     } finally {
@@ -557,7 +557,7 @@ class WechatService {
         })
       };
     } catch (error) {
-      logger.error('service error: getNewsList', { error })
+      logger.error('service', 'service error: getNewsList', { error })
       throw error   
     }
   }
@@ -585,7 +585,7 @@ class WechatService {
   
       return records
     } catch (error) {
-      logger.error('service error: getNewsListForWechat', { error })
+      logger.error('service', 'service error: getNewsListForWechat', { error })
       throw error
     }
   }
@@ -616,7 +616,7 @@ class WechatService {
       
       return theData
     } catch (error) {
-      logger.error('service error: getNewsDetail', { error })
+      logger.error('service', 'service error: getNewsDetail', { error })
       throw error
     }
   }
@@ -655,7 +655,7 @@ class WechatService {
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: addNews', { error })
+      logger.error('service', 'service error: addNews', { error })
 
       throw error
     } finally {
@@ -713,11 +713,11 @@ class WechatService {
 
       await conn.commit(); 
   
-      return 'success'
+      return '编辑成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: editNews', { error })
+      logger.error('service', 'service error: editNews', { error })
 
       throw error
     } finally {
@@ -759,11 +759,11 @@ class WechatService {
 
       await conn.commit(); 
   
-      return 'success'
+      return '删除成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: deleteNews', { error })
+      logger.error('service', 'service error: deleteNews', { error })
       
       throw error
     } finally {
@@ -793,9 +793,9 @@ class WechatService {
       await redisUtils.delWithVersion('newsList:forWechat')
       await redisUtils.delWithVersion(`newsDetail:${id}`)
   
-      return 'success'
+      return '操作成功'
     } catch (error) {
-      logger.error('service error: showNews', { error })
+      logger.error('service', 'service error: showNews', { error })
       throw error
     }
   }
@@ -822,9 +822,9 @@ class WechatService {
       await redisUtils.delWithVersion('newsList:forWechat')
       await redisUtils.delWithVersion(`newsDetail:${id}`)
   
-      return 'success'
+      return '操作成功'
     } catch (error) {
-      logger.error('service error: pinNews', { error })
+      logger.error('service', 'service error: pinNews', { error })
       throw error
     }
   }

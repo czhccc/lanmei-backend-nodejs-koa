@@ -212,7 +212,7 @@ class OrderService {
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: createOrder', { error })
+      logger.error('service', 'service error: createOrder', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
@@ -353,7 +353,7 @@ class OrderService {
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: updateOrder', { error })
+      logger.error('service', 'service error: updateOrder', { error })
       
       throw error;
     } finally {
@@ -421,7 +421,7 @@ class OrderService {
         })
       };   
     } catch (error) {
-      logger.error('service error: getOrderList', { error })
+      logger.error('service', 'service error: getOrderList', { error })
       throw error
     }
   }
@@ -451,7 +451,7 @@ class OrderService {
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: getOrderDetailById', { error })
+      logger.error('service', 'service error: getOrderDetailById', { error })
       
       throw error;
     } finally {
@@ -490,9 +490,9 @@ class OrderService {
 
       await connection.commit();
       
-      return 'success'
+      return '操作成功'
     } catch (error) {
-      logger.error('service error: cancelOrder', { error })
+      logger.error('service', 'service error: cancelOrder', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
@@ -595,11 +595,12 @@ class OrderService {
       ]);
 
       await conn.commit();
-      return 'success';
+
+      return '支付成功';
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: payOrder', { error })
+      logger.error('service', 'service error: payOrder', { error })
       
       delIdempotencyKey(params.idempotencyKey)
 
@@ -650,9 +651,9 @@ class OrderService {
         throw new customError.InvalidLogicError('操作失败')
       }
 
-      return 'success';
+      return '操作成功';
     } catch (error) {
-      logger.error('service error: shipOrder', { error })
+      logger.error('service', 'service error: shipOrder', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
@@ -699,9 +700,9 @@ class OrderService {
         throw new customError.InvalidLogicError('操作失败')
       }
 
-      return 'success';
+      return '操作成功';
     } catch (error) {
-      logger.error('service error: completeOrder', { error })
+      logger.error('service', 'service error: completeOrder', { error })
 
       delIdempotencyKey(params.idempotencyKey)
 
@@ -851,32 +852,32 @@ class OrderService {
       return result;
 
     } catch (error) {
-      logger.error('service error: generateOrderInfo', { error })
+      logger.error('service', 'service error: generateOrderInfo', { error })
       throw error;
     }
   }
 
   async getOrdersLogsList(params) {
-    const { pageNo, pageSize } = params;
+    const { order_id, order_no, create_by, startTime, endTime, pageNo, pageSize } = params;
 
     let query = ' WHERE 1=1'
     let queryParams = []
 
-    if (params.order_id) {
+    if (order_id) {
       query += ` AND order_id LIKE ?`
-      queryParams.push(`%${escapeLike(params.order_id)}%`)
+      queryParams.push(`%${escapeLike(order_id)}%`)
     }
-    if (params.order_no) {
+    if (order_no) {
       query += ` AND order_no LIKE ?`
-      queryParams.push(`%${escapeLike(params.order_no)}%`)
+      queryParams.push(`%${escapeLike(order_no)}%`)
     }
-    if (params.create_by) {
+    if (create_by) {
       query += ` AND create_by LIKE ?`
-      queryParams.push(`%${escapeLike(params.create_by)}%`)
+      queryParams.push(`%${escapeLike(create_by)}%`)
     }
-    if (params.startTime || params.endTime) {
+    if (startTime || endTime) {
       query += ` AND (createTime >= ? OR ? IS NULL) AND (createTime <= ? OR ? IS NULL)`
-      queryParams.push(params.startTime || null, params.startTime || null, params.endTime || null, params.endTime || null)
+      queryParams.push(startTime || null, startTime || null, endTime || null, endTime || null)
     }
 
     try {
@@ -899,7 +900,7 @@ class OrderService {
         records: dataResult[0]
       };
     } catch (error) {
-      logger.error('service error: getOrdersLogsList', { error })
+      logger.error('service', 'service error: getOrdersLogsList', { error })
       throw error
     }
   }

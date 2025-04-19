@@ -68,11 +68,11 @@ class AboutUsService {
 
       await conn.commit();
 
-      return 'success'
+      return '更新成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: updateAboutUs', { error })
+      logger.error('service', 'service error: updateAboutUs', { error })
       
       throw error
     } finally {
@@ -98,7 +98,9 @@ class AboutUsService {
 
       return result[0];   
     } catch (error) {
-      logger.error('service error: getAboutUs', { error })
+      logger.error('service', 'service error: getAboutUs', { error })
+      
+      throw error
     }
   }
 }

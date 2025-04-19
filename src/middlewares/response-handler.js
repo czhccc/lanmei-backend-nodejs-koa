@@ -23,7 +23,7 @@ module.exports = async (ctx, next) => {
       
     }
   } catch (error) {
-    logger.error('response-handler 捕获错误', { error })
+    logger.error('response-handler', 'response-handler 捕获错误', { error })
 
     if (error instanceof customError.BaseError) {
       ctx.status = error.status

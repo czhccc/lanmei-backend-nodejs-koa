@@ -45,6 +45,9 @@ const WX_PAY_CONFIG = {
 };
 
 
+// ================================ czh admio phone ================================
+const czhAdminPhone = '19967303498'
+
 // ================================ 导出 ================================
 module.exports = {
   APP_PORT,
@@ -68,5 +71,7 @@ module.exports = {
   REDIS_MAX_RETRIES,
   REDIS_TIMEOUT,
 
-  WX_PAY_CONFIG
+  WX_PAY_CONFIG,
+
+  czhAdminPhone,
 }

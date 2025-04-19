@@ -42,19 +42,19 @@ class RedisClient {
 
   _bindEvents() {
     this.client.on("connect", () => {
-      logger.info("RedisUtils 连接已建立");
+      logger.info('redis', "RedisUtils 连接已建立");
     });
 
     this.client.on("error", (error) => {
-      logger.error(`RedisUtils 错误`, { error });
+      logger.error('redis', `RedisUtils 错误`, { error });
     });
 
     this.client.on("reconnecting", (delay) => {
-      logger.warn(`RedisUtils 重新连接`);
+      logger.warn('redis', `RedisUtils 重新连接`);
     });
 
     this.client.on("end", () => {
-      logger.warn("RedisUtils 连接已关闭");
+      logger.warn('redis', "RedisUtils 连接已关闭");
     });
   }
 
@@ -63,7 +63,7 @@ class RedisClient {
     try {
       return JSON.stringify(data);
     } catch (error) {
-      logger.error("RedisUtils _safeSerialize 失败", { error });
+      logger.error('redis', "RedisUtils _safeSerialize 失败", { error });
       throw new customError.InternalError("RedisUtils _safeSerialize 失败");
     }
   }
@@ -74,7 +74,7 @@ class RedisClient {
     try {
       return JSON.parse(data);
     } catch (error) {
-      logger.error("RedisUtils _safeParse 失败", { error });
+      logger.error('redis', "RedisUtils _safeParse 失败", { error });
       return null;
     }
   }
@@ -84,11 +84,11 @@ class RedisClient {
    */
   async setWithVersion(key, value, ttl) {
     if (!key || typeof key !== "string") {
-      logger.error("RedisUtils setWithVersion 无效的键值格式", { key });
+      logger.error('redis', "RedisUtils setWithVersion 无效的键值格式", { key });
       return false;
     }
     if (ttl !== undefined && (typeof ttl !== "number" || ttl <= 0)) {
-      logger.error("RedisUtils setWithVersion 无效的过期时间", { ttl });
+      logger.error('redis', "RedisUtils setWithVersion 无效的过期时间", { ttl });
       return false;
     }
 
@@ -146,7 +146,7 @@ class RedisClient {
           currentVersion
         );
         if (result === 1) {
-          logger.info(`RedisUtils setWithVersion 成功`, { key, value, ttl });
+          logger.info('redis', `RedisUtils setWithVersion 成功`, { key, value, ttl });
 
           return true;
         }
@@ -155,10 +155,10 @@ class RedisClient {
         await new Promise(resolve => setTimeout(resolve, 100 * retries));
       } catch (error) {
         // 重试机制：最多重试 3 次，每次延迟等待增长。
-        logger.error(`RedisUtils setWithVersion 失败 尝试重试`)
+        logger.error('redis', `RedisUtils setWithVersion 失败 尝试重试`)
         retries++;
         if (retries >= maxRetries) {
-          logger.error(`RedisUtils setWithVersion 失败 超出最大重连次数`, { 
+          logger.error('redis', `RedisUtils setWithVersion 失败 超出最大重连次数`, { 
             error,
             key,
             value,
@@ -177,7 +177,7 @@ class RedisClient {
    */
   async getWithVersion(key) {
     if (!key || typeof key !== "string") {
-      logger.error("RedisUtils getWithVersion 无效的键值格式", { key });
+      logger.error('redis', "RedisUtils getWithVersion 无效的键值格式", { key });
       throw new customError.InternalError("key", "无效的键值格式");
     }
 
@@ -190,7 +190,7 @@ class RedisClient {
       const result = await this.client.get(key); // 只取主 key 的值
       return this._safeParse(result);
     } catch (error) {
-      logger.error(`RedisUtils getWithVersion 失败`, { key, error });
+      logger.error('redis', `RedisUtils getWithVersion 失败`, { key, error });
       return null;
     }
   }
@@ -212,11 +212,11 @@ class RedisClient {
    */
   async delWithVersion(keys) {
     if (!keys || (typeof keys !== "string" && !Array.isArray(keys))) {
-      logger.error("RedisUtils delWithVersion 无效的键值格式", { keys });
+      logger.error('redis', "RedisUtils delWithVersion 无效的键值格式", { keys });
       return false;
     }
     if (Array.isArray(keys) && keys.length === 0) {
-      logger.info("RedisUtils delWithVersion keys为空")
+      logger.info('redis', "RedisUtils delWithVersion keys为空")
       return 0; // 空数组直接返回成功
     }
 
@@ -250,13 +250,13 @@ class RedisClient {
 
           if (result >= 0) {
             deletedCount += result;
-            logger.info(`RedisUtils delWithVersion 成功`, { key });
+            logger.info('redis', `RedisUtils delWithVersion 成功`, { key });
             break;
           }
         } catch (error) {
           retries++;
           if (retries >= maxRetries) {
-            logger.error(`RedisUtils delWithVersion 失败`, { key, error });
+            logger.error('redis', `RedisUtils delWithVersion 失败`, { key, error });
             break;
           }
           await new Promise(resolve => setTimeout(resolve, 100 * retries));
@@ -279,7 +279,7 @@ class RedisClient {
       const result = await this.client.get(key); // 只取主 key 的值
       return this._safeParse(result);
     } catch (error) {
-      logger.error(`RedisUtils getSimply 失败`, { key, error });
+      logger.error('redis', `RedisUtils getSimply 失败`, { key, error });
       return null;
     }
   }
@@ -288,11 +288,11 @@ class RedisClient {
    */ 
   async setSimply(key, value, ttl) {
     if (!key || typeof key !== "string") {
-      logger.error("RedisUtils setSimply 失败，无效的键值格式", { key });
+      logger.error('redis', "RedisUtils setSimply 失败，无效的键值格式", { key });
       return false;
     }
     if (ttl !== undefined && (typeof ttl !== "number" || ttl <= 0)) {
-      logger.error("RedisUtils setSimply 失败，无效的过期时间", { ttl });W
+      logger.error('redis', "RedisUtils setSimply 失败，无效的过期时间", { ttl });W
       return false;
     }
 
@@ -306,7 +306,7 @@ class RedisClient {
       }
       return true;
     } catch (error) {
-      logger.error(`RedisUtils setSimply 失败`, { key, value, ttl, error });
+      logger.error('redis', `RedisUtils setSimply 失败`, { key, value, ttl, error });
       return false;
     }
   }
@@ -315,11 +315,11 @@ class RedisClient {
    */ 
   async delSimply(keys) {
     if (!keys || (typeof keys !== "string" && !Array.isArray(keys))) {
-      logger.error("RedisUtils delSimply 失败，无效的键值格式", { keys });
+      logger.error('redis', "RedisUtils delSimply 失败，无效的键值格式", { keys });
       return false;
     }
     if (Array.isArray(keys) && keys.length === 0) {
-      logger.info("RedisUtils delWithVersion keys为空")
+      logger.info('redis', "RedisUtils delWithVersion keys为空")
       return 0; // 空数组直接返回成功
     }
 
@@ -330,7 +330,7 @@ class RedisClient {
       await this.client.del(...keysArray); // 支持批量删除
       return true;
     } catch (error) {
-      logger.error("RedisUtils delSimply 失败", { keys: keysArray, error });
+      logger.error('redis', "RedisUtils delSimply 失败", { keys: keysArray, error });
       return false;
     }
   }
@@ -342,7 +342,7 @@ class RedisClient {
    */
   async keyExists(keys) {
     if (!keys || (typeof keys !== "string" && !Array.isArray(keys))) {
-      logger.error("RedisUtils keyExists 失败，无效的键值格式", { keys });
+      logger.error('redis', "RedisUtils keyExists 失败，无效的键值格式", { keys });
       throw new customError.InternalError("keys", "无效的键值格式");
     }
   
@@ -363,7 +363,7 @@ class RedisClient {
     try {
       await this.client.quit();
     } catch (error) {
-      logger.error("RedisUtils disconnect 失败", { error });
+      logger.error('redis', "RedisUtils disconnect 失败", { error });
     }
   }
 }

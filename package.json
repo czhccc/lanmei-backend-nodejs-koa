@@ -28,12 +28,11 @@
     "md5": "^2.3.0",
     "mysql2": "^3.11.0",
     "node-cron": "^3.0.3",
-    "weixin-crypto": "^2.0.0",
-    "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0",
-    "winston-mysql": "^1.1.1"
+    "pino": "^9.6.0",
+    "weixin-crypto": "^2.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "pino-pretty": "^13.0.0"
   }
 }

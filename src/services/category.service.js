@@ -57,11 +57,11 @@ class CategoryService {
 
       await conn.commit();
 
-      return 'success'
+      return '更新成功'
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service error: updateCategory', { error })
+      logger.error('service', 'service error: updateCategory', { error })
       
       throw error
     } finally {
@@ -139,7 +139,7 @@ class CategoryService {
 
       return categoryList;
     } catch (error) {
-      logger.error('service error: getCategory', { error })
+      logger.error('service', 'service error: getCategory', { error })
       throw error
     }
   }
@@ -214,7 +214,7 @@ class CategoryService {
       return categoryList
 
     } catch (error) {
-      logger.error('service error: getCategoryForWechat', { error })
+      logger.error('service', 'service error: getCategoryForWechat', { error })
       throw error
     }
   }

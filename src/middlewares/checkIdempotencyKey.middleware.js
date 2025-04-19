@@ -24,7 +24,7 @@ const checkIdempotencyKey = async (ctx, next) => {
       throw new customError.IdempotencyKeyError('idempotencyKey 已存在，请勿重复提交')
     }
   } catch (error) {
-    logger.error('middleware checkIdempotencyKey checkIdempotencyKey error', { error })
+    logger.error('idempotency', 'middleware checkIdempotencyKey checkIdempotencyKey error', { error })
     throw error
   }
 }

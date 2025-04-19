@@ -10,7 +10,7 @@ class LoginService {
 
       return result[0]   
     } catch (error) {
-      logger.error('service error: getAdminByPhone', { error })
+      logger.error('service', 'service error: getAdminByPhone', { error })
       throw error
     }
   }

@@ -24,16 +24,13 @@ const verifyLoginParams = async (ctx, next) => {
   }
 
   const adminByPhone = await AuthService.getAdminByPhone(phone)
-  if (adminByPhone.length <= 0) {
 
-    logger.warn('该手机号的admin不存在')
-    
+  if (adminByPhone.length <= 0) {
+    logger.warn('login', '该手机号的admin不存在')
     throw new customError.InvalidParameterError('phone', '该手机号的admin不存在')
   } else {
     if (!comparePasswordUtil(password, adminByPhone[0].password)) {
-
-      logger.warn('admin密码错误')
-
+      logger.warn('login', 'admin密码错误')
       throw new customError.InvalidParameterError('password', 'admin密码错误')
     }
   }

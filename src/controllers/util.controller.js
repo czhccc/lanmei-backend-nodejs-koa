@@ -1,7 +1,5 @@
 const service = require('../services/util.service')
 
-const logger = require('../utils/logger');
-
 const customError = require('../utils/customError')
 
 class UtilController {

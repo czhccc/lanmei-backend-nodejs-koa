@@ -23,9 +23,7 @@ const determineMediaFileType = (filePath) => {
     return 'video';
   }
 
-  logger.warn('未知文件类型', {
-    filePath,
-  });
+  logger.warn('determineMediaFileType', '未知文件类型', { filePath, });
   return 'unknown';
 }
 

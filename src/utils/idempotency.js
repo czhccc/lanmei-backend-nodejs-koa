@@ -36,7 +36,7 @@ const generateIdempotencyKey = (params, prefix='') => {
 
 const setIdempotencyKey = async (key) => {
   if (!key) {
-    logger.error('utils/idempotency setIdempotencyKey 缺少参数: key');
+    logger.error('idempotency', 'utils/idempotency setIdempotencyKey 缺少参数: key');
     throw new customError.MissingParameterError('key')
   }
 
@@ -46,14 +46,14 @@ const setIdempotencyKey = async (key) => {
 
     return result
   } catch (error) {
-    logger.error('utils/idempotency setIdempotencyKey error', { error })
+    logger.error('idempotency', 'utils/idempotency setIdempotencyKey error', { error })
     throw error
   }
 }
 
 const idempotencyKeyExists = async (key) => {
   if (!key) {
-    logger.error('utils/idempotency idempotencyKeyExists 缺少参数: key');
+    logger.error('idempotency', 'utils/idempotency idempotencyKeyExists 缺少参数: key');
     throw new customError.MissingParameterError('key')
   }
 
@@ -62,14 +62,14 @@ const idempotencyKeyExists = async (key) => {
 
     return result
   } catch (error) {
-    logger.error('service error: setIdempotencyKey', { error })
+    logger.error('idempotency', 'service error: setIdempotencyKey', { error })
     throw error
   }
 }
 
 const delIdempotencyKey = async (key) => {
   if (!key) {
-    logger.error('utils/idempotency delIdempotencyKey 缺少参数: key');
+    logger.error('idempotency', 'utils/idempotency delIdempotencyKey 缺少参数: key');
     throw new customError.MissingParameterError('key')
   }
 
@@ -78,7 +78,7 @@ const delIdempotencyKey = async (key) => {
 
     return result
   } catch (error) {
-    logger.error('service error: setIdempotencyKey', { error })
+    logger.error('idempotency', 'service error: setIdempotencyKey', { error })
     throw error
   }
 }
