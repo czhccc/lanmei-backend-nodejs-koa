@@ -1,6 +1,6 @@
 const Router = require('koa-router')
 
-const UtilController = require('../controllers/util.controller')
+const UtilController = require('../controllers/idempotency.controller')
 
 const {
   verifyToken

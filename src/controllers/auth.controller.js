@@ -1,33 +1,21 @@
-const jwt = require('jsonwebtoken')
-
-const {
-  TOKEN_PRIVATE_KEY,
-  TOKEN_DURATION
-} = require('../app/config')
+const service = require('../services/auth.service')
 
 class AuthController {
-  async authToken(ctx, next) { // 颁发token
-    const params = ctx.request.body
-
+  async login(ctx, next) { // 颁发token
     const theUser = ctx.theUser
     
-    const token = jwt.sign(
-      {
-        phone: theUser.phone,
-      }, 
-      TOKEN_PRIVATE_KEY,
-      {
-        expiresIn: TOKEN_DURATION,
-        algorithm: 'RS256',
-      }
-    )
+    const result = await service.login(ctx, theUser)
 
-    ctx.body = {
-      phone: theUser.phone,
-      token
-    }
+    ctx.body = result
   }
 
+  async logout(ctx, next) {
+    const params = ctx.request.body
+    
+    const result = await service.logout(ctx, params)
+
+    ctx.body = result
+  }
 }
 
 module.exports = new AuthController()

@@ -1,4 +1,4 @@
-const service = require('../services/util.service')
+const service = require('../services/idempotency.service')
 
 const customError = require('../utils/customError')
 

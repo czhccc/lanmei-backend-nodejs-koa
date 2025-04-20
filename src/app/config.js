@@ -6,6 +6,7 @@ dotenv.config()
 
 
 // ================================ 基本 ================================
+const DOMAIN_NAME = ''
 const APP_PORT = 8888
 const BASE_URL = 'http://localhost:8888'
 const DEFAULT_PASSWORD = '123456+'
@@ -50,6 +51,7 @@ const czhAdminPhone = '19967303498'
 
 // ================================ 导出 ================================
 module.exports = {
+  DOMAIN_NAME,
   APP_PORT,
   BASE_URL,
   DEFAULT_PASSWORD,

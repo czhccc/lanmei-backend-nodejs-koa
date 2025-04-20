@@ -41,15 +41,8 @@ const verifyLoginParams = async (ctx, next) => {
 }
 
 const verifyToken = async (ctx, next) => {
-  const authorization = ctx.headers.authorization
-  
-  if (!authorization) {
-    throw new customError.InvalidTokenError()
-  }
-
-  const token = authorization.replace('Bearer ', '')
-
-  // 验证token
+  const token = ctx.cookies.get('token')
+  console.log('process.env.NODE_ENV', process.env.NODE_ENV);
   try {
     const adminInfo = jwt.verify(token, TOKEN_PUBLIC_KEY, {
       algorithm: ["RS256"]
