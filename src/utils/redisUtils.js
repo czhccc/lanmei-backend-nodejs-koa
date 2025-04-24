@@ -146,7 +146,7 @@ class RedisClient {
           currentVersion
         );
         if (result === 1) {
-          logger.info('redis', `RedisUtils setWithVersion 成功`, { key, value, ttl });
+          // logger.info('redis', `RedisUtils setWithVersion 成功`, { key, value, ttl });
 
           return true;
         }
@@ -250,7 +250,7 @@ class RedisClient {
 
           if (result >= 0) {
             deletedCount += result;
-            logger.info('redis', `RedisUtils delWithVersion 成功`, { key });
+            // logger.info('redis', `RedisUtils delWithVersion 成功`, { key });
             break;
           }
         } catch (error) {

@@ -31,5 +31,7 @@ goodsRouter.post('/cancelAllOrdersInCurrentBatch', verifyToken, GoodsController.
 
 goodsRouter.post('/preorderBatchIsReadyToSell', verifyToken, GoodsController.preorderBatchIsReadyToSell)
 
+goodsRouter.get('/getGoodsStockRemainingQuantityFromRedis', verifyToken, GoodsController.getGoodsStockRemainingQuantityFromRedis)
+
 
 module.exports = goodsRouter

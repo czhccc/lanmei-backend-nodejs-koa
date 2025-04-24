@@ -451,7 +451,7 @@ class WechatService {
       if (conn) conn.release();
     }
   }
-  async cleanRecommendList(params) { // 商品状态变化后清理已下架的推荐商品
+  async cleanRecommendListAfterNotSelling(params) { // 商品状态变化后清理已下架的推荐商品
 
     let conn = null;
     try {
@@ -495,7 +495,7 @@ class WechatService {
     } catch (error) {
       await conn.rollback();
 
-      logger.error('service', 'service error: cleanRecommendList', { error })
+      logger.error('service', 'service error: cleanRecommendListAfterNotSelling', { error })
       
       throw error
     } finally {

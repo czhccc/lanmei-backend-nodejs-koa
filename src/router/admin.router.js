@@ -12,10 +12,10 @@ const checkOlynCzhCall = require('../middlewares/checkOlynCzhCall.middleware')
 
 const adminRouter = new Router({prefix: '/admin'})
 
-adminRouter.post('/', verifyToken, checkOlynCzhCall, AdminController.createOrUpdateAdmin)
+adminRouter.post('/createOrUpdateAdmin', verifyToken, checkOlynCzhCall, AdminController.createOrUpdateAdmin)
 
-adminRouter.get('/', verifyToken, checkOlynCzhCall, tableResponseHandler, AdminController.getAdminList)
+adminRouter.get('/getAdminList', verifyToken, checkOlynCzhCall, tableResponseHandler, AdminController.getAdminList)
 
-adminRouter.delete('/', verifyToken, checkOlynCzhCall, AdminController.deleteAdminByPhone)
+adminRouter.delete('/deleteAdmin', verifyToken, checkOlynCzhCall, AdminController.deleteAdminByPhone)
  
 module.exports = adminRouter

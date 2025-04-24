@@ -58,7 +58,7 @@ class AdminController {
   }
 
   async deleteAdminByPhone(ctx, next) {
-    const params = ctx.request.query
+    const params = ctx.request.body
 
     const { phone } = params
 

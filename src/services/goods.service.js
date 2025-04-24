@@ -22,7 +22,8 @@ const redisUtils = require('../utils/redisUtils')
 
 const logger = require('../utils/logger');
 
-const customError = require('../utils/customError')
+const customError = require('../utils/customError');
+const { P } = require('pino');
 
 class GoodsService {
   async createGoods(params) {
@@ -256,23 +257,66 @@ class GoodsService {
       const [countResult, dataResult] = await Promise.all([
         await connection.execute(`SELECT COUNT(*) as total FROM goods ${whereClause}`, queryParams),
         await connection.execute(`
-            SELECT * FROM goods ${whereClause}
+            SELECT 
+              id,
+              goods_name,
+              goods_unit,
+              goods_categoryId,
+              goods_coverImage,
+              goods_remark,
+              goods_isSelling,
+              batch_type,
+              batch_preorder_finalPrice,
+              batch_stock_totalQuantity 
+            FROM goods ${whereClause}
             ORDER BY createTime DESC 
             LIMIT ? OFFSET ?
           `, 
           [...queryParams, String(pageSizeInt), String(offset)]
         )
       ])
+
+      let records = await Promise.all(
+        dataResult[0].map(async item => {
+          let totalOrdersCount = null
+
+          let preorder_reservedQuantity = null;
+          let preorder_canceledOrdersCount = null
+          if (item.batch_type === 'preorder') {
+            if (!item.batch_preorder_finalPrice) { // 预订阶段
+              totalOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${item.id}:preorder_pending:totalOrdersCount`)
+              preorder_reservedQuantity = await redisUtils.getWithVersion(`goodsSelling:${item.id}:preorder_pending:reservedQuantity`)
+              preorder_canceledOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${item.id}:preorder_pending:canceledOrdersCount`)
+            } else { // 售卖阶段
+
+            }
+          }
+
+
+          let stock_remainingQuantity = null;
+          if (item.batch_type === 'stock') {
+            totalOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${item.id}:stock:totalOrdersCount`)
+            stock_remainingQuantity = await redisUtils.getWithVersion(`goodsSelling:${item.id}:stock:remainingQuantity`);
+          }
+      
+          return {
+            ...item,
+
+            totalOrdersCount,
+
+            batch_preorder_reservedQuantity: preorder_reservedQuantity,
+            batch_preorder_canceledOrdersCount: preorder_canceledOrdersCount,
+
+            batch_stock_remainingQuantity: stock_remainingQuantity,
+
+            goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
+          };
+        })
+      );
   
       return {
         total: countResult[0][0].total,
-        records: dataResult[0].map(item => {
-          return {
-            ...item,
-            goods_richText: item.goods_richText.replaceAll('BASE_URL', BASE_URL),
-            goods_coverImage: item.goods_coverImage ? `${BASE_URL}/${item.goods_coverImage}` : null
-          }
-        }),
+        records,
       };   
     } catch (error) {
       logger.error('service', 'service error: getGoodsList', { error })
@@ -415,18 +459,20 @@ class GoodsService {
           goods_isSelling = 0,
           batch_no = NULL,
           batch_type = NULL,
-          batch_preorder_finalPrice = NULL,
           batch_startTime = NULL,
           batch_startBy = NULL,
-          batch_stock_unitPrice = NULL,
+          batch_preorder_finalPrice = NULL,
+          batch_preorder_startSelling_time = NULL,
+          batch_preorder_startSelling_by = NULL,
           batch_preorder_minPrice = NULL,
           batch_preorder_maxPrice = NULL,
+          batch_stock_unitPrice = NULL,
+          batch_stock_totalQuantity = NULL,
+          batch_stock_remainingQuantity = NULL,
           batch_minQuantity = NULL,
           batch_discounts_promotion = NULL,
           batch_ship_provinces = NULL,
           batch_remark = NULL,
-          batch_stock_totalQuantity = NULL,
-          batch_stock_remainingQuantity = NULL
         WHERE id = ?`,
         [goodsId]
       );
@@ -475,7 +521,10 @@ class GoodsService {
 
       await conn.commit();
       
-      wechatService.cleanRecommendList()
+      this.cleanUselessGoodsDataAfterNotSelling({
+        id: goodsId,
+        batch_type: batchInfo.batch_type,
+      })
 
       return '操作成功'
     } catch (error) {
@@ -500,9 +549,10 @@ class GoodsService {
       const [batchInfoResult] = await connection.execute(`
         SELECT 
           goods_categoryId,
+          batch_no,
           batch_type, 
           batch_preorder_finalPrice, 
-          batch_stock_remainingQuantity 
+          batch_stock_totalQuantity 
         FROM goods 
         WHERE id = ? 
         FOR UPDATE
@@ -531,10 +581,29 @@ class GoodsService {
       await redisUtils.delWithVersion('categoryList:forWechat'); // 防止该分类下商品数量变为0的情况
       await redisUtils.delWithVersion(`goodsDetail:${id}`)
 
+      
       await conn.commit();
 
       if (value === 0) { // 下架
-        wechatService.cleanRecommendList()
+        this.cleanUselessGoodsDataAfterNotSelling({
+          id,
+          batch_type: batchInfo.batch_type,
+        })
+      } else { // 上架
+        if (batchInfo.batch_type==='preorder') {
+          this.setGoodsPreorderPendingDataToRedis({
+            id,
+            batch_type: batchInfo.batch_type,
+            batch_no: batchInfo.batch_no,
+          })
+        } else if (batchInfo.batch_type==='stock') {
+          this.setGoodsStockSellingDataToRedis({
+            id,
+            batch_type: batchInfo.batch_type,
+            batch_no: batchInfo.batch_no,
+            batch_stock_totalQuantity: batchInfo.batch_stock_totalQuantity,
+          })
+        }
       }
 
       return '操作成功'
@@ -618,25 +687,41 @@ class GoodsService {
       
       if (batchInfo.batch_type === 'preorder') { // 预订
         if (!batchInfo.batch_preorder_finalPrice) { // 预订阶段
-          const statisticsStatement = `
-            SELECT 
-              COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
-              COUNT(CASE WHEN status = 'reserved' THEN 1 END) AS reservedOrdersCount,   -- reserved 状态的订单数量
-              COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
-              SUM(CASE WHEN status = 'reserved' THEN quantity ELSE 0 END) AS reservedQuantity,   -- reserved 状态的 quantity 总和
-              SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity   -- canceled 状态的 quantity 总和
-            FROM orders
-            WHERE batch_no = ? AND status IN ('reserved', 'canceled')
-          `
-          const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
-          const statisticsInfo = statisticsResult[0][0]
+          // const statisticsStatement = `
+          //   SELECT 
+          //     COUNT(*) AS totalOrdersCount,   -- 总订单数量（reserved 和 canceled 订单数量之和）
+          //     COUNT(CASE WHEN status = 'reserved' THEN 1 END) AS reservedOrdersCount,   -- reserved 状态的订单数量
+          //     COUNT(CASE WHEN status = 'canceled' THEN 1 END) AS canceledOrdersCount,   -- canceled 状态的订单数量
+          //     SUM(CASE WHEN status = 'reserved' THEN quantity ELSE 0 END) AS reservedQuantity,   -- reserved 状态的 quantity 总和
+          //     SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity   -- canceled 状态的 quantity 总和
+          //   FROM orders
+          //   WHERE batch_no = ? AND status IN ('reserved', 'canceled')
+          // `
+          // const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
+          // const statisticsInfo = statisticsResult[0][0]
   
+          // return {
+          //   totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
+          //   reservedOrdersCount: +statisticsInfo.reservedOrdersCount, // 已预订订单
+          //   canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
+          //   reservedQuantity: +statisticsInfo.reservedQuantity+statisticsInfo.canceledQuantity, // 已预订量
+          //   canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消量
+          // }
+
+          const totalSoldQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:totalSoldQuantity`)
+          const totalOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:totalOrdersCount`)
+          const reservedQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:reservedQuantity`)
+          const reservedOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:reservedOrdersCount`)
+          const canceledQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:canceledQuantity`)
+          const canceledOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:canceledOrdersCount`)
+
           return {
-            totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
-            reservedOrdersCount: +statisticsInfo.reservedOrdersCount, // 已预订订单
-            canceledOrdersCount: +statisticsInfo.canceledOrdersCount, // 已取消订单
-            reservedQuantity: +statisticsInfo.reservedQuantity+statisticsInfo.canceledQuantity, // 已预订量
-            canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消量
+            totalSoldQuantity,
+            totalOrdersCount,
+            reservedQuantity,
+            reservedOrdersCount,
+            canceledQuantity,
+            canceledOrdersCount,
           }
         } else { // 售卖阶段
           const statisticsStatement = `
@@ -676,32 +761,56 @@ class GoodsService {
             refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
           }
         }
-      } else {
-        const statisticsStatement = `
-          SELECT 
-            COUNT(*) AS totalOrdersCount,   -- 总订单数量
-            COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
-            COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
-            COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
-            SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,   -- paid 状态的 quantity 总和
-            SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,   -- completed 状态的 quantity 总和
-            SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity   -- refunded 状态的 quantity 总和
-          FROM orders
-          WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
-        `
-        const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
-        const statisticsInfo = statisticsResult[0][0]
+      } else if (batchInfo.batch_type === 'stock') {
+        // const statisticsStatement = `
+        //   SELECT 
+        //     COUNT(*) AS totalOrdersCount,   -- 总订单数量
+        //     COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidOrdersCount,   -- paid 状态的订单数量
+        //     COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedOrdersCount,   -- completed 状态的订单数量
+        //     COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refundedOrdersCount,   -- refunded 状态的订单数量
+        //     SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,   -- paid 状态的 quantity 总和
+        //     SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,   -- completed 状态的 quantity 总和
+        //     SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity   -- refunded 状态的 quantity 总和
+        //   FROM orders
+        //   WHERE batch_no = ? AND status IN ('unpaid', 'paid', 'completed', 'canceled', 'refunded')
+        // `
+        // const statisticsResult = await connection.execute(statisticsStatement, [batchInfo.batch_no])
+        // const statisticsInfo = statisticsResult[0][0]
   
+        // return {
+        //   totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
+        //   reservedQuantity: +statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
+  
+        //   paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
+        //   paidQuantity: +statisticsInfo.paidQuantity, // 已付款
+        //   completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
+        //   completedQuantity: +statisticsInfo.completedQuantity, // 已完成
+        //   refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
+        //   refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
+        // }
+
+        const remainingQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:remainingQuantity`)
+        const totalOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:totalOrdersCount`)
+        const paidQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:paidQuantity`)
+        const paidOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:paidOrdersCount`)
+        const shippedQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:shippedQuantity`)
+        const shippedOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:shippedOrdersCount`)
+        const completedQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:completedQuantity`)
+        const completedOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:completedOrdersCount`)
+        const refundedQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:refundedQuantity`)
+        const refundedOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:refundedOrdersCount`)
+
         return {
-          totalOrdersCount: +statisticsInfo.totalOrdersCount, // 全部订单
-          reservedQuantity: +statisticsInfo.paidQuantity+statisticsInfo.completedQuantity+statisticsInfo.refundedQuantity, // 已预订量
-  
-          paidOrdersCount: +statisticsInfo.paidOrdersCount, // 已付款
-          paidQuantity: +statisticsInfo.paidQuantity, // 已付款
-          completedOrdersCount: +statisticsInfo.completedOrdersCount, // 已完成
-          completedQuantity: +statisticsInfo.completedQuantity, // 已完成
-          refundedOrdersCount: +statisticsInfo.refundedOrdersCount, // 已退款
-          refundedQuantity: +statisticsInfo.refundedQuantity, // 已退款
+          remainingQuantity,
+          totalOrdersCount,
+          paidQuantity,
+          paidOrdersCount,
+          shippedQuantity,
+          shippedOrdersCount,
+          completedQuantity,
+          completedOrdersCount,
+          refundedQuantity,
+          refundedOrdersCount,
         }
       }   
     } catch (error) {
@@ -720,7 +829,11 @@ class GoodsService {
 
       // ====================== 1. 查询商品信息并加锁 ======================
       const [batchInfoResult] = await conn.execute(
-        `SELECT batch_no, goods_categoryId FROM goods WHERE id = ? FOR UPDATE`, 
+        `SELECT 
+          batch_no, 
+          goods_categoryId,
+          batch_type  
+            FROM goods WHERE id = ? FOR UPDATE`, 
         [id]
       );
       if (batchInfoResult.length === 0) {
@@ -745,19 +858,21 @@ class GoodsService {
       const updateFields = {
         batch_no: null,
         batch_type: null,
-        batch_preorder_finalPrice: null,
         batch_startTime: null,
         batch_startBy: null,
-        batch_stock_unitPrice: null,
+        goods_isSelling: 0,
         batch_preorder_minPrice: null,
         batch_preorder_maxPrice: null,
+        batch_preorder_finalPrice: null,
+        batch_preorder_startSelling_time: null,
+        batch_preorder_startSelling_by: null,
+        batch_stock_unitPrice: null,
+        batch_stock_totalQuantity: null,
+        batch_stock_remainingQuantity: null,
         batch_minQuantity: null,
         batch_discounts_promotion: null,
         batch_ship_provinces: null,
         batch_remark: null,
-        batch_stock_totalQuantity: null,
-        batch_stock_remainingQuantity: null,
-        goods_isSelling: 0,
       };
       
       const setClause = Object.keys(updateFields).map(field => `${field} = ?`).join(', ');
@@ -772,7 +887,10 @@ class GoodsService {
 
       await conn.commit();
 
-      wechatService.cleanRecommendList()
+      this.cleanUselessGoodsDataAfterNotSelling({
+        id,
+        batch_type: batchInfo.batch_type,
+      })
 
       return '删除成功'
     } catch (error) {
@@ -839,19 +957,21 @@ class GoodsService {
       // ====================== 结束当前批次 ======================
       await conn.execute(
         `UPDATE goods
-         SET 
-           batch_no = NULL,
-           batch_type = NULL,
-           batch_preorder_finalPrice = NULL,
-           batch_startTime = NULL,
-           batch_startBy = NULL,
-           batch_preorder_minPrice = NULL,
-           batch_preorder_maxPrice = NULL,
-           batch_minQuantity = NULL,
-           batch_discounts_promotion = NULL,
-           batch_ship_provinces = NULL,
-           batch_remark = NULL,
-           goods_isSelling = 0
+          SET 
+            batch_no = NULL,
+            batch_type = NULL,
+            batch_startTime = NULL,
+            batch_startBy = NULL,
+            batch_preorder_minPrice = NULL,
+            batch_preorder_maxPrice = NULL,
+            batch_preorder_finalPrice = NULL,
+            batch_preorder_startSelling_time: NULL,
+            batch_preorder_startSelling_by: NULL,
+            batch_minQuantity = NULL,
+            batch_discounts_promotion = NULL,
+            batch_ship_provinces = NULL,
+            batch_remark = NULL,
+            goods_isSelling = 0
          WHERE id = ?`,
         [id]
       );
@@ -911,7 +1031,10 @@ class GoodsService {
   
       await conn.commit();
 
-      wechatService.cleanRecommendList()
+      this.cleanUselessGoodsDataAfterNotSelling({
+        id,
+        batch_type: batchInfo.batch_type,
+      })
 
       return '操作成功';
     } catch (error) {
@@ -995,7 +1118,10 @@ class GoodsService {
 
       await conn.commit();
 
-      wechatService.cleanRecommendList()
+      this.cleanUselessGoodsDataAfterNotSelling({
+        id: goodsId,
+        batch_type: batchInfo.batch_type,
+      })
 
       return '操作成功'
     } catch (error) {
@@ -1006,6 +1132,277 @@ class GoodsService {
       throw error;
     } finally {
       if (conn) conn.release();
+    }
+  }
+
+  async getGoodsStockRemainingQuantityFromRedis(params) {
+    const { id } = params
+
+    try {
+      const remainingQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:remainingQuantity`)
+
+      return {
+        remainingQuantity
+      }
+    } catch (error) {
+      logger.error('service', 'service error: getGoodsStockRemainingQuantityFromRedis', { error })
+      
+      throw error;
+    }
+  }
+
+
+
+
+
+
+
+
+
+  // ========================================= goods工具函数 =========================================
+
+  async cleanUselessGoodsDataAfterNotSelling(params) {
+    const { 
+      id,
+      batch_type, 
+    } = params
+
+    // 清理redis库存
+    if (batch_type === 'preorder') {
+      redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:totalSoldQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:totalOrdersCount`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:reservedQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:reservedOrdersCount`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:canceledQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:canceledOrdersCount`)
+    } else if (batch_type === 'stock') {
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:remainingQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:totalOrdersCount`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:paidQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:paidOrdersCount`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:shippedQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:shippedOrdersCount`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:completedQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:completedOrdersCount`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:refundedQuantity`)
+      redisUtils.delWithVersion(`goodsSelling:${id}:stock:refundedOrdersCount`)
+    }
+
+    wechatService.cleanRecommendListAfterNotSelling()
+  }
+
+  async setGoodsPreorderPendingDataToRedis(params) {
+    const {
+      id,
+      batch_no,
+      batch_type
+    } = params
+
+    try {
+      if (!id) {
+        throw new customError.MissingParameterError('id')
+      }
+      if (!batch_no) {
+        throw new customError.MissingParameterError('batch_no')
+      }
+      if (!batch_type) {
+        throw new customError.MissingParameterError('batch_type')
+      }
+      if (batch_type !== 'preorder') {
+        throw new customError.InvalidParameterError('batch_type')
+      }
+
+      const [ordersData] = await connection.execute(`
+          SELECT 
+            quantity, status
+              FROM orders WHERE batch_no = ?
+        `,
+        [batch_no]
+      );
+      console.log('ordersData', ordersData);
+      let totalSoldQuantity = 0
+      let totalOrdersCount = 0
+      let reservedQuantity = 0
+      let reservedOrdersCount = 0
+      let canceledQuantity = 0
+      let canceledOrdersCount = 0
+    
+      ordersData.forEach(item => {
+        totalSoldQuantity += item.quantity
+        totalOrdersCount += 1
+        switch (item.status) {
+          case 'reserved':
+            reservedQuantity += item.quantity
+            reservedOrdersCount += 1
+            break;
+          case 'canceled':
+            canceledQuantity += item.quantity
+            canceledOrdersCount += 1
+            break;
+          default:
+            break;
+        }
+      })
+
+      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:totalSoldQuantity`, totalSoldQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:totalOrdersCount`, totalOrdersCount)
+      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:reservedQuantity`, reservedQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:reservedOrdersCount`, reservedOrdersCount)
+      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:canceledQuantity`, canceledQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:canceledOrdersCount`, canceledOrdersCount)
+    } catch (error) {
+      logger.error('service', 'service error: setGoodsPreorderPendingDataToRedis', { error })
+      
+      throw error
+    }
+  }
+
+  async setGoodsPreorderSellingDataToRedis(params) {
+    const {
+      
+    } = params
+
+    try {
+      
+    } catch (error) {
+      logger.error('service', 'service error: setGoodsPreorderSellingDataToRedis', { error })
+      
+      throw error
+    }
+  }
+
+  async setGoodsStockSellingDataToRedis(params) {
+    const {
+      id,
+      batch_no,
+      batch_type,
+      batch_stock_totalQuantity,
+    } = params
+
+    try {
+      if (!id) {
+        throw new customError.MissingParameterError('id')
+      }
+      if (!batch_no) {
+        throw new customError.MissingParameterError('batch_no')
+      }
+      if (!batch_type) {
+        throw new customError.MissingParameterError('batch_type')
+      }
+      if (batch_type !== 'stock') {
+        throw new customError.InvalidParameterError('batch_type')
+      }
+      if (!batch_stock_totalQuantity) {
+        throw new customError.MissingParameterError('batch_stock_totalQuantity')
+      }
+
+      const [ordersData] = await connection.execute(`
+          SELECT 
+            quantity, status
+              FROM orders WHERE batch_no = ?
+        `,
+        [batch_no]
+      );
+
+      let totalSoldQuantity = 0
+      let totalOrdersCount = 0
+      let paidQuantity = 0
+      let paidOrdersCount = 0
+      let shippedQuantity = 0
+      let shippedOrdersCount = 0
+      let completedQuantity = 0
+      let completedOrdersCount = 0
+      let refundedQuantity = 0
+      let refundedOrdersCount = 0
+    
+      ordersData.forEach(item => {
+        totalSoldQuantity += item.quantity
+        totalOrdersCount += 1
+        switch (item.status) {
+          case 'paid':
+            paidQuantity += item.quantity
+            paidOrdersCount += 1
+            break;
+          case 'shipped':
+            shippedQuantity += item.quantity
+            shippedOrdersCount += 1
+            break;
+          case 'completed':
+            completedQuantity += item.quantity
+            completedOrdersCount += 1
+            break;
+          case 'refunded':
+            refundedQuantity += item.quantity
+            refundedOrdersCount += 1
+            break;
+          default:
+            break;
+        }
+      })
+
+      let remainingQuantity = Number(batch_stock_totalQuantity) - totalSoldQuantity
+
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:remainingQuantity`, remainingQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:totalOrdersCount`, totalOrdersCount)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:paidQuantity`, paidQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:paidOrdersCount`, paidOrdersCount)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:shippedQuantity`, shippedQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:shippedOrdersCount`, shippedOrdersCount)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:completedQuantity`, completedQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:completedOrdersCount`, completedOrdersCount)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:refundedQuantity`, refundedQuantity)
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:refundedOrdersCount`, refundedOrdersCount)
+    } catch (error) {
+      logger.error('service', 'service error: setGoodsStockSellingDataToRedis', { error })
+      
+      throw error
+    }
+  }
+
+  async decreaseGoodsStockRemainingQuantityToRedis(params) {
+
+  }
+
+  async increaseGoodsPreorderReservedQuantityToRedis(params) {
+    const {
+      id,
+      batch_type,
+    } = params
+
+    const batch_stock_remainingQuantity = Number(params.batch_stock_remainingQuantity)
+    const batch_stock_totalQuantity = Number(params.batch_stock_totalQuantity)
+
+    try {
+      if (!id) {
+        throw new customError.MissingParameterError('id')
+      }
+      if (!batch_type) {
+        throw new customError.MissingParameterError('batch_type')
+      }
+      if (batch_type !== 'stock') {
+        throw new customError.InvalidParameterError('batch_type')
+      }
+      if (!batch_stock_remainingQuantity) {
+        throw new customError.MissingParameterError('batch_stock_remainingQuantity')
+      }
+      if (isNaN(batch_stock_remainingQuantity) || batch_stock_remainingQuantity <= 0) {
+        throw new customError.InvalidParameterError('batch_stock_remainingQuantity')
+      }
+      if (!batch_stock_totalQuantity) {
+        throw new customError.MissingParameterError('batch_stock_totalQuantity')
+      }
+      if (isNaN(batch_stock_totalQuantity) || batch_stock_totalQuantity <= 0) {
+        throw new customError.InvalidParameterError('batch_stock_remainingQuantity')
+      }
+      if (batch_stock_totalQuantity < batch_stock_remainingQuantity) {
+        throw new customError.InvalidLogicError('batch_stock_remainingQuantity && batch_stock_totalQuantity', 'batch_stock_totalQuantity 必须大于等于 batch_stock_remainingQuantity')
+      }
+
+      redisUtils.setWithVersion(`goodsSelling:${id}:stock:remainingQuantity`, batch_stock_remainingQuantity)
+    } catch (error) {
+      logger.error('service', 'service error: increaseGoodsPreorderReservedQuantityToRedis', { error })
+      
+      throw error
     }
   }
 }

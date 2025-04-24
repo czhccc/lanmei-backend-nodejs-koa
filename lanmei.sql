@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 19/04/2025 12:26:28
+ Date: 24/04/2025 16:47:44
 */
 
 SET NAMES utf8mb4;
@@ -69,7 +69,7 @@ CREATE TABLE `admin`  (
 -- ----------------------------
 -- Records of admin
 -- ----------------------------
-INSERT INTO `admin` VALUES ('13999999999', '$2b$10$XnFwhxBcYabaulpBosYJ3uIhYfjUwhDr35Yd1Dt3UF7ItaLUNg812', '99910', 'admin', '2025-03-20 21:51:27', '2025-03-20 22:03:41', '19967303498');
+INSERT INTO `admin` VALUES ('13999999999', '$2b$10$Z2AZumv3u3QsssOvbXwUQ.mKFBtsBViGsU8irrLfWo3aHKHulAu0K', '99910', 'admin', '2025-03-20 21:51:27', '2025-04-20 23:19:37', '19967303498');
 INSERT INTO `admin` VALUES ('19967303498', '$2b$10$Z2AZumv3u3QsssOvbXwUQ.mKFBtsBViGsU8irrLfWo3aHKHulAu0K', 'czh', 'superadmin', '2025-03-20 21:38:42', '2025-03-20 21:38:42', '19967303498');
 
 -- ----------------------------
@@ -305,10 +305,10 @@ CREATE TABLE `goods`  (
 -- ----------------------------
 -- Records of goods
 -- ----------------------------
-INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 1, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '2025-04-03 20:16:36', '19967303498', '20250403201636_hl1l6t', 'preorder', NULL, NULL, 10.00, 20.00, '2025-03-17 21:53:11', '19967303498', NULL, NULL, 2.0, '[{\"id\": 0, \"amount\": 10, \"content\": \"111111\"}, {\"id\": 1, \"amount\": 20, \"content\": \"222222\"}]', '[{\"discount\": 5, \"quantity\": 2}, {\"discount\": 10, \"quantity\": 4}]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', NULL, '', '2024-10-15 09:14:14', '2025-04-11 21:32:32');
+INSERT INTO `goods` VALUES (55, '测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓测试商品1-蓝莓', '斤', 2, 1, '我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111我是商品备注111', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-55_20241108154617_m682hk.jpg', '2025-04-03 20:16:36', '19967303498', '20250403201636_hl1l6t', 'preorder', NULL, NULL, 10.00, 20.00, '2025-03-17 21:53:11', '19967303498', NULL, NULL, 2.0, '[{\"id\": 0, \"amount\": 10, \"content\": \"111111\"}, {\"id\": 1, \"amount\": 20, \"content\": \"222222\"}]', '[{\"discount\": 5, \"quantity\": 2}, {\"discount\": 10, \"quantity\": 4}]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', NULL, '', '2024-10-15 09:14:14', '2025-04-24 16:20:21');
 INSERT INTO `goods` VALUES (57, '测试商品-鸭子', '只', 5, 1, '我是鸭子鸭子鸭子', '<p>暂无更多介绍</p>', 'goods_coverImage/goods_coverImage-57_20250311220333_ekir9a.jpg', '2025-04-16 21:00:38', '19967303498', '20250416210038_trj56n', 'stock', 500.00, 500.00, NULL, NULL, NULL, NULL, NULL, 10.00, 1.0, '[]', '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', 1, '', '2024-10-15 11:49:45', '2025-04-16 21:09:22');
 INSERT INTO `goods` VALUES (58, '用于基础信息测试', '只', 6, 0, '鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美', '<p>鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美鸡你太美</p><p><br></p><p><img src=\"BASE_URL/goods_richText/goods_richText-58_20250317210306_zll5qi.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-58_20250309192417_ql77ki.jpg', '2025-03-17 21:03:25', '19967303498', '20250317210325_vpjd9g', 'stock', 100.00, 99997.00, NULL, NULL, NULL, NULL, NULL, 5.00, 1.0, NULL, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', NULL, '', '2024-10-17 09:20:31', '2025-03-29 20:24:27');
-INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 1, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20250326195737_wkmeb0.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '2025-03-26 20:02:49', '19967303498', '20250326200249_flzdd6', 'stock', 100.00, 96.00, NULL, NULL, NULL, NULL, NULL, 2.00, 1.0, NULL, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', NULL, '', '2024-10-25 10:16:32', '2025-04-15 09:04:45');
+INSERT INTO `goods` VALUES (59, '测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果测试-百香果22', '篮', 3, 1, '111', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20250326195737_wkmeb0.jpg\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-59_20241025101638_4oso57.png', '2025-03-26 20:02:49', '19967303498', '20250326200249_flzdd6', 'stock', 100.00, 96.00, NULL, NULL, NULL, NULL, NULL, 2.00, 1.0, NULL, '[]', '[{\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', NULL, '', '2024-10-25 10:16:32', '2025-04-24 12:53:24');
 INSERT INTO `goods` VALUES (60, '鸭子商品', '只', 5, 1, '鸭子商品备注', '<p><br></p><p>详情</p><p><img src=\"BASE_URL/goods_richText/goods_richText-59_20241025101847_9lvi3j.png\" alt=\"\" data-href=\"\" style=\"\"/></p>', 'goods_coverImage/goods_coverImage-60_20241108161759_qs2xpn.jpg', '2025-04-03 13:05:41', '19967303498', '20250403130541_wlmakn', 'stock', 1000.00, 989.00, NULL, NULL, NULL, NULL, NULL, 10.00, 1.0, '[{\"id\": 0, \"amount\": 10, \"content\": \"选项111111111111111111\"}, {\"id\": 1, \"amount\": 20, \"content\": \"选项2选项2选项2选项2选项2选项2选项\"}]', '[{\"discount\": 10, \"quantity\": 2}, {\"discount\": 20, \"quantity\": 4}]', '[{\"code\": \"32\", \"name\": \"江苏省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}, {\"code\": \"33\", \"name\": \"浙江省\", \"basePostage\": 10, \"baseQuantity\": 1, \"extraPostage\": 10, \"extraQuantity\": 1, \"freeShippingQuantity\": 10}]', NULL, '22222222222', '2024-11-08 16:17:53', '2025-04-03 22:07:02');
 
 -- ----------------------------
@@ -3923,43 +3923,11 @@ CREATE TABLE `system_logs`  (
   `detail` json NULL,
   `timestamp` datetime NOT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1138 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1586 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_logs
 -- ----------------------------
-INSERT INTO `system_logs` VALUES (816, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 19:42:49');
-INSERT INTO `system_logs` VALUES (817, 'info', 'redis', 'RedisUtils 连接已建立', '{\"module\": \"redis\"}', '2025-04-17 20:43:12');
-INSERT INTO `system_logs` VALUES (818, 'info', 'redis', 'RedisUtils 连接已建立', '{\"module\": \"redis\"}', '2025-04-17 20:51:13');
-INSERT INTO `system_logs` VALUES (819, 'info', 'redis', 'RedisUtils 连接已建立', '{\"module\": \"redis\"}', '2025-04-17 20:51:39');
-INSERT INTO `system_logs` VALUES (820, 'info', 'redis', 'RedisUtils 连接已建立', '{\"module\": \"redis\"}', '2025-04-17 20:52:04');
-INSERT INTO `system_logs` VALUES (821, 'info', 'redis', 'RedisUtils 连接已建立', '{\"module\": \"redis\"}', '2025-04-17 20:57:20');
-INSERT INTO `system_logs` VALUES (822, 'info', 'redis', 'RedisUtils 连接已建立', '{\"module\": \"redis\"}', '2025-04-17 20:58:29');
-INSERT INTO `system_logs` VALUES (823, 'info', 'redis', 'RedisUtils 连接已建立', '{\"module\": \"redis\"}', '2025-04-17 21:01:11');
-INSERT INTO `system_logs` VALUES (824, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:10:38');
-INSERT INTO `system_logs` VALUES (825, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:17:33');
-INSERT INTO `system_logs` VALUES (826, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:17:35');
-INSERT INTO `system_logs` VALUES (827, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:17:56');
-INSERT INTO `system_logs` VALUES (828, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:18:10');
-INSERT INTO `system_logs` VALUES (829, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:18:14');
-INSERT INTO `system_logs` VALUES (830, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:21:16');
-INSERT INTO `system_logs` VALUES (831, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:21:48');
-INSERT INTO `system_logs` VALUES (832, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:21:53');
-INSERT INTO `system_logs` VALUES (833, 'warn', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:22:05');
-INSERT INTO `system_logs` VALUES (834, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:22:09');
-INSERT INTO `system_logs` VALUES (835, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:22:58');
-INSERT INTO `system_logs` VALUES (836, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:23:13');
-INSERT INTO `system_logs` VALUES (837, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:24:18');
-INSERT INTO `system_logs` VALUES (838, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:24:20');
-INSERT INTO `system_logs` VALUES (839, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:30:11');
-INSERT INTO `system_logs` VALUES (840, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:30:54');
-INSERT INTO `system_logs` VALUES (841, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:31:20');
-INSERT INTO `system_logs` VALUES (842, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:31:32');
-INSERT INTO `system_logs` VALUES (843, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:31:35');
-INSERT INTO `system_logs` VALUES (844, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:32:23');
-INSERT INTO `system_logs` VALUES (845, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:33:51');
-INSERT INTO `system_logs` VALUES (846, 'info', 'redis', 'RedisUtils 连接已建立', '{}', '2025-04-17 21:35:19');
-INSERT INTO `system_logs` VALUES (847, 'INFO', 'redis', 'RedisUtils 连接已建立', '{\"msg\": \"RedisUtils 连接已建立\", \"module\": \"redis\", \"__serializedAt\": \"2025-04-17T13:59:01.006Z\"}', '2025-04-17 21:59:01');
 
 -- ----------------------------
 -- Table structure for wechat_home_news

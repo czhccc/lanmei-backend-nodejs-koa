@@ -268,7 +268,7 @@ class GoodsController {
 
     ctx.body = result
   }
-
+  
   async preorderBatchIsReadyToSell(ctx, next) {
     const params = ctx.request.body
 
@@ -288,6 +288,19 @@ class GoodsController {
 
     params.thePhone = ctx.theUser.phone
     const result = await service.preorderBatchIsReadyToSell(params)
+
+    ctx.body = result
+  }
+
+  async getGoodsStockRemainingQuantityFromRedis(ctx, next) {
+    const params = ctx.request.query
+
+    const { id } = params
+    if (!id) {
+      throw new customError.MissingParameterError('id')
+    }
+    
+    const result = await service.getGoodsStockRemainingQuantityFromRedis(params)
 
     ctx.body = result
   }
