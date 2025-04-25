@@ -266,7 +266,119 @@ class RedisClient {
     return deletedCount;
   }
 
+  /**
+ * 原子性增加指定键的值（带版本控制，保持原TTL）
+ * @param {string} key - 键名
+ * @param {number} delta - 增量值（必须为非零数值）
+ * @returns {Promise<{ success: boolean, value: number | null }>} - 操作结果和新值
+ */
+  async incrWithVersion(key, delta) {
+    if (!key || typeof key !== "string") {
+        logger.error('redis', "RedisUtils incrWithVersion 无效的键值格式", { key });
+        return { success: false, value: null };
+    }
+    if (typeof delta !== "number" || isNaN(delta) || delta === 0) {
+        logger.error('redis', "RedisUtils incrWithVersion 无效的delta值", { delta });
+        return { success: false, value: null };
+    }
 
+    const maxRetries = this.config.maxRetries || 3;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+        try {
+            const versionKey = `${key}:_version`;
+            // 获取当前值和版本号
+            const results = await this.client.mget(key, versionKey);
+            const currentValue = results[0] !== null ? parseInt(results[0], 10) : null;
+            const currentVersion = results[1] !== null ? parseInt(results[1], 10) : 0;
+
+            // 若键不存在，直接返回失败（需先调用 setWithVersion 初始化）
+            if (currentValue === null) {
+                logger.error('redis', `RedisUtils incrWithVersion 键不存在`, { key });
+                return { success: false, value: null };
+            }
+
+            const luaScript = `
+                local key = KEYS[1]
+                local versionKey = KEYS[2]
+                local delta = tonumber(ARGV[1])
+                local expectedVersion = tonumber(ARGV[2])
+
+                -- 检查键是否存在（防止未初始化）
+                if redis.call("EXISTS", key) == 0 then
+                    return {0, nil}
+                end
+
+                -- 获取当前版本号
+                local currentVersion = tonumber(redis.call("GET", versionKey) or 0)
+                if currentVersion ~= expectedVersion then
+                    return {0, nil}  -- 版本不匹配，拒绝操作
+                end
+
+                -- 获取当前TTL
+                local ttl = redis.call("TTL", key)
+
+                -- 执行增减操作
+                local newValue = redis.call("INCRBY", key, delta)
+
+                -- 更新版本号
+                redis.call("INCR", versionKey)
+
+                -- 保留原TTL（若存在）
+                if ttl > 0 then
+                    redis.call("EXPIRE", key, ttl)
+                end
+
+                return {1, newValue}
+            `;
+
+            const result = await this.client.eval(
+                luaScript,
+                2,
+                key,
+                versionKey,
+                delta,
+                currentVersion
+            );
+
+            if (result[0] === 1) {
+                return { success: true, value: result[1] };
+            } else {
+                retries++;
+                await new Promise(resolve => setTimeout(resolve, retries * 100));
+            }
+        } catch (error) {
+            logger.error('redis', `RedisUtils incrWithVersion 失败`, { key, delta, error });
+            retries++;
+            if (retries >= maxRetries) {
+                return { success: false, value: null };
+            }
+            await new Promise(resolve => setTimeout(resolve, retries * 100));
+        }
+    }
+    return { success: false, value: null };
+  }
+
+  /**
+  * 原子性减少指定键的值（带版本控制，保持原TTL）
+  */
+  async decrWithVersion(key, delta) {
+    if (typeof delta !== "number" || delta <= 0) {
+        logger.error('redis', "RedisUtils decrWithVersion 无效的delta值", { delta });
+        return { success: false, value: null };
+    }
+    return this.incrWithVersion(key, -delta);
+  }
+
+
+
+
+
+
+
+
+  // ========================================= simple =========================================
   /**
    * 不带版本号的get
    */

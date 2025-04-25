@@ -29,6 +29,9 @@ class OrderService {
   async createOrder(params) {
 
     let conn = null;
+
+    let redisRollbackNeeded = false;
+
     try {
       
       setIdempotencyKey(params.idempotencyKey)
@@ -50,7 +53,7 @@ class OrderService {
         SELECT  
           id, batch_no, batch_type, goods_isSelling,
           batch_preorder_minPrice, batch_preorder_maxPrice,
-          batch_stock_remainingQuantity, batch_stock_unitPrice,
+          batch_stock_unitPrice,
           batch_discounts_promotion, 
           batch_extraOptions, 
           batch_ship_provinces, batch_ship_canHomeDelivery, 
@@ -95,7 +98,7 @@ class OrderService {
         throw new customError.InvalidParameterError('所选区不属于所选市')
       }
 
-      const shipProvincesCodes = batchInfo.batch_ship_provinces.map(item => item.code);
+      const shipProvincesCodes = Array.isArray(batchInfo.batch_ship_provinces) ? batchInfo.batch_ship_provinces.map(item => item.code) : [];
       if (!shipProvincesCodes.includes(receive_provinceCode)) {
         throw new customError.InvalidLogicError('所选省份暂不支持配送')
       }
@@ -110,105 +113,111 @@ class OrderService {
       if (batchInfo.batch_type === 'preorder') {
 
       } else if (batchInfo.batch_type === 'stock') {
-        const [updateResult] = await conn.execute(
-          `UPDATE goods 
-           SET 
-             batch_stock_remainingQuantity = batch_stock_remainingQuantity - ?, 
-             goods_isSelling = CASE 
-               WHEN (batch_stock_remainingQuantity - ?) <= 0 THEN 0 
-               ELSE goods_isSelling 
-             END 
-           WHERE 
-             id = ? 
-              AND batch_stock_remainingQuantity >= ? 
-              AND goods_isSelling = 1`,
-          [quantity, quantity, goods_id, quantity]
-        );
-  
-        if (updateResult.affectedRows === 0) {
-          if (Number(batchInfo.batch_stock_remainingQuantity) === 0) {
-            throw new customError.InvalidLogicError('商品库存为0')
-          }
-          if (Number(batchInfo.batch_stock_remainingQuantity) < quantity) {
-            throw new customError.InvalidLogicError('商品库存不足')
-          }
+        const redisKey = `goodsSelling:${goods_id}:stock:remainingQuantity`;
+        const oldStockRemainingQuantity = await redisUtils.get(redisKey);
+
+        if (oldStockRemainingQuantity === null || Number(oldStockRemainingQuantity) <= 0) {
+          throw new customError.InvalidLogicError('商品库存不足');
+        }
+
+        const newStockRemainingQuantity = await redisUtils.decrWithVersion(redisKey, quantity);
+
+        if (newStockRemainingQuantity < 0) { // 回滚减库存操作
+          await redisUtils.incrWithVersion(redisKey, quantity);
+          throw new customError.InvalidLogicError('商品库存不足');
+        }
+
+        redisRollbackNeeded = true;
+
+        // 如果库存已为 0，商品下架
+        if (newStockRemainingQuantity === 0) {
+          const [updateResult] = await conn.execute(
+            `UPDATE goods SET goods_isSelling = 0 WHERE id = ? AND goods_isSelling = 1`,
+            [goods_id]
+          );
         }
       }
   
       // ====================== 生成订单 ======================
-      const calculatedOrderInfo = await this.generateOrderInfo({
-        goodsId: goods_id, 
-        quantity, 
-        provinceCode: receive_provinceCode, 
-        extraOptionsIds,
-        isCreatingOrder: true,
-        lockedBatchInfo: batchInfo,
-      })
-
-      const orderBaseFields = {
-        goods_id,
-        create_by: params.thePhone,
-        order_no: generateOrderNo(),
-        batch_no: batchInfo.batch_no,
-        batch_type: batchInfo.batch_type,
-        quantity: Number(quantity),
-        receive_isHomeDelivery: receive_isHomeDelivery || 0,
-        receive_name,
-        receive_phone,
-        receive_province: province.name, 
-        receive_provinceCode, 
-        receive_city: city.name, 
-        receive_cityCode, 
-        receive_district: district.name, 
-        receive_districtCode, 
-        receive_address,
-        remark_customer,
-        discountAmount_promotion: Number(calculatedOrderInfo.discountAmountPromotion),
-        extraOptions: JSON.stringify(calculatedOrderInfo.extraOptions),
-        postage: Number(calculatedOrderInfo.postage),
-        snapshot_coverImage: batchInfo.goods_coverImage, 
-        snapshot_goodsName: batchInfo.goods_name, 
-        snapshot_goodsUnit: batchInfo.goods_unit, 
-        snapshot_goodsRemark: batchInfo.goods_remark, 
-        snapshot_goodsRichText: (batchInfo.goods_richText || '').replaceAll(BASE_URL, 'BASE_URL'), 
-        snapshot_discounts: batchInfo.batch_discounts_promotion,
-        remark_self,
-      };
-      
-      // 根据订单类型动态添加字段
-      let orderFields;
-      if (batchInfo.batch_type === 'preorder') {
-        orderFields = {
-          ...orderBaseFields,
-          preorder_minPrice: Number(batchInfo.batch_preorder_minPrice),
-          preorder_maxPrice: Number(batchInfo.batch_preorder_maxPrice),
-          preorder_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-          status: 'reserved',
-        };
-      } else if (batchInfo.batch_type === 'stock') {
-        orderFields = {
-          ...orderBaseFields,
-          stock_unitPrice: Number(batchInfo.batch_stock_unitPrice),
-          pay_finalAmount: calculatedOrderInfo.finalAmount,
-          pay_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-          status: 'paid',
-        };
-      }
-
-      // 插入订单
-      const insertColumns = Object.keys(orderFields).join(', ');
-      const insertPlaceholders = Object.keys(orderFields).map(() => '?').join(', ');
-      const insertStatement = `
-        INSERT INTO orders (${insertColumns}) 
-        VALUES (${insertPlaceholders})
-      `;
-      const [insertResult] = await conn.execute(insertStatement, Object.values(orderFields));
+      try {
+        const calculatedOrderInfo = await this.generateOrderInfo({
+          goodsId: goods_id, 
+          quantity, 
+          provinceCode: receive_provinceCode, 
+          extraOptionsIds,
+          isCreatingOrder: true,
+          lockedBatchInfo: batchInfo,
+        })
   
-      await conn.commit();
+        const orderBaseFields = {
+          goods_id,
+          create_by: params.thePhone,
+          order_no: generateOrderNo(),
+          batch_no: batchInfo.batch_no,
+          batch_type: batchInfo.batch_type,
+          quantity: Number(quantity),
+          receive_isHomeDelivery: receive_isHomeDelivery || 0,
+          receive_name,
+          receive_phone,
+          receive_province: province.name, 
+          receive_provinceCode, 
+          receive_city: city.name, 
+          receive_cityCode, 
+          receive_district: district.name, 
+          receive_districtCode, 
+          receive_address,
+          remark_customer,
+          discountAmount_promotion: Number(calculatedOrderInfo.discountAmountPromotion),
+          extraOptions: JSON.stringify(calculatedOrderInfo.extraOptions),
+          postage: Number(calculatedOrderInfo.postage),
+          snapshot_coverImage: batchInfo.goods_coverImage, 
+          snapshot_goodsName: batchInfo.goods_name, 
+          snapshot_goodsUnit: batchInfo.goods_unit, 
+          snapshot_goodsRemark: batchInfo.goods_remark, 
+          snapshot_goodsRichText: (batchInfo.goods_richText || '').replaceAll(BASE_URL, 'BASE_URL'), 
+          snapshot_discounts: batchInfo.batch_discounts_promotion,
+          remark_self,
+        };
+        
+        // 根据订单类型动态添加字段
+        let orderFields;
+        if (batchInfo.batch_type === 'preorder') {
+          orderFields = {
+            ...orderBaseFields,
+            preorder_minPrice: Number(batchInfo.batch_preorder_minPrice),
+            preorder_maxPrice: Number(batchInfo.batch_preorder_maxPrice),
+            preorder_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            status: 'reserved',
+          };
+        } else if (batchInfo.batch_type === 'stock') {
+          orderFields = {
+            ...orderBaseFields,
+            stock_unitPrice: Number(batchInfo.batch_stock_unitPrice),
+            pay_finalAmount: calculatedOrderInfo.finalAmount,
+            pay_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            status: 'paid',
+          };
+        }
+  
+        // 插入订单
+        const insertColumns = Object.keys(orderFields).join(', ');
+        const insertPlaceholders = Object.keys(orderFields).map(() => '?').join(', ');
+        const insertStatement = `INSERT INTO orders (${insertColumns}) VALUES (${insertPlaceholders})`;
+        const [insertResult] = await conn.execute(insertStatement, Object.values(orderFields));
 
-      return { 
-        id: insertResult.insertId 
-      };
+        await conn.commit();
+
+        return { 
+          id: insertResult.insertId 
+        };
+      } catch (orderOperationsError) {
+        if (redisRollbackNeeded) {
+          const redisKey = `goodsSelling:${goods_id}:stock:remainingQuantity`;
+          await redisUtils.incrWithVersion(redisKey, quantity);  // 回滚库存
+        }
+
+        throw orderOperationsError;
+      }
     } catch (error) {
       await conn.rollback();
 
@@ -748,7 +757,6 @@ class OrderService {
           `SELECT 
             batch_type,
             goods_isSelling,
-            batch_stock_remainingQuantity,
             batch_preorder_minPrice,
             batch_preorder_maxPrice,
             batch_stock_unitPrice,
@@ -768,8 +776,11 @@ class OrderService {
         if (batchInfo.goods_isSelling === 0) {
           throw new customError.InvalidLogicError('商品已下架')
         }
-        if (batchInfo.batch_type==='stock' && batchInfo.batch_stock_remainingQuantity<quantity) {
-          throw new customError.InvalidLogicError('商品库存不足')
+        if (batchInfo.batch_type==='stock') {
+          const stock_remainingQuantity = await redisUtils.getWithVersion(`goodsSelling:${goods_id}:stock:remainingQuantity`)
+          if (stock_remainingQuantity < quantity) {
+            throw new customError.InvalidLogicError('商品库存不足')
+          }
         }
       }
       

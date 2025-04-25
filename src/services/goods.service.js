@@ -148,14 +148,14 @@ class GoodsService {
             SET batch_startBy=?, batch_no=?, batch_type=?, batch_startTime=?, batch_minQuantity=?, 
                 batch_discounts_promotion=?, batch_extraOptions=?, batch_ship_provinces=?, batch_ship_canHomeDelivery=?, batch_remark=?, 
                 batch_preorder_minPrice=?, batch_preorder_maxPrice=?, 
-                batch_stock_unitPrice=?, batch_stock_totalQuantity=?, batch_stock_remainingQuantity=?
+                batch_stock_unitPrice=?, batch_stock_totalQuantity=? 
           WHERE id=?
         `;
         const [batchResult] = await conn.execute(batchStatement, [
           thePhone, batchNo || generateBatchNo(), batchType, batchStartTime || dayjs().format('YYYY-MM-DD HH:mm:ss'), batchMinQuantity,
           JSON.stringify(batchDiscountsPromotion||[]), JSON.stringify(handledBatchExtraOptions||[]), JSON.stringify(batchShipProvinces), batchShipCanHomeDelivery, batchRemark,
           batchPreorderMinPrice || null, batchPreorderMaxPrice || null,
-          batchStockUnitPrice || null, batchStockTotalQuantity || null, batchStockTotalQuantity || null,
+          batchStockUnitPrice || null, batchStockTotalQuantity || null,
           goodsId
         ]);
         
@@ -468,7 +468,6 @@ class GoodsService {
           batch_preorder_maxPrice = NULL,
           batch_stock_unitPrice = NULL,
           batch_stock_totalQuantity = NULL,
-          batch_stock_remainingQuantity = NULL,
           batch_minQuantity = NULL,
           batch_discounts_promotion = NULL,
           batch_ship_provinces = NULL,
@@ -568,8 +567,11 @@ class GoodsService {
       if (batchInfo.batch_type==='preorder' && batchInfo.batch_preorder_finalPrice) {
         throw new customError.InvalidLogicError('交付阶段无法上架')
       }
-      if (batchInfo.batch_type==='stock' && batchInfo.batch_stock_remainingQuantity <= 0) {
-        throw new customError.InvalidLogicError('商品库存为0，无法上架')
+      if (batchInfo.batch_type==='stock') {
+        const stock_remainingQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:stock:remainingQuantity`)
+        if (stock_remainingQuantity <= 0) {
+          throw new customError.InvalidLogicError('商品库存为0，无法上架')
+        }
       }
 
       const updateResult = await connection.execute(
@@ -619,16 +621,16 @@ class GoodsService {
   }
 
   async getHistoryBatchesList(params) {
-    const { id, pageNo, pageSize, batchNo, startTime, endTime, status } = params
+    const { id, pageNo, pageSize, no, startTime, endTime, status } = params
 
     const queryParams = [];
   
     let whereClause = ` WHERE goods_id = ?`
     queryParams.push(id)
   
-    if (batchNo) {
+    if (no) {
       whereClause += ` AND no LIKE ?`
-      queryParams.push(`%${escapeLike(batchNo)}%`)
+      queryParams.push(`%${escapeLike(no)}%`)
     }
   
     if (startTime) {
@@ -708,7 +710,6 @@ class GoodsService {
           //   canceledQuantity: +statisticsInfo.canceledQuantity, // 已取消量
           // }
 
-          const totalSoldQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:totalSoldQuantity`)
           const totalOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:totalOrdersCount`)
           const reservedQuantity = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:reservedQuantity`)
           const reservedOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:reservedOrdersCount`)
@@ -716,7 +717,6 @@ class GoodsService {
           const canceledOrdersCount = await redisUtils.getWithVersion(`goodsSelling:${id}:preorder_pending:canceledOrdersCount`)
 
           return {
-            totalSoldQuantity,
             totalOrdersCount,
             reservedQuantity,
             reservedOrdersCount,
@@ -868,7 +868,6 @@ class GoodsService {
         batch_preorder_startSelling_by: null,
         batch_stock_unitPrice: null,
         batch_stock_totalQuantity: null,
-        batch_stock_remainingQuantity: null,
         batch_minQuantity: null,
         batch_discounts_promotion: null,
         batch_ship_provinces: null,
@@ -1169,7 +1168,6 @@ class GoodsService {
 
     // 清理redis库存
     if (batch_type === 'preorder') {
-      redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:totalSoldQuantity`)
       redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:totalOrdersCount`)
       redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:reservedQuantity`)
       redisUtils.delWithVersion(`goodsSelling:${id}:preorder_pending:reservedOrdersCount`)
@@ -1211,45 +1209,32 @@ class GoodsService {
       if (batch_type !== 'preorder') {
         throw new customError.InvalidParameterError('batch_type')
       }
+      
+      const [result] = await connection.execute(`
+        SELECT
+          COUNT(*) AS totalOrdersCount,
+          SUM(CASE WHEN status = 'reserved' THEN quantity ELSE 0 END) AS reservedQuantity,
+          COUNT(CASE WHEN status = 'reserved' THEN 1 ELSE NULL END) AS reservedOrdersCount,
+          SUM(CASE WHEN status = 'canceled' THEN quantity ELSE 0 END) AS canceledQuantity,
+          COUNT(CASE WHEN status = 'canceled' THEN 1 ELSE NULL END) AS canceledOrdersCount
+        FROM orders
+        WHERE batch_no = ?
+      `, [batch_no]);
+  
+      const {
+        totalOrdersCount = 0,
+        reservedQuantity = 0,
+        reservedOrdersCount = 0,
+        canceledQuantity = 0,
+        canceledOrdersCount = 0
+      } = result[0] || {};
+  
+      await redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:totalOrdersCount`, totalOrdersCount)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:reservedQuantity`, reservedQuantity)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:reservedOrdersCount`, reservedOrdersCount)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:canceledQuantity`, canceledQuantity)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:canceledOrdersCount`, canceledOrdersCount)
 
-      const [ordersData] = await connection.execute(`
-          SELECT 
-            quantity, status
-              FROM orders WHERE batch_no = ?
-        `,
-        [batch_no]
-      );
-      console.log('ordersData', ordersData);
-      let totalSoldQuantity = 0
-      let totalOrdersCount = 0
-      let reservedQuantity = 0
-      let reservedOrdersCount = 0
-      let canceledQuantity = 0
-      let canceledOrdersCount = 0
-    
-      ordersData.forEach(item => {
-        totalSoldQuantity += item.quantity
-        totalOrdersCount += 1
-        switch (item.status) {
-          case 'reserved':
-            reservedQuantity += item.quantity
-            reservedOrdersCount += 1
-            break;
-          case 'canceled':
-            canceledQuantity += item.quantity
-            canceledOrdersCount += 1
-            break;
-          default:
-            break;
-        }
-      })
-
-      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:totalSoldQuantity`, totalSoldQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:totalOrdersCount`, totalOrdersCount)
-      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:reservedQuantity`, reservedQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:reservedOrdersCount`, reservedOrdersCount)
-      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:canceledQuantity`, canceledQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:preorder_pending:canceledOrdersCount`, canceledOrdersCount)
     } catch (error) {
       logger.error('service', 'service error: setGoodsPreorderPendingDataToRedis', { error })
       
@@ -1296,62 +1281,48 @@ class GoodsService {
         throw new customError.MissingParameterError('batch_stock_totalQuantity')
       }
 
-      const [ordersData] = await connection.execute(`
-          SELECT 
-            quantity, status
-              FROM orders WHERE batch_no = ?
-        `,
-        [batch_no]
-      );
-
-      let totalSoldQuantity = 0
-      let totalOrdersCount = 0
-      let paidQuantity = 0
-      let paidOrdersCount = 0
-      let shippedQuantity = 0
-      let shippedOrdersCount = 0
-      let completedQuantity = 0
-      let completedOrdersCount = 0
-      let refundedQuantity = 0
-      let refundedOrdersCount = 0
-    
-      ordersData.forEach(item => {
-        totalSoldQuantity += item.quantity
-        totalOrdersCount += 1
-        switch (item.status) {
-          case 'paid':
-            paidQuantity += item.quantity
-            paidOrdersCount += 1
-            break;
-          case 'shipped':
-            shippedQuantity += item.quantity
-            shippedOrdersCount += 1
-            break;
-          case 'completed':
-            completedQuantity += item.quantity
-            completedOrdersCount += 1
-            break;
-          case 'refunded':
-            refundedQuantity += item.quantity
-            refundedOrdersCount += 1
-            break;
-          default:
-            break;
-        }
-      })
-
-      let remainingQuantity = Number(batch_stock_totalQuantity) - totalSoldQuantity
-
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:remainingQuantity`, remainingQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:totalOrdersCount`, totalOrdersCount)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:paidQuantity`, paidQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:paidOrdersCount`, paidOrdersCount)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:shippedQuantity`, shippedQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:shippedOrdersCount`, shippedOrdersCount)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:completedQuantity`, completedQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:completedOrdersCount`, completedOrdersCount)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:refundedQuantity`, refundedQuantity)
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:refundedOrdersCount`, refundedOrdersCount)
+      const [result] = await connection.execute(`
+        SELECT
+          COUNT(*) AS totalOrdersCount,
+          SUM(quantity) AS totalSoldQuantity,
+          SUM(CASE WHEN status = 'paid' THEN quantity ELSE 0 END) AS paidQuantity,
+          COUNT(CASE WHEN status = 'paid' THEN 1 ELSE NULL END) AS paidOrdersCount,
+          SUM(CASE WHEN status = 'shipped' THEN quantity ELSE 0 END) AS shippedQuantity,
+          COUNT(CASE WHEN status = 'shipped' THEN 1 ELSE NULL END) AS shippedOrdersCount,
+          SUM(CASE WHEN status = 'completed' THEN quantity ELSE 0 END) AS completedQuantity,
+          COUNT(CASE WHEN status = 'completed' THEN 1 ELSE NULL END) AS completedOrdersCount,
+          SUM(CASE WHEN status = 'refunded' THEN quantity ELSE 0 END) AS refundedQuantity,
+          COUNT(CASE WHEN status = 'refunded' THEN 1 ELSE NULL END) AS refundedOrdersCount
+        FROM orders
+        WHERE batch_no = ?
+      `, [batch_no]);
+  
+      const {
+        totalOrdersCount = 0,
+        totalSoldQuantity = 0,
+        paidQuantity = 0,
+        paidOrdersCount = 0,
+        shippedQuantity = 0,
+        shippedOrdersCount = 0,
+        completedQuantity = 0,
+        completedOrdersCount = 0,
+        refundedQuantity = 0,
+        refundedOrdersCount = 0
+      } = result[0] || {};
+  
+      const remainingQuantity = Number(batch_stock_totalQuantity) - Number(totalSoldQuantity)
+  
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:remainingQuantity`, remainingQuantity)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:totalOrdersCount`, totalOrdersCount)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:paidQuantity`, paidQuantity)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:paidOrdersCount`, paidOrdersCount)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:shippedQuantity`, shippedQuantity)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:shippedOrdersCount`, shippedOrdersCount)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:completedQuantity`, completedQuantity)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:completedOrdersCount`, completedOrdersCount)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:refundedQuantity`, refundedQuantity)
+      await redisUtils.setWithVersion(`goodsSelling:${id}:stock:refundedOrdersCount`, refundedOrdersCount)
+  
     } catch (error) {
       logger.error('service', 'service error: setGoodsStockSellingDataToRedis', { error })
       
@@ -1369,36 +1340,10 @@ class GoodsService {
       batch_type,
     } = params
 
-    const batch_stock_remainingQuantity = Number(params.batch_stock_remainingQuantity)
     const batch_stock_totalQuantity = Number(params.batch_stock_totalQuantity)
 
     try {
-      if (!id) {
-        throw new customError.MissingParameterError('id')
-      }
-      if (!batch_type) {
-        throw new customError.MissingParameterError('batch_type')
-      }
-      if (batch_type !== 'stock') {
-        throw new customError.InvalidParameterError('batch_type')
-      }
-      if (!batch_stock_remainingQuantity) {
-        throw new customError.MissingParameterError('batch_stock_remainingQuantity')
-      }
-      if (isNaN(batch_stock_remainingQuantity) || batch_stock_remainingQuantity <= 0) {
-        throw new customError.InvalidParameterError('batch_stock_remainingQuantity')
-      }
-      if (!batch_stock_totalQuantity) {
-        throw new customError.MissingParameterError('batch_stock_totalQuantity')
-      }
-      if (isNaN(batch_stock_totalQuantity) || batch_stock_totalQuantity <= 0) {
-        throw new customError.InvalidParameterError('batch_stock_remainingQuantity')
-      }
-      if (batch_stock_totalQuantity < batch_stock_remainingQuantity) {
-        throw new customError.InvalidLogicError('batch_stock_remainingQuantity && batch_stock_totalQuantity', 'batch_stock_totalQuantity 必须大于等于 batch_stock_remainingQuantity')
-      }
-
-      redisUtils.setWithVersion(`goodsSelling:${id}:stock:remainingQuantity`, batch_stock_remainingQuantity)
+      
     } catch (error) {
       logger.error('service', 'service error: increaseGoodsPreorderReservedQuantityToRedis', { error })
       
