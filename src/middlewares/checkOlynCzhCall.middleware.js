@@ -11,7 +11,7 @@ const checkOlynCzhCall = async (ctx, next) => {
   try {
     if (thePhone !== config.czhAdminPhone) {
       logger.error('checkOlynCzhCall', 'checkOlynCzhCall', { thePhone, path: ctx.path })
-      throw new customError.IllegalCall(ctx.path, { thePhone, path: ctx.path })
+      throw new customError.IllegalCallError(ctx.path, { thePhone, path: ctx.path })
     } else {
       await next()
     }

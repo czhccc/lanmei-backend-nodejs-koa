@@ -4,7 +4,6 @@ const dayjs = require('dayjs')
 
 const { 
   setIdempotencyKey,
-  delIdempotencyKey
 } = require('../utils/idempotency')
 
 const logger = require('../utils/logger')
@@ -36,16 +35,18 @@ class CommentService {
       }
 
       // 插入留言记录
-      const insertResult = await connection.execute(
+      const [insertResult] = await connection.execute(
         `INSERT comment (comment, author) VALUES (?, ?)`, 
         [comment, author]
       )
+
+      await markIdempotencyKeySuccess(params.idempotencyKey, insertResult.insertId);
 
       return '留言成功'
     } catch (error) {
       logger.error('service', 'service error: comment', { error })
 
-      delIdempotencyKey(params.idempotencyKey)
+      await markIdempotencyKeyFail(params.idempotencyKey);
       
       throw error
     }

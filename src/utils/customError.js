@@ -59,10 +59,50 @@ class InternalError extends BaseError {
   }
 }
 
-class IllegalCall extends BaseError {
+class IllegalCallError extends BaseError {
   constructor(details = null) {
-    super({ code: 'Illegal_Call', message: `无权进行此操作`, status: 500, details })
+    super({ code: 'ILLEGAL_CALL', message: `无权进行此操作`, status: 500, details })
   }
+}
+
+class RedisVersionConflictError extends BaseError {
+  constructor(details = null) {
+    super({ code: 'Redis_Version_Conflict', message: `Redis版本号冲突`, status: 500, details })
+  }
+}
+
+class RedisUnavailableError extends BaseError {
+  constructor(details = null) {
+    super({ code: 'REDIS_UNAVAILABLE', message: `Redis不可用`, status: 500, details })
+  }
+}
+
+// 判断是否为系统自定义错误
+function isCustomError(error) {
+  if (!error || typeof error !== 'object') return false
+
+  if (error instanceof BaseError) return true
+
+  const customErrorNames = new Set([
+    'BaseError',
+    'MissingParameterError',
+    'InvalidParameterError',
+    'InvalidTokenError',
+    'DuplicateSubmitError',
+    'ResourceNotFoundError',
+    'InvalidLogicError',
+    'CalculationError',
+    'InternalError',
+    'IllegalCallError',
+    'RedisVersionConflictError',
+    'RedisUnavailableError',
+  ])
+
+  if (customErrorNames.has(error.name)) {
+    return true
+  }
+
+  return false
 }
 
 // 导出命名空间对象
@@ -76,5 +116,8 @@ module.exports = {
   InvalidLogicError,
   CalculationError,
   InternalError,
-  IllegalCall,
+  IllegalCallError,
+  RedisUnavailableError,
+  RedisVersionConflictError,
+  isCustomError,
 }

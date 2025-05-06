@@ -18,7 +18,9 @@ const redisUtils = require('../utils/redisUtils');
 
 const { 
   setIdempotencyKey,
-  delIdempotencyKey
+  delIdempotencyKey,
+  markIdempotencyKeySuccess,
+  markIdempotencyKeyFail,
 } = require('../utils/idempotency')
 
 const logger = require('../utils/logger');
@@ -27,10 +29,23 @@ const customError = require('../utils/customError')
 
 class OrderService {
   async createOrder(params) {
+    const {
+      goods_id,
+      receive_isHomeDelivery, receive_name, receive_phone, 
+      receive_provinceCode, receive_cityCode, receive_districtCode, receive_address, 
+      remark_customer,
+      remark_self = '',
+      extraOptionsIds = [],
+    } = params;
+    const quantity = Number(params.quantity)
 
     let conn = null;
 
-    let redisRollbackNeeded = false;
+    let batchInfo = null
+
+    let redisUndoStack = []
+
+    let incrTotalOrdersCountRedis = null
 
     try {
       
@@ -39,15 +54,6 @@ class OrderService {
       conn = await connection.getConnection();
       await conn.beginTransaction();
   
-      const {
-        goods_id, quantity, 
-        receive_isHomeDelivery, receive_name, receive_phone, 
-        receive_provinceCode, receive_cityCode, receive_districtCode, receive_address, 
-        remark_customer,
-        remark_self = '',
-        extraOptionsIds = [],
-      } = params;
-
       // ====================== 获取商品信息 ======================
       const [batchInfoResult] = await conn.execute(`
         SELECT  
@@ -64,7 +70,9 @@ class OrderService {
       if (batchInfoResult.length === 0) {
         throw new customError.ResourceNotFoundError('商品不存在')
       }
-      const batchInfo = batchInfoResult[0];
+      
+      batchInfo = batchInfoResult[0];
+
       if (!batchInfo.batch_type) {
         throw new customError.InvalidLogicError('商品已下架')
       }
@@ -105,127 +113,160 @@ class OrderService {
       if (receive_isHomeDelivery && district.name !== '嵊州市') {
         throw new customError.InvalidLogicError('只有嵊州市可以送货上门')
       }
-      if (receive_isHomeDelivery && batch_ship_canHomeDelivery!==1) {
+      if (receive_isHomeDelivery && batchInfo.batch_ship_canHomeDelivery!==1) {
         throw new customError.InvalidLogicError('当前不支持嵊州市送货上门')
       }
 
       // ====================== 按批次类型处理 ======================
       if (batchInfo.batch_type === 'preorder') {
-
+        try {
+          await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:preorder_pending:reservedQuantity`, quantity)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:preorder_pending:reservedQuantity`, quantity))
+        } catch (redisError) {
+          throw redisError
+        }
       } else if (batchInfo.batch_type === 'stock') {
-        const redisKey = `goodsSelling:${goods_id}:stock:remainingQuantity`;
-        const oldStockRemainingQuantity = await redisUtils.get(redisKey);
+        let oldRemainingQuantity = null
+        try {
+          // 在库存类型中，先通过 get 检查剩余数量，再调用 decrWithVersion。get 后可能被其他请求修改，导致错误判断。
+          // 改进方案：直接依赖原子操作结果：移除 get 检查，完全依赖 decrWithVersion 的返回值判断是否成功。
+          const { value: newRemainingQuantity } = await redisUtils.decrWithVersion(`goodsSelling:${goods_id}:stock:remainingQuantity`, quantity)
+          redisUndoStack.push(() => redisUtils.incrWithVersion(`goodsSelling:${goods_id}:stock:remainingQuantity`, quantity))
 
-        if (oldStockRemainingQuantity === null || Number(oldStockRemainingQuantity) <= 0) {
-          throw new customError.InvalidLogicError('商品库存不足');
-        }
+          if (newRemainingQuantity < 0) {
+            throw new customError.InvalidLogicError('商品库存不足');
+          }
 
-        const newStockRemainingQuantity = await redisUtils.decrWithVersion(redisKey, quantity);
-
-        if (newStockRemainingQuantity < 0) { // 回滚减库存操作
-          await redisUtils.incrWithVersion(redisKey, quantity);
-          throw new customError.InvalidLogicError('商品库存不足');
-        }
-
-        redisRollbackNeeded = true;
-
-        // 如果库存已为 0，商品下架
-        if (newStockRemainingQuantity === 0) {
-          const [updateResult] = await conn.execute(
-            `UPDATE goods SET goods_isSelling = 0 WHERE id = ? AND goods_isSelling = 1`,
-            [goods_id]
-          );
+          /* 
+            如果库存已为 0，商品下架。
+              1、stock是付款后才有订单，直接下架即可
+                2、这里下架后也不用考虑直接删除redis中的库存数据，结束批次时会有删除操作
+          */
+          if (newRemainingQuantity === 0) {
+            await conn.execute(`UPDATE goods SET goods_isSelling = 0 WHERE id = ? AND goods_isSelling = 1`, [goods_id]);
+          }
+        } catch (reditError) {
+          throw reditError
         }
       }
   
       // ====================== 生成订单 ======================
-      try {
-        const calculatedOrderInfo = await this.generateOrderInfo({
-          goodsId: goods_id, 
-          quantity, 
-          provinceCode: receive_provinceCode, 
-          extraOptionsIds,
-          isCreatingOrder: true,
-          lockedBatchInfo: batchInfo,
-        })
-  
-        const orderBaseFields = {
-          goods_id,
-          create_by: params.thePhone,
-          order_no: generateOrderNo(),
-          batch_no: batchInfo.batch_no,
-          batch_type: batchInfo.batch_type,
-          quantity: Number(quantity),
-          receive_isHomeDelivery: receive_isHomeDelivery || 0,
-          receive_name,
-          receive_phone,
-          receive_province: province.name, 
-          receive_provinceCode, 
-          receive_city: city.name, 
-          receive_cityCode, 
-          receive_district: district.name, 
-          receive_districtCode, 
-          receive_address,
-          remark_customer,
-          discountAmount_promotion: Number(calculatedOrderInfo.discountAmountPromotion),
-          extraOptions: JSON.stringify(calculatedOrderInfo.extraOptions),
-          postage: Number(calculatedOrderInfo.postage),
-          snapshot_coverImage: batchInfo.goods_coverImage, 
-          snapshot_goodsName: batchInfo.goods_name, 
-          snapshot_goodsUnit: batchInfo.goods_unit, 
-          snapshot_goodsRemark: batchInfo.goods_remark, 
-          snapshot_goodsRichText: (batchInfo.goods_richText || '').replaceAll(BASE_URL, 'BASE_URL'), 
-          snapshot_discounts: batchInfo.batch_discounts_promotion,
-          remark_self,
+      const calculatedOrderInfo = await this.generateOrderInfo({
+        goodsId: goods_id, 
+        quantity, 
+        provinceCode: receive_provinceCode, 
+        extraOptionsIds,
+        isCreatingOrder: true,
+        lockedBatchInfo: batchInfo,
+      })
+
+      const orderBaseFields = {
+        goods_id,
+        create_by: params.thePhone,
+        order_no: generateOrderNo(),
+        batch_no: batchInfo.batch_no,
+        batch_type: batchInfo.batch_type,
+        quantity: Number(quantity),
+        receive_isHomeDelivery: receive_isHomeDelivery || 0,
+        receive_name,
+        receive_phone,
+        receive_province: province.name, 
+        receive_provinceCode, 
+        receive_city: city.name, 
+        receive_cityCode, 
+        receive_district: district.name, 
+        receive_districtCode, 
+        receive_address,
+        remark_customer,
+        discountAmount_promotion: Number(calculatedOrderInfo.discountAmountPromotion),
+        extraOptions: JSON.stringify(calculatedOrderInfo.extraOptions),
+        postage: Number(calculatedOrderInfo.postage),
+        snapshot_coverImage: batchInfo.goods_coverImage, 
+        snapshot_goodsName: batchInfo.goods_name, 
+        snapshot_goodsUnit: batchInfo.goods_unit, 
+        snapshot_goodsRemark: batchInfo.goods_remark, 
+        snapshot_goodsRichText: (batchInfo.goods_richText || '').replaceAll(BASE_URL, 'BASE_URL'), 
+        snapshot_discounts: batchInfo.batch_discounts_promotion,
+        remark_self,
+      };
+      
+      // 根据订单类型动态添加字段
+      let orderFields;
+      if (batchInfo.batch_type === 'preorder') {
+        orderFields = {
+          ...orderBaseFields,
+          preorder_minPrice: Number(batchInfo.batch_preorder_minPrice),
+          preorder_maxPrice: Number(batchInfo.batch_preorder_maxPrice),
+          preorder_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          status: 'reserved',
         };
-        
-        // 根据订单类型动态添加字段
-        let orderFields;
-        if (batchInfo.batch_type === 'preorder') {
-          orderFields = {
-            ...orderBaseFields,
-            preorder_minPrice: Number(batchInfo.batch_preorder_minPrice),
-            preorder_maxPrice: Number(batchInfo.batch_preorder_maxPrice),
-            preorder_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-            status: 'reserved',
-          };
-        } else if (batchInfo.batch_type === 'stock') {
-          orderFields = {
-            ...orderBaseFields,
-            stock_unitPrice: Number(batchInfo.batch_stock_unitPrice),
-            pay_finalAmount: calculatedOrderInfo.finalAmount,
-            pay_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-            status: 'paid',
-          };
-        }
-  
-        // 插入订单
-        const insertColumns = Object.keys(orderFields).join(', ');
-        const insertPlaceholders = Object.keys(orderFields).map(() => '?').join(', ');
-        const insertStatement = `INSERT INTO orders (${insertColumns}) VALUES (${insertPlaceholders})`;
-        const [insertResult] = await conn.execute(insertStatement, Object.values(orderFields));
-
-        await conn.commit();
-
-        return { 
-          id: insertResult.insertId 
+      } else if (batchInfo.batch_type === 'stock') {
+        orderFields = {
+          ...orderBaseFields,
+          stock_unitPrice: Number(batchInfo.batch_stock_unitPrice),
+          pay_finalAmount: calculatedOrderInfo.finalAmount,
+          pay_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          status: 'paid',
         };
-      } catch (orderOperationsError) {
-        if (redisRollbackNeeded) {
-          const redisKey = `goodsSelling:${goods_id}:stock:remainingQuantity`;
-          await redisUtils.incrWithVersion(redisKey, quantity);  // 回滚库存
-        }
-
-        throw orderOperationsError;
       }
+
+      // 插入订单
+      const insertColumns = Object.keys(orderFields).join(', ');
+      const insertPlaceholders = Object.keys(orderFields).map(() => '?').join(', ');
+      const insertStatement = `INSERT INTO orders (${insertColumns}) VALUES (${insertPlaceholders})`;
+      const [insertResult] = await conn.execute(insertStatement, Object.values(orderFields));
+
+      await conn.commit();
+
+      try {
+        if (batchInfo.batch_type === 'preorder') {
+          await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:preorder_pending:totalOrdersCount`, 1)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:preorder_pending:totalOrdersCount`, 1))
+        } else if (batchInfo.batch_type === 'stock') {
+          await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:stock:totalOrdersCount`, 1)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:stock:totalOrdersCount`, 1))
+        }
+      } catch (reditError) {
+        throw reditError
+      }
+
+      await markIdempotencyKeySuccess(params.idempotencyKey, insertResult.insertId);
+
+      return { 
+        id: insertResult.insertId 
+      };
+
     } catch (error) {
+
       await conn.rollback();
 
       logger.error('service', 'service error: createOrder', { error })
 
-      delIdempotencyKey(params.idempotencyKey)
+      // 不能在这里无条件直接下架商品，否则报库存不足时也会直接下架，无法卖出剩余库存
+      let theRedisRetractError = null
+      try {
+        redisUtils.rollbackRedisStack(redisUndoStack)
+      } catch (redisRetractError) {
+        logger.error('redis', 'createOrder rollbackRedisStack 失败', { 
+          error: redisError,
+          goods_id,
+          quantity,
+        })
+        theRedisRetractError = redisRetractError
+      }
 
-      throw error;
+      if (
+        error instanceof customError.RedisUnavailableError ||
+        theRedisRetractError instanceof customError.RedisUnavailableError
+      ) {
+        // 这里就不重试机制了，如果失败，直接等下一个用户下单时再触发
+        await conn.execute('UPDATE goods SET goods_isSelling = 0 WHERE id = ?', [goods_id]); // 下架商品
+      }
+
+      // 考虑：下单成功，但因为网络异常导致前端未收到成功响应，此时用户重新提交请求导致重复
+      await markIdempotencyKeyFail(params.idempotencyKey);
+
+      throw theRedisRetractError || error
     } finally {
       if (conn) conn.release();
     }
@@ -471,11 +512,16 @@ class OrderService {
   async cancelOrder(params) {
     let { orderId, cancelOrderReason=null, thePhone } = params
 
+    let conn = null;
+
+    let orderInfo = null;
+
+    let redisUndoStack = []
+
     try {
 
-      setIdempotencyKey(params.idempotencyKey)
-
-      await connection.beginTransaction();
+      conn = await connection.getConnection();
+      await conn.beginTransaction();
 
       const [cancelReservedOrderResult] = await connection.execute(`
         UPDATE orders 
@@ -484,28 +530,57 @@ class OrderService {
       `, [
         cancelOrderReason, dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
       ]);
+
       if (cancelReservedOrderResult.affectedRows === 0) {
         const [orderDetailResult] = await connection.execute(`
-          SELECT status FROM orders WHERE id = ? LIMIT 1
+          SELECT 
+            goods_id, quantity, status 
+              FROM orders WHERE id = ? LIMIT 1
         `, [orderId]);
         if (orderDetailResult.length === 0) {
           throw new customError.ResourceNotFoundError('订单不存在')
         }
-        const orderInfo = orderDetailResult[0]
+        orderInfo = orderDetailResult[0]
         if (orderInfo.status !== 'reserved') {
           throw new customError.InvalidLogicError('订单非预订状态，无法取消预订')
         }
+      } else {
+        // 可以从执行的 UPDATE 获取 ID 来省略查询
+        const [orderDetailResult] = await connection.execute(`
+          SELECT goods_id, quantity FROM orders WHERE id = ? LIMIT 1
+        `, [orderId]);
+        orderInfo = orderDetailResult[0]
       }
 
-      await connection.commit();
+      try {
+        redisUtils.decrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedQuantity`, orderInfo.quantity)
+        redisUndoStack.push(() => redisUtils.incrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedQuantity`, orderInfo.quantity))
+      } catch (redisError) {
+        throw redisError
+      }
+
+      await conn.commit();
       
       return '操作成功'
     } catch (error) {
+      await conn.rollback();
+
       logger.error('service', 'service error: cancelOrder', { error })
 
-      delIdempotencyKey(params.idempotencyKey)
+      try {
+        redisUtils.rollbackRedisStack(redisUndoStack)
+      } catch (redisError) {
+        logger.error('redis', 'cancelOrder rollbackRedisStack 失败', { 
+          error: redisError,
+          goods_id: orderInfo.goods_id,
+        })
+
+        throw redisError
+      }
 
       throw error
+    } finally {
+      if (conn) conn.release();
     }
   }
 
@@ -625,8 +700,6 @@ class OrderService {
 
     try {
 
-      setIdempotencyKey(params.idempotencyKey)
-
       const [shipOrderResult] = await connection.execute(`
         UPDATE orders 
         SET 
@@ -664,8 +737,6 @@ class OrderService {
     } catch (error) {
       logger.error('service', 'service error: shipOrder', { error })
 
-      delIdempotencyKey(params.idempotencyKey)
-
       throw error
     }
   }
@@ -674,8 +745,6 @@ class OrderService {
     const { orderId, thePhone } = params
 
     try {
-
-      setIdempotencyKey(params.idempotencyKey)
 
       const [completeOrderResult] = await connection.execute(`
         UPDATE orders 
@@ -712,8 +781,6 @@ class OrderService {
       return '操作成功';
     } catch (error) {
       logger.error('service', 'service error: completeOrder', { error })
-
-      delIdempotencyKey(params.idempotencyKey)
 
       throw error
     }

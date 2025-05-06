@@ -15,11 +15,14 @@ class RedisClient {
       db: config.REDIS_DB || 0,
       maxRetries: config.REDIS_MAX_RETRIES || 3,
       connectTimeout: config.REDIS_TIMEOUT || 5000,
-      ...config
+      ...config,
     };
 
     this.client = this._createClient();
     this._bindEvents();
+
+    // 标记是否因重试耗尽导致错误
+    this.retryExhausted = false;
   }
 
   _createClient() {
@@ -35,6 +38,7 @@ class RedisClient {
     // 第 n 次重试会延迟 n * 1000 ms，最多 10 秒
     // 超过最大重试次数后放弃重试
     if (times > this.config.maxRetries) {
+      this.retryExhausted = true; // 标记重试已耗尽
       return false;
     }
     return Math.min(times * 1000, 10000);
@@ -46,7 +50,14 @@ class RedisClient {
     });
 
     this.client.on("error", (error) => {
-      logger.error('redis', `RedisUtils 错误`, { error });
+      if (this.retryExhausted) {
+        // 抛出自定义错误
+        logger.error('redis', 'RedisUtils 连接重试次数耗尽', { error });
+        this.retryExhausted = false; // 重置标记
+        throw new customError.RedisUnavailableError({ error });
+      } else {
+        logger.error('redis', `RedisUtils 错误`, { error });
+      }
     });
 
     this.client.on("reconnecting", (delay) => {
@@ -78,6 +89,7 @@ class RedisClient {
       return null;
     }
   }
+
 
   /**
    * 设置缓存（带版本控制）
@@ -149,24 +161,37 @@ class RedisClient {
           // logger.info('redis', `RedisUtils setWithVersion 成功`, { key, value, ttl });
 
           return true;
+        } else {
+          throw new customError.RedisVersionConflictError();
         }
-
-        retries++;
-        await new Promise(resolve => setTimeout(resolve, 100 * retries));
       } catch (error) {
-        // 重试机制：最多重试 3 次，每次延迟等待增长。
-        logger.error('redis', `RedisUtils setWithVersion 失败 尝试重试`)
-        retries++;
-        if (retries >= maxRetries) {
-          logger.error('redis', `RedisUtils setWithVersion 失败 超出最大重连次数`, { 
+        // 仅处理版本冲突错误
+        if (error instanceof customError.RedisVersionConflictError) {
+          retries++;
+
+          if (retries >= maxRetries) {
+            logger.error('redis', `RedisUtils setWithVersion 版本号冲突，超出最大重连次数`, { 
+              error,
+              key,
+              value,
+              ttl,
+            });
+
+            throw new customError.RedisUnavailableError();
+          }
+
+          await new Promise(resolve => setTimeout(resolve, retries * 100)); // 延迟重试
+        } else {
+          // 其他错误（如网络错误）交给 retryStrategy 处理
+          logger.error('redis', `RedisUtils setWithVersion 异常`, { 
             error,
             key,
             value,
             ttl,
           });
-          return false;
+
+          throw error;
         }
-        await new Promise(resolve => setTimeout(resolve, 100 * retries));
       }
     }
     return false;
@@ -182,11 +207,6 @@ class RedisClient {
     }
 
     try {
-      // 获取缓存值和版本号（一起取，避免多次请求）
-      // const versionKey = `${key}:_version`;
-      // const results = await this.client.mget(key, versionKey);
-      // return this._safeParse(results[0])
-
       const result = await this.client.get(key); // 只取主 key 的值
       return this._safeParse(result);
     } catch (error) {
@@ -197,165 +217,199 @@ class RedisClient {
 
   /*
      解决方案：版本键动态过期策略
-                核心思路
-                  删除操作时，保留版本键但设置较短过期时间：
+        核心思路
+          删除操作时，保留版本键但设置较短过期时间：
 
-                  删除数据键后，版本键保留并设置 TTL（如 5 分钟）。
+          删除数据键后，版本键保留并设置 TTL（如 5 分钟）。
 
-                  若数据短期内被重新写入，版本键的 TTL 会被覆盖；若未被使用，版本键自动过期清理。
+          若数据短期内被重新写入，版本键的 TTL 会被覆盖；若未被使用，版本键自动过期清理。
 
-                  写入操作时处理残留版本键：
+          写入操作时处理残留版本键：
 
-                  若数据键不存在但版本键存在，需匹配版本号写入（防止旧值回写）。
+          若数据键不存在但版本键存在，需匹配版本号写入（防止旧值回写）。
 
-                  若版本键已过期，则视为首次写入，重置版本号为 0。
+          若版本键已过期，则视为首次写入，重置版本号为 0。
    */
-  async delWithVersion(keys) {
-    if (!keys || (typeof keys !== "string" && !Array.isArray(keys))) {
-      logger.error('redis', "RedisUtils delWithVersion 无效的键值格式", { keys });
-      return false;
-    }
-    if (Array.isArray(keys) && keys.length === 0) {
-      logger.info('redis', "RedisUtils delWithVersion keys为空")
-      return 0; // 空数组直接返回成功
-    }
-
-    const keysArray = Array.isArray(keys) ? keys : [keys];
-    let deletedCount = 0;
-    const maxRetries = 3;
-
-    for (const key of keysArray) {
+    async delWithVersion(key) {
+      if (!key || typeof key !== "string") {
+        logger.error('redis', "RedisUtils delWithVersion 无效的键值格式", { key });
+        return false;
+      }
+    
+      const maxRetries = 3;
       let retries = 0;
+    
       while (retries < maxRetries) {
         try {
+          const versionKey = `${key}:_version`;
+          // 获取当前版本号（与 set 方法逻辑一致）
+          const currentVersion = await this.client.get(versionKey).then(v => v ? parseInt(v, 10) : 0);
+    
+          // Lua 脚本（原子操作：检查版本 -> 删除键 -> 更新版本号）
           const luaScript = `
             local key = KEYS[1]
             local versionKey = KEYS[2]
-            local ttl = ARGV[1]  -- 版本键保留时间（如 300 秒）
-
-            -- 删除数据键，保留版本键并递增版本号
+            local expectedVersion = tonumber(ARGV[1])
+            local ttl = tonumber(ARGV[2])
+    
+            -- 检查版本是否匹配
+            local currentVersion = tonumber(redis.call("GET", versionKey) or 0)
+            if currentVersion ~= expectedVersion then
+              return 0  -- 版本冲突
+            end
+    
+            -- 执行删除并更新版本号
             redis.call("DEL", key)
             redis.call("INCR", versionKey)
             redis.call("EXPIRE", versionKey, ttl)
             return 1
           `;
-
+    
+          // 执行脚本
           const result = await this.client.eval(
             luaScript,
             2,
             key,
-            `${key}:_version`,
-            300
+            versionKey,
+            currentVersion,
+            300  // 版本键 TTL（与 set 方法逻辑解耦，固定 300 秒）
           );
-
-          if (result >= 0) {
-            deletedCount += result;
-            // logger.info('redis', `RedisUtils delWithVersion 成功`, { key });
-            break;
+    
+          // 结果处理（与 set 方法逻辑一致）
+          if (result === 1) {
+            return true; // 删除成功
+          } else if (result === 0) {
+            throw new customError.RedisVersionConflictError(); // 主动抛出版本冲突
+          } else {
+            throw new Error("Unexpected Lua script result");
           }
         } catch (error) {
-          retries++;
-          if (retries >= maxRetries) {
-            logger.error('redis', `RedisUtils delWithVersion 失败`, { key, error });
-            break;
-          }
-          await new Promise(resolve => setTimeout(resolve, 100 * retries));
-        }
-      }
-    }
-    return deletedCount;
-  }
-
-  /**
- * 原子性增加指定键的值（带版本控制，保持原TTL）
- * @param {string} key - 键名
- * @param {number} delta - 增量值（必须为非零数值）
- * @returns {Promise<{ success: boolean, value: number | null }>} - 操作结果和新值
- */
-  async incrWithVersion(key, delta) {
-    if (!key || typeof key !== "string") {
-        logger.error('redis', "RedisUtils incrWithVersion 无效的键值格式", { key });
-        return { success: false, value: null };
-    }
-    if (typeof delta !== "number" || isNaN(delta) || delta === 0) {
-        logger.error('redis', "RedisUtils incrWithVersion 无效的delta值", { delta });
-        return { success: false, value: null };
-    }
-
-    const maxRetries = this.config.maxRetries || 3;
-    let retries = 0;
-
-    while (retries < maxRetries) {
-        try {
-            const versionKey = `${key}:_version`;
-            // 获取当前值和版本号
-            const results = await this.client.mget(key, versionKey);
-            const currentValue = results[0] !== null ? parseInt(results[0], 10) : null;
-            const currentVersion = results[1] !== null ? parseInt(results[1], 10) : 0;
-
-            // 若键不存在，直接返回失败（需先调用 setWithVersion 初始化）
-            if (currentValue === null) {
-                logger.error('redis', `RedisUtils incrWithVersion 键不存在`, { key });
-                return { success: false, value: null };
-            }
-
-            const luaScript = `
-                local key = KEYS[1]
-                local versionKey = KEYS[2]
-                local delta = tonumber(ARGV[1])
-                local expectedVersion = tonumber(ARGV[2])
-
-                -- 检查键是否存在（防止未初始化）
-                if redis.call("EXISTS", key) == 0 then
-                    return {0, nil}
-                end
-
-                -- 获取当前版本号
-                local currentVersion = tonumber(redis.call("GET", versionKey) or 0)
-                if currentVersion ~= expectedVersion then
-                    return {0, nil}  -- 版本不匹配，拒绝操作
-                end
-
-                -- 获取当前TTL
-                local ttl = redis.call("TTL", key)
-
-                -- 执行增减操作
-                local newValue = redis.call("INCRBY", key, delta)
-
-                -- 更新版本号
-                redis.call("INCR", versionKey)
-
-                -- 保留原TTL（若存在）
-                if ttl > 0 then
-                    redis.call("EXPIRE", key, ttl)
-                end
-
-                return {1, newValue}
-            `;
-
-            const result = await this.client.eval(
-                luaScript,
-                2,
-                key,
-                versionKey,
-                delta,
-                currentVersion
-            );
-
-            if (result[0] === 1) {
-                return { success: true, value: result[1] };
-            } else {
-                retries++;
-                await new Promise(resolve => setTimeout(resolve, retries * 100));
-            }
-        } catch (error) {
-            logger.error('redis', `RedisUtils incrWithVersion 失败`, { key, delta, error });
+          // 版本冲突重试逻辑（与 set 方法一致）
+          if (error instanceof customError.RedisVersionConflictError) {
             retries++;
             if (retries >= maxRetries) {
-                return { success: false, value: null };
+              logger.error('redis', 'RedisUtils delWithVersion 版本冲突，超出最大重试次数', {
+                key,
+                error,
+              });
+              throw new customError.RedisUnavailableError();
             }
             await new Promise(resolve => setTimeout(resolve, retries * 100));
+          } else {
+            logger.error('redis', 'RedisUtils delWithVersion 异常', { key, error });
+            throw error;
+          }
         }
+      }
+      return false; // 超过重试次数
+    }
+
+  /**
+   * 原子性增加指定键的值（带版本控制，保持原TTL）
+   * @param {string} key - 键名
+   * @param {number} delta - 增量值（必须为非零数值）
+   * @returns {Promise<{ success: boolean, value: number | null }>} - 操作结果和新值
+   */
+  async incrWithVersion(key, delta) {
+    // 参数校验（保持原有逻辑）
+    if (!key || typeof key !== "string") {
+      logger.error('redis', "RedisUtils incrWithVersion 无效的键值格式", { key });
+      return { success: false, value: null };
+    }
+    if (typeof delta !== "number" || isNaN(delta) || delta === 0) {
+      logger.error('redis', "RedisUtils incrWithVersion 无效的delta值", { delta });
+      return { success: false, value: null };
+    }
+  
+    const maxRetries = this.config.maxRetries || 3;
+    let retries = 0;
+  
+    while (retries < maxRetries) {
+      try {
+        const versionKey = `${key}:_version`;
+        // 获取当前版本号（与 set/del 方法一致）
+        const currentVersion = await this.client.get(versionKey).then(v => v ? parseInt(v, 10) : 0);
+  
+        // Lua 脚本（原子操作：版本检查 -> 增减 -> 更新版本）
+        const luaScript = `
+          local key = KEYS[1]
+          local versionKey = KEYS[2]
+          local delta = tonumber(ARGV[1])
+          local expectedVersion = tonumber(ARGV[2])
+  
+          -- 检查键是否存在（防止未初始化）
+          if redis.call("EXISTS", key) == 0 then
+            return { err = "KEY_NOT_EXISTS" }  -- 明确错误类型
+          end
+  
+          -- 检查版本号
+          local currentVersion = tonumber(redis.call("GET", versionKey) or 0)
+          if currentVersion ~= expectedVersion then
+            return { err = "VERSION_CONFLICT" }  -- 版本冲突
+          end
+  
+          -- 获取原TTL
+          local ttl = redis.call("TTL", key)
+  
+          -- 执行增减操作
+          local newValue = redis.call("INCRBY", key, delta)
+  
+          -- 更新版本号
+          redis.call("INCR", versionKey)
+  
+          -- 保留原TTL（若存在）
+          if ttl > 0 then
+              redis.call("EXPIRE", key, ttl)
+          elseif ttl == -1 then
+              redis.call("PERSIST", key)
+          end
+  
+          return { ok = newValue }  -- 成功返回新值
+        `;
+  
+        // 执行脚本
+        const result = await this.client.eval(
+          luaScript,
+          2,
+          key,
+          versionKey,
+          delta,
+          currentVersion
+        );
+  
+        // 结果处理（修正后的 JavaScript 逻辑）
+        if (result && result.err) {
+          if (result.err === "VERSION_CONFLICT") {
+            throw new customError.RedisVersionConflictError();
+          } else if (result.err === "KEY_NOT_EXISTS") {
+            logger.error('redis', 'RedisUtils incrWithVersion 键不存在', { key });
+            return { success: false, value: null };
+          } else {
+            throw new Error(`未知的 Lua 脚本错误类型: ${result.err}`);
+          }
+        } else if (result && result.ok !== undefined) {
+          return { success: true, value: result.ok };
+        } else {
+          throw new Error("Lua 脚本返回了无效的结构");
+        }
+      } catch (error) {
+        // 仅处理版本冲突错误（其他错误直接抛出）
+        if (error instanceof customError.RedisVersionConflictError) {
+          retries++;
+          if (retries >= maxRetries) {
+            logger.error('redis', 'RedisUtils incrWithVersion 版本冲突，超出最大重试次数', {
+              error,
+              key,
+              delta,
+            });
+            throw new customError.RedisUnavailableError();
+          }
+          await new Promise(resolve => setTimeout(resolve, retries * 100));
+        } else {
+          logger.error('redis', 'RedisUtils incrWithVersion 异常', { key, delta, error });
+          throw error;
+        }
+      }
     }
     return { success: false, value: null };
   }
@@ -364,9 +418,13 @@ class RedisClient {
   * 原子性减少指定键的值（带版本控制，保持原TTL）
   */
   async decrWithVersion(key, delta) {
-    if (typeof delta !== "number" || delta <= 0) {
-        logger.error('redis', "RedisUtils decrWithVersion 无效的delta值", { delta });
-        return { success: false, value: null };
+    if (!key || typeof key !== "string") {
+      logger.error('redis', "RedisUtils decrWithVersion 无效的键值格式", { key });
+      return { success: false, value: null };
+    }
+    if (typeof delta !== "number" || isNaN(delta) || delta === 0) {
+      logger.error('redis', "RedisUtils decrWithVersion 无效的delta值", { delta });
+      return { success: false, value: null };
     }
     return this.incrWithVersion(key, -delta);
   }
@@ -404,7 +462,7 @@ class RedisClient {
       return false;
     }
     if (ttl !== undefined && (typeof ttl !== "number" || ttl <= 0)) {
-      logger.error('redis', "RedisUtils setSimply 失败，无效的过期时间", { ttl });W
+      logger.error('redis', "RedisUtils setSimply 失败，无效的过期时间", { ttl });
       return false;
     }
 
@@ -415,6 +473,33 @@ class RedisClient {
         await this.client.set(key, serialized, "EX", ttl);
       } else {
         await this.client.set(key, serialized);
+      }
+      return true;
+    } catch (error) {
+      logger.error('redis', `RedisUtils setSimply 失败`, { key, value, ttl, error });
+      return false;
+    }
+  }
+  /**
+   * 不带版本号的set
+   */ 
+  async setSimplyNX(key, value, ttl) {
+    if (!key || typeof key !== "string") {
+      logger.error('redis', "RedisUtils setSimply 失败，无效的键值格式", { key });
+      return false;
+    }
+    if (ttl !== undefined && (typeof ttl !== "number" || ttl <= 0)) {
+      logger.error('redis', "RedisUtils setSimply 失败，无效的过期时间", { ttl });
+      return false;
+    }
+
+    const serialized = this._safeSerialize(value);
+
+    try {
+      if (ttl) {
+        await this.client.set(key, serialized, 'NX', "EX", ttl);
+      } else {
+        await this.client.set(key, serialized, 'NX');
       }
       return true;
     } catch (error) {
@@ -476,6 +561,36 @@ class RedisClient {
       await this.client.quit();
     } catch (error) {
       logger.error('redis', "RedisUtils disconnect 失败", { error });
+    }
+  }
+
+  /**
+   * 执行 Redis 回滚操作栈
+   * @param {Array<Function>} undoStack - 包含异步函数的数组，每个函数执行一次 Redis 回滚操作
+   */
+  /*
+    使用示例：
+    undoStack.push(() =>
+      redisUtils.decrWithVersion(`goodsSelling:${goods_id}:stock:totalOrdersCount`, 1)
+    );
+
+    await rollbackRedisStack(undoStack)
+  */
+  async rollbackRedisStack(undoStack) {
+    if (!Array.isArray(undoStack)) {
+      throw new customError.InvalidParameterError('rollbackRedisStack', '必须为数组')
+    }
+
+    for (const undo of undoStack.reverse()) {
+      try {
+        if (typeof undo === 'function') {
+          await undo(); // 执行回滚操作
+        } else {
+          throw new customError.InvalidParameterError('rollbackRedisStack', '每一项必须为函数')
+        }
+      } catch (err) {
+        logger.error('redis', 'Redis 回滚操作失败', { err });
+      }
     }
   }
 }

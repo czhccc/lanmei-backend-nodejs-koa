@@ -30,7 +30,7 @@ module.exports = async (ctx, next) => {
       ctx.body = {
         code: error.code,
         message: error.message,
-        details: error.details || null
+        details: error.details
       }
     } else {
       // 非预期错误

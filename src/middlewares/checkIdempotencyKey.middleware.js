@@ -1,5 +1,5 @@
 const {
-  idempotencyKeyExists
+  getIdempotencyKeyStatus
 } = require('../utils/idempotency')
 
 const logger = require('../utils/logger');
@@ -15,13 +15,21 @@ const checkIdempotencyKey = async (ctx, next) => {
   }
 
   try {
-    const result = await idempotencyKeyExists(idempotencyKey) // 设置过期时间为 1 天
+    const idempotencyResult = await getIdempotencyKeyStatus(idempotencyKey)
 
-    if (!result) {
+    // if (!idempotencyResult || idempotencyResult==='fail') {
+    if (!idempotencyResult) {
       ctx.request.body.idempotencyKey = idempotencyKey
       await next()
     } else {
-      throw new customError.IdempotencyKeyError('idempotencyKey 已存在，请勿重复提交')
+      if (idempotencyResult.startsWith("idempotency-succeeded:")) {
+        ctx.body = {
+          idempotencyResult
+        }
+        return;
+      } else {
+        throw new customError.DuplicateSubmitError('请勿重复提交')
+      }
     }
   } catch (error) {
     logger.error('idempotency', 'middleware checkIdempotencyKey checkIdempotencyKey error', { error })

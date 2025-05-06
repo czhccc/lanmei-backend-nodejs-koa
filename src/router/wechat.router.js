@@ -17,8 +17,8 @@ wechatRouter.post('/getPhoneNumber', WechatController.getPhoneNumber)
 // 用户收货地址
 wechatRouter.get('/address', verifyToken, WechatController.getAddressList)
 wechatRouter.post('/address/add', verifyToken, checkIdempotencyKey, WechatController.addAddress)
-wechatRouter.post('/address/edit', verifyToken, checkIdempotencyKey, WechatController.editAddress)
-wechatRouter.post('/address/delete', verifyToken, checkIdempotencyKey, WechatController.deleteAddress)
+wechatRouter.post('/address/edit', verifyToken, WechatController.editAddress)
+wechatRouter.post('/address/delete', verifyToken, WechatController.deleteAddress)
 wechatRouter.get('/address/default', verifyToken, WechatController.getDefaultAddress)
 
 // 用户首页通知

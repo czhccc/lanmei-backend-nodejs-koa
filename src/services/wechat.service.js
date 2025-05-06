@@ -24,7 +24,6 @@ const {
 
 const { 
   setIdempotencyKey,
-  delIdempotencyKey
 } = require('../utils/idempotency')
 
 const logger = require('../utils/logger');
@@ -141,13 +140,15 @@ class WechatService {
         throw new customError.InvalidParameterError('所选区不属于所选市')
       }
 
-      const insertResult = await conn.execute(`
+      const [insertResult] = await conn.execute(`
         INSERT 
           customer_address (name, phone, create_by, province, provinceCode, city, cityCode, district, districtCode, detail, isDefault) 
             VALUES (?,?,?,?,?,?,?,?,?,?,?)
       `, [name, phone, create_by, province.name, provinceCode, city.name, cityCode, district.name, districtCode, detail, isDefault?1:0 ])
 
       await conn.commit();
+
+      await markIdempotencyKeySuccess(params.idempotencyKey, insertResult.insertId);
       
       return '新增成功'
     } catch (error) {
@@ -155,7 +156,7 @@ class WechatService {
 
       logger.error('service', 'service error: addAddress', { error })
 
-      delIdempotencyKey(params.idempotencyKey)
+      await markIdempotencyKeyFail(params.idempotencyKey);
 
       throw error
     } finally {
@@ -166,8 +167,6 @@ class WechatService {
     const { id, name, phone, provinceCode, cityCode, districtCode, detail, isDefault } = params
 
     try {
-
-      setIdempotencyKey(params.idempotencyKey)
       
       const [addressExistResult] = await connection.execute(
         `SELECT id FROM customer_address WHERE id = ? LIMIT 1`
@@ -215,8 +214,6 @@ class WechatService {
     } catch (error) {
       logger.error('service', 'service error: editAddress', { error })
 
-      delIdempotencyKey(params.idempotencyKey)
-
       throw error
     }
   }
@@ -240,8 +237,6 @@ class WechatService {
 
     try {
 
-      setIdempotencyKey(params.idempotencyKey)
-
       const [result] = await connection.execute(
         `DELETE FROM customer_address WHERE id = ?`, 
         [id]
@@ -262,8 +257,6 @@ class WechatService {
       return '删除成功'
     } catch (error) {
       logger.error('service', 'service error: deleteAddress', { error })
-
-      delIdempotencyKey(params.idempotencyKey)
 
       throw error
     }

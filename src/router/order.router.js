@@ -20,13 +20,13 @@ orderRouter.post('/updateOrder', verifyToken, OrderController.updateOrder)
 
 orderRouter.get('/getOrdersLogsList', verifyToken, tableResponseHandler, OrderController.getOrdersLogsList)
 
-orderRouter.post('/cancelOrder', verifyToken, checkIdempotencyKey, OrderController.cancelOrder)
+orderRouter.post('/cancelOrder', verifyToken, OrderController.cancelOrder)
 
 orderRouter.post('/payOrder', verifyToken, checkIdempotencyKey, OrderController.payOrder)
 
-orderRouter.post('/shipOrder', verifyToken, checkIdempotencyKey, OrderController.shipOrder)
+orderRouter.post('/shipOrder', verifyToken, OrderController.shipOrder)
 
-orderRouter.post('/completeOrder', checkIdempotencyKey, verifyToken, OrderController.completeOrder)
+orderRouter.post('/completeOrder', verifyToken, OrderController.completeOrder)
 
 orderRouter.post('/generateOrderInfo', verifyToken, OrderController.generateOrderInfo)
 
