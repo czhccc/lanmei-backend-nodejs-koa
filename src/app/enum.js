@@ -2,6 +2,7 @@ const enum_order_status = Object.freeze({
   reserved: 'reserved',
   canceled: 'canceled',
   unpaid: 'unpaid',
+  closed: 'closed',
   paid: 'paid',
   shipped: 'shipped',
   completed: 'completed',

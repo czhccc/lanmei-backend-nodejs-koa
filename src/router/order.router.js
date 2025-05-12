@@ -22,6 +22,8 @@ orderRouter.get('/getOrdersLogsList', verifyToken, tableResponseHandler, OrderCo
 
 orderRouter.post('/cancelOrder', verifyToken, OrderController.cancelOrder)
 
+orderRouter.post('/closeOrder', verifyToken, OrderController.closeOrder)
+
 orderRouter.post('/payOrder', verifyToken, checkIdempotencyKey, OrderController.payOrder)
 
 orderRouter.post('/shipOrder', verifyToken, OrderController.shipOrder)

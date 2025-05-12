@@ -169,7 +169,7 @@ class WechatService {
     try {
       
       const [addressExistResult] = await connection.execute(
-        `SELECT id FROM customer_address WHERE id = ? LIMIT 1`
+        `SELECT id FROM customer_address WHERE id = ?`
         [id]
       );
       if (addressExistResult.length === 0) {
@@ -671,7 +671,7 @@ class WechatService {
       );
       if (updateResult.affectedRows === 0) {
         const [selectResult] = await conn.execute(`
-          SELECT id FROM wechat_home_news WHERE id = ? LIMIT 1
+          SELECT id FROM wechat_home_news WHERE id = ?
         `, [id]);
         if (selectResult.length === 0) {
           throw new customError.ResourceNotFoundError('该资讯不存在')
@@ -797,7 +797,7 @@ class WechatService {
 
     try {
       const [result] = await connection.execute(
-        `UPDATE wechat_home_news SET isPin=? WHERE id=? LIMIT 1`, 
+        `UPDATE wechat_home_news SET isPin=? WHERE id=?`, 
         [value, id]
       )
       if (result.affectedRows === 0) {

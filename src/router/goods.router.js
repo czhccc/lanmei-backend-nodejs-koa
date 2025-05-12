@@ -23,7 +23,7 @@ goodsRouter.post('/changeGoodsIsSelling', verifyToken, GoodsController.changeGoo
 
 goodsRouter.get('/getHistoryBatchesList', verifyToken, tableResponseHandler, GoodsController.getHistoryBatchesList)
 
-goodsRouter.get('/getBatchTotalInfo', verifyToken, GoodsController.getBatchTotalInfo)
+goodsRouter.get('/getBatchOrdersStatistic', verifyToken, GoodsController.getBatchOrdersStatistic)
 
 goodsRouter.delete('/deleteCurrentBatch', verifyToken, GoodsController.deleteCurrentBatch)
 

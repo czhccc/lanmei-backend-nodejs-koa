@@ -87,6 +87,20 @@ class OrderController {
     ctx.body = result
   }
 
+  async closeOrder(ctx, next) {
+    const params = ctx.request.body
+    params.thePhone = ctx.theUser.phone
+
+    const { orderId } = params
+    if (!orderId) {
+      throw new customError.MissingParameterError('orderId')
+    }
+
+    const result = await service.closeOrder(params)
+
+    ctx.body = result
+  }
+
   async payOrder(ctx, next) {
     const params = ctx.request.body
 
@@ -104,12 +118,9 @@ class OrderController {
     const params = ctx.request.body
     params.thePhone = ctx.theUser.phone
 
-    const { orderId, trackingNumber } = params
+    const { orderId } = params
     if (!orderId) {
       throw new customError.MissingParameterError('orderId')
-    }
-    if (!trackingNumber) {
-      throw new customError.MissingParameterError('trackingNumber')
     }
 
     const result = await service.shipOrder(params)

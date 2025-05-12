@@ -226,7 +226,7 @@ class GoodsController {
     ctx.body = result
   }
 
-  async getBatchTotalInfo(ctx, next) {
+  async getBatchOrdersStatistic(ctx, next) {
     const params = ctx.request.query
 
     const { id } = params
@@ -234,7 +234,7 @@ class GoodsController {
       throw new customError.MissingParameterError('id')
     }
     
-    const result = await service.getBatchTotalInfo(params)
+    const result = await service.getBatchOrdersStatistic(params)
     
     ctx.body = result
   }

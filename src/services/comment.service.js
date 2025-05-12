@@ -126,7 +126,7 @@ class CommentService {
     const { commentId, response, author } = params;
 
     try {
-      const [commentExists] = await connection.execute(`SELECT id FROM comment WHERE id = ? LIMIT 1`, [commentId]);
+      const [commentExists] = await connection.execute(`SELECT id FROM comment WHERE id = ?`, [commentId]);
       if (commentExists.length === 0) {
         throw new customError.ResourceNotFoundError('评论不存在')
       }

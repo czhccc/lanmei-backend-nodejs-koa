@@ -310,8 +310,9 @@ class RedisClient {
    * @param {number} delta - 增量值（必须为非零数值）
    * @returns {Promise<{ success: boolean, value: number | null }>} - 操作结果和新值
    */
-  async incrWithVersion(key, delta) {
-    // 参数校验（保持原有逻辑）
+  async incrWithVersion(key, originalDelta) {
+    let delta = Number(originalDelta)
+
     if (!key || typeof key !== "string") {
       logger.error('redis', "RedisUtils incrWithVersion 无效的键值格式", { key });
       return { success: false, value: null };
@@ -327,73 +328,59 @@ class RedisClient {
     while (retries < maxRetries) {
       try {
         const versionKey = `${key}:_version`;
-        // 获取当前版本号（与 set/del 方法一致）
         const currentVersion = await this.client.get(versionKey).then(v => v ? parseInt(v, 10) : 0);
   
-        // Lua 脚本（原子操作：版本检查 -> 增减 -> 更新版本）
         const luaScript = `
           local key = KEYS[1]
           local versionKey = KEYS[2]
           local delta = tonumber(ARGV[1])
           local expectedVersion = tonumber(ARGV[2])
   
-          -- 检查键是否存在（防止未初始化）
           if redis.call("EXISTS", key) == 0 then
-            return { err = "KEY_NOT_EXISTS" }  -- 明确错误类型
+            return { "ERR", "KEY_NOT_EXISTS" }
           end
   
-          -- 检查版本号
           local currentVersion = tonumber(redis.call("GET", versionKey) or 0)
           if currentVersion ~= expectedVersion then
-            return { err = "VERSION_CONFLICT" }  -- 版本冲突
+            return { "ERR", "VERSION_CONFLICT" }
           end
   
-          -- 获取原TTL
           local ttl = redis.call("TTL", key)
-  
-          -- 执行增减操作
           local newValue = redis.call("INCRBY", key, delta)
-  
-          -- 更新版本号
           redis.call("INCR", versionKey)
   
-          -- 保留原TTL（若存在）
           if ttl > 0 then
-              redis.call("EXPIRE", key, ttl)
+            redis.call("EXPIRE", key, ttl)
           elseif ttl == -1 then
-              redis.call("PERSIST", key)
+            redis.call("PERSIST", key)
           end
   
-          return { ok = newValue }  -- 成功返回新值
+          return { "OK", newValue }
         `;
   
-        // 执行脚本
-        const result = await this.client.eval(
-          luaScript,
-          2,
-          key,
-          versionKey,
-          delta,
-          currentVersion
-        );
+        const result = await this.client.eval(luaScript, 2, key, versionKey, delta, currentVersion);
   
-        // 结果处理（修正后的 JavaScript 逻辑）
-        if (result && result.err) {
-          if (result.err === "VERSION_CONFLICT") {
-            throw new customError.RedisVersionConflictError();
-          } else if (result.err === "KEY_NOT_EXISTS") {
-            logger.error('redis', 'RedisUtils incrWithVersion 键不存在', { key });
-            return { success: false, value: null };
+        if (Array.isArray(result)) {
+          const [status, value] = result;
+          if (status === "ERR") {
+            if (value === "VERSION_CONFLICT") {
+              throw new customError.RedisVersionConflictError();
+            } else if (value === "KEY_NOT_EXISTS") {
+              logger.error('redis', 'RedisUtils incrWithVersion 键不存在', { key });
+              return { success: false, value: null };
+            } else {
+              throw new Error(`未知的 Lua 脚本错误类型: ${value}`);
+            }
+          } else if (status === "OK") {
+            return { success: true, value };
           } else {
-            throw new Error(`未知的 Lua 脚本错误类型: ${result.err}`);
+            throw new Error(`未知的 Lua 脚本返回状态: ${status}`);
           }
-        } else if (result && result.ok !== undefined) {
-          return { success: true, value: result.ok };
         } else {
-          throw new Error("Lua 脚本返回了无效的结构");
+          throw new Error("Lua 脚本返回了非数组结构，格式异常");
         }
+  
       } catch (error) {
-        // 仅处理版本冲突错误（其他错误直接抛出）
         if (error instanceof customError.RedisVersionConflictError) {
           retries++;
           if (retries >= maxRetries) {
@@ -411,13 +398,16 @@ class RedisClient {
         }
       }
     }
+  
     return { success: false, value: null };
   }
 
   /**
   * 原子性减少指定键的值（带版本控制，保持原TTL）
   */
-  async decrWithVersion(key, delta) {
+  async decrWithVersion(key, originalDelta) {
+    let delta = Number(originalDelta)
+
     if (!key || typeof key !== "string") {
       logger.error('redis', "RedisUtils decrWithVersion 无效的键值格式", { key });
       return { success: false, value: null };

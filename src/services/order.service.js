@@ -45,8 +45,6 @@ class OrderService {
 
     let redisUndoStack = []
 
-    let incrTotalOrdersCountRedis = null
-
     try {
       
       setIdempotencyKey(params.idempotencyKey)
@@ -122,11 +120,13 @@ class OrderService {
         try {
           await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:preorder_pending:reservedQuantity`, quantity)
           redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:preorder_pending:reservedQuantity`, quantity))
+
+          await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:preorder_pending:reservedOrdersCount`, 1)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:preorder_pending:reservedOrdersCount`, 1))
         } catch (redisError) {
           throw redisError
         }
       } else if (batchInfo.batch_type === 'stock') {
-        let oldRemainingQuantity = null
         try {
           // 在库存类型中，先通过 get 检查剩余数量，再调用 decrWithVersion。get 后可能被其他请求修改，导致错误判断。
           // 改进方案：直接依赖原子操作结果：移除 get 检查，完全依赖 decrWithVersion 的返回值判断是否成功。
@@ -136,6 +136,9 @@ class OrderService {
           if (newRemainingQuantity < 0) {
             throw new customError.InvalidLogicError('商品库存不足');
           }
+
+          await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:stock:totalOrdersCount`, 1)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:stock:totalOrdersCount`, 1))
 
           /* 
             如果库存已为 0，商品下架。
@@ -217,18 +220,6 @@ class OrderService {
       const [insertResult] = await conn.execute(insertStatement, Object.values(orderFields));
 
       await conn.commit();
-
-      try {
-        if (batchInfo.batch_type === 'preorder') {
-          await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:preorder_pending:totalOrdersCount`, 1)
-          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:preorder_pending:totalOrdersCount`, 1))
-        } else if (batchInfo.batch_type === 'stock') {
-          await redisUtils.incrWithVersion(`goodsSelling:${goods_id}:stock:totalOrdersCount`, 1)
-          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${goods_id}:stock:totalOrdersCount`, 1))
-        }
-      } catch (reditError) {
-        throw reditError
-      }
 
       await markIdempotencyKeySuccess(params.idempotencyKey, insertResult.insertId);
 
@@ -512,16 +503,36 @@ class OrderService {
   async cancelOrder(params) {
     let { orderId, cancelOrderReason=null, thePhone } = params
 
-    let conn = null;
-
     let orderInfo = null;
 
     let redisUndoStack = []
 
     try {
+      const [orderInfoResult] = await connection.execute(`
+        SELECT 
+          goods_id, 
+          quantity,
+          status  
+        FROM orders WHERE id = ?
+      `, [orderId]);
+      if (orderInfoResult.length === 0) {
+        throw new customError.ResourceNotFoundError('订单不存在')
+      }
 
-      conn = await connection.getConnection();
-      await conn.beginTransaction();
+      orderInfo = orderInfoResult[0]
+      if (orderInfo.status !== 'reserved' && orderInfo.status !== 'unpaid') {
+        throw new customError.InvalidLogicError('订单非预订状态，无法取消预订')
+      }
+
+      try {
+        redisUtils.decrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedQuantity`, orderInfo.quantity)
+        redisUndoStack.push(() => redisUtils.incrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedQuantity`, orderInfo.quantity))
+
+        redisUtils.decrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedOrdersCount`, 1)
+        redisUndoStack.push(() => redisUtils.incrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedOrdersCount`, 1))
+      } catch (redisError) {
+        throw redisError
+      }
 
       const [cancelReservedOrderResult] = await connection.execute(`
         UPDATE orders 
@@ -532,39 +543,11 @@ class OrderService {
       ]);
 
       if (cancelReservedOrderResult.affectedRows === 0) {
-        const [orderDetailResult] = await connection.execute(`
-          SELECT 
-            goods_id, quantity, status 
-              FROM orders WHERE id = ? LIMIT 1
-        `, [orderId]);
-        if (orderDetailResult.length === 0) {
-          throw new customError.ResourceNotFoundError('订单不存在')
-        }
-        orderInfo = orderDetailResult[0]
-        if (orderInfo.status !== 'reserved') {
-          throw new customError.InvalidLogicError('订单非预订状态，无法取消预订')
-        }
-      } else {
-        // 可以从执行的 UPDATE 获取 ID 来省略查询
-        const [orderDetailResult] = await connection.execute(`
-          SELECT goods_id, quantity FROM orders WHERE id = ? LIMIT 1
-        `, [orderId]);
-        orderInfo = orderDetailResult[0]
+        throw new customError.InvalidLogicError('操作失败')
       }
-
-      try {
-        redisUtils.decrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedQuantity`, orderInfo.quantity)
-        redisUndoStack.push(() => redisUtils.incrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_pending:reservedQuantity`, orderInfo.quantity))
-      } catch (redisError) {
-        throw redisError
-      }
-
-      await conn.commit();
       
       return '操作成功'
     } catch (error) {
-      await conn.rollback();
-
       logger.error('service', 'service error: cancelOrder', { error })
 
       try {
@@ -579,8 +562,6 @@ class OrderService {
       }
 
       throw error
-    } finally {
-      if (conn) conn.release();
     }
   }
 
@@ -695,6 +676,71 @@ class OrderService {
 
   }
 
+  async closeOrder(params) {
+    let { orderId, closeOrderReason=null, thePhone } = params
+
+    let orderInfo = null;
+
+    let redisUndoStack = []
+
+    try {
+      const [orderInfoResult] = await connection.execute(`
+        SELECT 
+          goods_id, 
+          quantity,
+          status  
+        FROM orders WHERE id = ?
+      `, [orderId]);
+      if (orderInfoResult.length === 0) {
+        throw new customError.ResourceNotFoundError('订单不存在')
+      }
+
+      orderInfo = orderInfoResult[0]
+      if (orderInfo.status !== 'reserved' && orderInfo.status !== 'unpaid') {
+        throw new customError.InvalidLogicError('订单非未付款状态，无法关闭订单')
+      }
+
+      try {
+        redisUtils.decrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_selling:finishedQuantity`, orderInfo.quantity)
+        redisUndoStack.push(() => redisUtils.incrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_selling:finishedQuantity`, orderInfo.quantity))
+
+        redisUtils.decrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_selling:finishedOrdersCount`, 1)
+        redisUndoStack.push(() => redisUtils.incrWithVersion(`goodsSelling:${orderInfo.goods_id}:preorder_selling:finishedOrdersCount`, 1))
+      } catch (redisError) {
+        throw redisError
+      }
+
+      const [closeOrderResult] = await connection.execute(`
+        UPDATE orders 
+          SET status = 'closed', close_reason = ?, close_time = ?, close_by = ?
+        WHERE id = ?
+      `, [
+        closeOrderReason, dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
+      ]);
+
+      if (closeOrderResult.affectedRows === 0) {
+        throw new customError.InvalidLogicError('操作失败')
+      }
+      
+      return '操作成功'
+    } catch (error) {
+      logger.error('service', 'service error: closeOrder', { error })
+
+      try {
+        redisUtils.rollbackRedisStack(redisUndoStack)
+      } catch (redisError) {
+        logger.error('redis', 'closeOrder rollbackRedisStack 失败', { 
+          error: redisError,
+          goods_id: orderInfo.goods_id,
+        })
+
+        throw redisError
+      }
+
+      throw error
+    }
+  }
+
   async shipOrder(params) {
     const { orderId, trackingNumber, thePhone } = params
 
@@ -744,7 +790,45 @@ class OrderService {
   async completeOrder(params) {
     const { orderId, thePhone } = params
 
+    let orderInfo = null
+
+    let redisUndoStack = []
+
     try {
+      const [getOrderInfoResult] = await connection.execute(`
+        SELECT 
+          status,
+          quantity,
+          batch_type 
+            FROM orders 
+              WHERE id = ?
+      `, [orderId]
+      );
+      if (getOrderInfoResult.length === 0) {
+        throw new customError.ResourceNotFoundError('订单不存在')
+      }
+      const orderInfo = getOrderInfoResult[0]
+      if (orderInfo.status !== 'paid' && orderInfo.status !== 'shipped') {
+        throw new customError.InvalidLogicError('订单不是已付款状态')
+      }
+
+      try {
+        if (orderInfo.batch_type === 'preorder') {
+          redisUtils.incrWithVersion(`goodsSelling:${id}:preorder_selling:finishedQuantity`, quantity)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${id}:preorder_selling:finishedQuantity`, quantity))
+
+          redisUtils.incrWithVersion(`goodsSelling:${id}:preorder_selling:finishedOrdersCount`, 1)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${id}:preorder_selling:finishedOrdersCount`, 1))
+        } else if (orderInfo.batch_type === 'stock') {
+          redisUtils.incrWithVersion(`goodsSelling:${id}:stock:finishedQuantity`, quantity)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${id}:stock:finishedQuantity`, quantity))
+
+          redisUtils.incrWithVersion(`goodsSelling:${id}:stock:finishedOrdersCount`, 1)
+          redisUndoStack.push(() => redisUtils.decrWithVersion(`goodsSelling:${id}:stock:finishedOrdersCount`, 1))
+        }
+      } catch (redisError) {
+        throw redisError
+      }
 
       const [completeOrderResult] = await connection.execute(`
         UPDATE orders 
@@ -754,33 +838,28 @@ class OrderService {
           complete_by = ?
         WHERE 
           id = ? 
-          AND status = 'paid'
+          AND (status = 'paid' OR status = 'shipped')
       `, [
         dayjs().format('YYYY-MM-DD HH:mm:ss'), thePhone, orderId
       ]);
-
       if (completeOrderResult.affectedRows === 0) {
-        const [getOrderInfoResult] = await connection.execute(
-          'SELECT status FROM orders WHERE id = ?',
-          [orderId]
-        );
-  
-        if (getOrderInfoResult.length === 0) {
-          throw new customError.ResourceNotFoundError('订单不存在')
-        }
-  
-        const orderInfo = getOrderInfoResult[0]
-  
-        if (orderInfo.status !== 'paid') {
-          throw new customError.InvalidLogicError('订单不是已付款状态')
-        }
-
         throw new customError.InvalidLogicError('操作失败')
       }
 
       return '操作成功';
     } catch (error) {
       logger.error('service', 'service error: completeOrder', { error })
+
+      try {
+        redisUtils.rollbackRedisStack(redisUndoStack)
+      } catch (redisError) {
+        logger.error('redis', 'cancelOrder rollbackRedisStack 失败', { 
+          error: redisError,
+          goods_id: orderInfo.goods_id,
+        })
+
+        throw redisError
+      }
 
       throw error
     }
@@ -790,13 +869,14 @@ class OrderService {
     // 1、小程序的下单页面  2、createOrder service
     const { 
       goodsId, 
-      quantity, 
       provinceCode, 
       extraOptionsIds=[], 
 
       isCreatingOrder, 
       lockedBatchInfo,
     } = params
+
+    let quantity = Number(params.quantity)
 
     // generateOrderInfo有直接被其他createOrder service内部使用，参数校验直接放service里
     if (!isCreatingOrder) {
