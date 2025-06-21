@@ -5,6 +5,8 @@ const path = require('path');
 const cron = require('node-cron');
 const connection = require('./database')
 
+const checkGoodsRedisData = require('./checkGoodsRedisData');
+
 const getUsableFilesNamesFromDatabase = async (query) => {
   const [rows] = await connection.execute(query, []);
   return rows.map(item => item.url.split('/')[1]);
@@ -78,3 +80,8 @@ const clearUselessFiles = async () => {
 // setTimeout(() => {
 //   clearUselessFiles()
 // }, 4000)
+
+// 每天凌晨 4 点执行
+cron.schedule('0 4 * * *', () => {
+  checkGoodsRedisData()
+});

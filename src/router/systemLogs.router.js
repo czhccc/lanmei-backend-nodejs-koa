@@ -8,7 +8,7 @@ const {
   verifyToken
 } = require('../middlewares/auth.middleware')
 
-const checkOlynCzhCall = require('../middlewares/checkOlynCzhCall.middleware')
+const checkOlynCzhCall = require('../middlewares/checkOnlyCzhCall.middleware')
 
 const systemLogsRouter = new Router({prefix: '/systemLogs'})
 

@@ -11,7 +11,7 @@ const enum_order_status = Object.freeze({
 
 const enum_admin_role = Object.freeze({
   admin: 'admin',
-  super_admin: 'super_admin',
+  superadmin: 'superadmin',
 })
 
 const enum_goods_batchType = Object.freeze({

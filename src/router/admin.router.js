@@ -8,7 +8,7 @@ const {
 
 const tableResponseHandler = require('../middlewares/table-response-handler');
 
-const checkOlynCzhCall = require('../middlewares/checkOlynCzhCall.middleware')
+const checkOlynCzhCall = require('../middlewares/checkOnlyCzhCall.middleware')
 
 const adminRouter = new Router({prefix: '/admin'})
 
@@ -17,5 +17,7 @@ adminRouter.post('/createOrUpdateAdmin', verifyToken, checkOlynCzhCall, AdminCon
 adminRouter.get('/getAdminList', verifyToken, checkOlynCzhCall, tableResponseHandler, AdminController.getAdminList)
 
 adminRouter.delete('/deleteAdmin', verifyToken, checkOlynCzhCall, AdminController.deleteAdminByPhone)
+
+adminRouter.post('/unlockAdmin', verifyToken, checkOlynCzhCall, AdminController.unlockAdmin)
  
 module.exports = adminRouter

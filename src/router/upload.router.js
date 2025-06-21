@@ -13,6 +13,6 @@ const {
 
 const uploadRouter = new Router({prefix: '/upload'})
 
-uploadRouter.post('/', verifyToken, fileHandle, classifyUploadedFile)
+uploadRouter.get('/getCOSTemporaryKey', verifyToken, UploadController.getCOSTemporaryKey)
 
 module.exports = uploadRouter

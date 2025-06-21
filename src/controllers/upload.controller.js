@@ -1,12 +1,14 @@
-const service = require('../services/admin.service')
+const service = require('../services/upload.service')
 
 class UploadController {
-  async uploadFile(ctx, next) {
-    const admin = ctx.request.body
+  async getCOSTemporaryKey(ctx, next) {
+    const params = ctx.request.query
+    const token = ctx.cookies.get('token')
+    params.token = token
 
-
-    // ctx.body = result
-    ctx.body = '111'
+    const result = await service.getCOSTemporaryKey(params)
+    
+    ctx.body = result
   }
 }
 

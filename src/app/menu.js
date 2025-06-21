@@ -75,10 +75,6 @@ const superadminMenu = [
         path: '/shipArea',
         component: 'ship/shipArea.vue'
       },
-      {
-        name: '关于我们',
-        path: '/configureSeller',
-      },
     ]
   },
   
@@ -175,10 +171,6 @@ const adminMenu = [
         name: '可邮寄区域',
         path: '/shipArea',
         component: 'ship/shipArea.vue'
-      },
-      {
-        name: '关于我们',
-        path: '/configureSeller',
       },
     ]
   },

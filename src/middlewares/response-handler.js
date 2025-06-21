@@ -9,12 +9,12 @@ module.exports = async (ctx, next) => {
     if (ctx.body) {
       if (typeof ctx.body === 'string') {
         ctx.body = {
-          code: 200,
+          code: 'SUCCESS',
           message: ctx.body
         }
       } else {
         ctx.body = {
-          code: 200,
+          code: 'SUCCESS',
           data: ctx.body,
           message: '操作成功'
         }

@@ -34,6 +34,8 @@ const REDIS_DB = 0
 const REDIS_MAX_RETRIES = 3
 const REDIS_TIMEOUT = 5000
 
+// ================================ 腾讯云存储COS ================================
+const COS_TemporaryKey_TTL = 60 * 60 * 2 // 临时密钥有效时间，单位为秒
 
 // ================================ 微信支付 ================================
 const WX_PAY_CONFIG = {
@@ -72,6 +74,8 @@ module.exports = {
   REDIS_DB,
   REDIS_MAX_RETRIES,
   REDIS_TIMEOUT,
+
+  COS_TemporaryKey_TTL,
 
   WX_PAY_CONFIG,
 

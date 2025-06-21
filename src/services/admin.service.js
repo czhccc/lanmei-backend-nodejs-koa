@@ -4,11 +4,13 @@ const { encryptPasswordUtil } = require('../utils/encrypt-password-util')
 
 const escapeLike = require('../utils/escapeLike')
 
-const { enum_admin_role } = require('../app/enum')
-
 const {
   DEFAULT_PASSWORD
 } = require('../app/config')
+
+const { 
+  comparePasswordUtil 
+} = require('../utils/encrypt-password-util')
 
 const logger = require('../utils/logger')
 
@@ -16,7 +18,7 @@ const customError = require('../utils/customError')
 
 class AdminService {
   async createAdmin(params) {
-    const {phone, name, role, password} = params
+    const {phone, name, role, password, thePhone} = params
 
     try {
       const existedPhonesResult = await connection.execute(`SELECT phone FROM admin`, [])
@@ -95,24 +97,24 @@ class AdminService {
     }
     
     try {
-      const totalResult = await connection.execute(
+      const [totalResult] = await connection.execute(
         `SELECT COUNT(*) as total FROM admin ${whereClause}`, 
         queryParams
       );
-      const total = totalResult[0][0].total;
+      const total = totalResult[0].total;
     
       const pageSizeInt = Number.parseInt(pageSize, 10) || 10;
       const offset = (Number.parseInt(pageNo, 10) - 1) * pageSizeInt || 0;
     
       queryParams.push(String(pageSizeInt), String(offset));
-      const result = await connection.execute(
-        `SELECT phone, name, role FROM admin ${whereClause} LIMIT ? OFFSET ?`, 
+      const [result] = await connection.execute(
+        `SELECT phone, name, role, isLocked FROM admin ${whereClause} LIMIT ? OFFSET ?`, 
         queryParams
       );
     
       return {
         total,
-        records: result[0],
+        records: result,
       };   
     } catch (error) {
       logger.error('service', 'service error: getAdminList', { error })
@@ -131,6 +133,75 @@ class AdminService {
       return '删除成功';
     } catch (error) {
       logger.error('service', 'service error: deleteAdminByPhone', { error })
+      throw error;
+    }
+  }
+
+  async checkAdminLogin(params) {
+    const { phone, password } = params
+
+    try {
+      const [adminInfoResult] = await connection.execute(`SELECT * FROM admin WHERE phone = ?`, [phone]);
+      if (adminInfoResult.length === 0) {
+        logger.warn('login', '该手机号的admin不存在', { phone })
+        return {
+          flag: 'no admin'
+        }
+      }
+
+      const adminInfo = adminInfoResult[0]
+
+      if (adminInfo.isLocked) {
+        logger.warn('login', '该admin已锁定，无法登陆', { phone })
+        return {
+          flag: 'already locked'
+        }
+      }
+
+      if (!comparePasswordUtil(password, adminInfo.password)) {
+        const failCount = adminInfo.failCount || 0;
+        const newFailCount = +adminInfo.failCount+1;
+        if (failCount >= 2) {
+          await connection.execute(`UPDATE admin SET isLocked = 1, failCount = ? WHERE phone = ?`, [newFailCount, phone]);
+          logger.warn('login', '密码错误', { phone, password })
+          return {
+            flag: 'locked'
+          }
+        } else {
+          await connection.execute(`UPDATE admin SET failCount = ? WHERE phone = ?`, [newFailCount, phone]);
+          logger.warn('login', '密码错误', { phone, password })
+          return {
+            flag: 'failCountAdded'
+          }
+        }
+      } else {
+        return {
+          flag: 'pass',
+          adminInfo,
+        }
+      }
+
+    } catch (error) {
+      logger.error('service', 'service error: deleteAdminByPhone', { error })
+      throw error;
+    }
+  }
+
+  async unlockAdmin(params) {
+    const { phone } = params
+
+    try {
+      const [result] = await connection.execute(`
+        UPDATE admin SET isLocked = 0, failCount = 0 WHERE phone = ?
+      `, [phone]);
+      if (result.affectedRows === 0) {
+        throw new customError.ResourceNotFoundError('admin不存在');
+      }
+      
+      return 'success'
+    } catch (error) {
+      logger.error('service', 'service error: unlockAdmin', { error })
+
       throw error;
     }
   }

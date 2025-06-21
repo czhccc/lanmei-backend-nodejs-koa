@@ -2,6 +2,12 @@ const service = require('../services/admin.service')
 
 const customError = require('../utils/customError')
 
+const { enum_admin_role } = require('../app/enum')
+
+const { czhAdminPhone } = require('../app/config')
+
+const logger = require('../utils/logger')
+
 class AdminController {
   async createOrUpdateAdmin(ctx, next) {
     const params = ctx.request.body
@@ -67,6 +73,20 @@ class AdminController {
     }
 
     const result = await service.deleteAdminByPhone(params)
+
+    ctx.body = result
+  }
+
+  async unlockAdmin(ctx, next) {
+    const params = ctx.request.body
+
+    const { phone } = params
+
+    if (!phone) {
+      throw new customError.MissingParameterError('phone')
+    }
+
+    const result = await service.unlockAdmin(params)
 
     ctx.body = result
   }
