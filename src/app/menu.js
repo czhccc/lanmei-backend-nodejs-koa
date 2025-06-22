@@ -53,7 +53,8 @@ const superadminMenu = [
       {
         name: '首页资讯详情',
         path: '/newsDetail',
-        component: 'news/newsDetail.vue'
+        component: 'news/newsDetail.vue',
+        notInMenu: true,
       },
       {
         name: '留言处理',
@@ -150,7 +151,8 @@ const adminMenu = [
       {
         name: '首页资讯详情',
         path: '/newsDetail',
-        component: 'news/newsDetail.vue'
+        component: 'news/newsDetail.vue',
+        notInMenu: true,
       },
       {
         name: '留言处理',

@@ -10,6 +10,8 @@ const customError = require('../utils/customError')
 
 const getCOSTemporaryKey = require('../utils/getCOSTemporaryKey')
 
+const axios = require('axios');
+
 class CommentService {
   async getCOSTemporaryKey(params) {
     const { token } = params
@@ -23,7 +25,6 @@ class CommentService {
       throw error
     }
   }
-  
 }
 
 module.exports = new CommentService()

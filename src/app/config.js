@@ -7,8 +7,8 @@ dotenv.config()
 
 // ================================ 基本 ================================
 const DOMAIN_NAME = ''
-const APP_PORT = 8888
-const BASE_URL = 'http://localhost:8888'
+const APP_PORT = 8800
+const BASE_URL = 'http://localhost:8800'
 const DEFAULT_PASSWORD = '123456+'
 
 

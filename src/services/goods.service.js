@@ -23,7 +23,6 @@ const redisUtils = require('../utils/redisUtils')
 const logger = require('../utils/logger');
 
 const customError = require('../utils/customError');
-const { P } = require('pino');
 
 class GoodsService {
   async createGoods(params) {
@@ -34,11 +33,11 @@ class GoodsService {
         INSERT goods 
           (goods_name, goods_unit, goods_categoryId, goods_remark, goods_richText) 
           VALUES (?, ?, ?, ?, ?)
-      `, [
-        goodsName, goodsUnit, goodsCategoryId, goodsIsSelling, goodsRemark, goodsRichText
-      ]);
-  
-      return result[0].insertId      
+      `, [ goodsName, goodsUnit, goodsCategoryId, goodsRemark, goodsRichText ]);
+      
+      return {
+        goodsId: result[0].insertId
+      }      
     } catch (error) {
       logger.error('service', 'service error: createGoods', { error })
       throw error
