@@ -5,7 +5,8 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken')
 const {
   TOKEN_PRIVATE_KEY,
-  TOKEN_DURATION
+  TOKEN_DURATION,
+  WX_CONFIG
 } = require('../app/config')
 
 const escapeLike = require('../utils/escapeLike')
@@ -38,8 +39,8 @@ class WechatService {
   
   async getPhoneNumber(params) {
     const { code } = params;
-    const appId = 'wx742023d15a0c05ed';
-    const appSecret = 'd999393e4cf30baa5f0ac9378a3ab6f0';
+    const appid = WX_CONFIG.appid;
+    const secret = WX_CONFIG.appsecret;
     
     try {
       // 使用有效的时间比较机制
@@ -49,7 +50,7 @@ class WechatService {
       if (!WechatService.accessTokenCache.accessToken || Number(WechatService.accessTokenCache.expireTime) <= now) {
         const tokenResponse = await axios.get(
           `https://api.weixin.qq.com/cgi-bin/token`,
-          { params: { grant_type: 'client_credential', appid: appId, secret: appSecret } }
+          { params: { grant_type: 'client_credential', appid, secret } }
         );
   
         if (tokenResponse.data.errcode) {

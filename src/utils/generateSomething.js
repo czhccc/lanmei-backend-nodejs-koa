@@ -26,7 +26,7 @@ const generateOrderNo = (phone) => {
   const now = dayjs().format('YYYYMMDDHHmmss'); // 当前时间（精确到秒）
   const ms = dayjs().millisecond().toString().padStart(3, '0'); // 毫秒（3位）
   const suffix = phone?.slice(-4) || '0000'; // 手机后4位，防止 phone 为 undefined
-  const rand = getRandomLetters(2); // 2位随机字母
+  const rand = getRandomLetters(3); // 2位随机字母
   return `${now}${ms}${suffix}${rand}`;
 };
 

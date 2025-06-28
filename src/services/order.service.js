@@ -30,6 +30,7 @@ const customError = require('../utils/customError')
 class OrderService {
   async createOrder(params) {
     const {
+      thePhone,
       goods_id,
       receive_isHomeDelivery, receive_name, receive_phone, 
       receive_provinceCode, receive_cityCode, receive_districtCode, receive_address, 
@@ -166,7 +167,7 @@ class OrderService {
       const orderBaseFields = {
         goods_id,
         create_by: params.thePhone,
-        order_no: generateOrderNo(),
+        order_no: generateOrderNo(thePhone),
         batch_no: batchInfo.batch_no,
         batch_type: batchInfo.batch_type,
         quantity: Number(quantity),

@@ -4,12 +4,16 @@ const dayjs = require('dayjs');
 const crypto = require('crypto');
 const redisUtils = require('./redisUtils');
 
-const { COS_TemporaryKey_TTL } = require('../app/config');
+const { 
+  COS_secretId,
+  COS_secretKey,
+  COS_resource,
+} = require('../app/config');
 
 // 配置永久密钥（从环境变量获取）
 const config = {
-  secretId: '...',  // 子账号SecretId
-  secretKey: '...', // 子账号SecretKey
+  secretId: COS_secretId,  // 子账号SecretId
+  secretKey: COS_secretKey, // 子账号SecretKey
   durationSeconds: 3600, // 临时密钥有效期(秒)
   policy: {
     version: '2.0',
@@ -20,7 +24,7 @@ const config = {
         'cos:GetObject'       // 可选：允许读取
       ],
       resource: [
-        '...' 
+        COS_resource
         // 替换为你的存储桶ARN:cite[4]
       ]
     }]

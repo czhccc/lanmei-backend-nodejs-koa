@@ -35,21 +35,21 @@ const REDIS_MAX_RETRIES = 3
 const REDIS_TIMEOUT = 5000
 
 // ================================ 腾讯云存储COS ================================
-const COS_TemporaryKey_TTL = 60 * 60 * 2 // 临时密钥有效时间，单位为秒
+const COS_secretId = '' // 临时密钥有效时间，单位为秒
+const COS_secretKey = '' // 临时密钥有效时间，单位为秒
+const COS_resource = '' // 临时密钥有效时间，单位为秒
 
 // ================================ 微信支付 ================================
-const WX_PAY_CONFIG = {
-  sandbox: true, // 是否沙箱环境
-  appId: "wx1234567890abcdef", // 测试公众号APPID（需自行注册测试号）
-  mchId: "1900000000", // 沙箱商户号（固定值）
-  apiKey: "YourSandboxAPIKey", // 沙箱API密钥（需通过微信工具生成，见下文说明）
-  notifyUrl: "http://your-ngrok-domain.com/pay/notify", // 回调地址（需外网可达，可用内网穿透工具）
-  sandboxApiUrl: "https://api.mch.weixin.qq.com/sandboxnew/pay/unifiedorder", // 沙箱统一下单接口
+const WX_CONFIG = {
+  appid: '', // 小程序appid
+  appsecret: '', // 小程序secret
+  mchId: '', // 商户号
+  serialNo: '', // 商户API证书序列号（从微信商户平台获取）
 };
 
 
 // ================================ czh admio phone ================================
-const czhAdminPhone = '19967303498'
+const czhAdminPhone = ''
 
 // ================================ 导出 ================================
 module.exports = {
@@ -75,9 +75,11 @@ module.exports = {
   REDIS_MAX_RETRIES,
   REDIS_TIMEOUT,
 
-  COS_TemporaryKey_TTL,
+  COS_secretId,
+  COS_secretKey,
+  COS_resource,
 
-  WX_PAY_CONFIG,
+  WX_CONFIG,
 
   czhAdminPhone,
 }
